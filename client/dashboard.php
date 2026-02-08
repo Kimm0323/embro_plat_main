@@ -108,6 +108,12 @@ function client_status_badge($status) {
             display: flex;
             flex-direction: column;
             gap: 8px;
+             cursor: pointer;
+            transition: box-shadow 0.2s ease, transform 0.2s ease;
+        }
+        .shop-card:hover {
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+            transform: translateY(-2px);
         }
         .shop-card h4 {
             margin: 0;
@@ -277,7 +283,7 @@ function client_status_badge($status) {
             <?php if(!empty($featured_shops)): ?>
                 <div class="shop-list">
                     <?php foreach($featured_shops as $shop): ?>
-                        <div class="shop-card">
+                          <div class="shop-card" data-href="shop_details.php?shop_id=<?php echo (int) $shop['id']; ?>">
                             <h4><?php echo htmlspecialchars($shop['shop_name']); ?></h4>
                             <div class="shop-rating">
                                 <i class="fas fa-star text-warning"></i>
@@ -295,7 +301,7 @@ function client_status_badge($status) {
                                 <a href="shop_details.php?shop_id=<?php echo (int) $shop['id']; ?>" class="btn btn-outline btn-sm">
                                     <i class="fas fa-store"></i> View
                                 </a>
-                                <a href="place_order.php" class="btn btn-primary btn-sm">Place Order</a>
+                                <a href="place_order.php?shop_id=<?php echo (int) $shop['id']; ?>" class="btn btn-primary btn-sm">Place Order</a>
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -347,6 +353,19 @@ function client_status_badge($status) {
             <?php endif; ?>
         </div>
     </div>
+     <script>
+        document.querySelectorAll('.shop-card').forEach(card => {
+            card.addEventListener('click', event => {
+                if (event.target.closest('a')) {
+                    return;
+                }
+                const href = card.dataset.href;
+                if (href) {
+                    window.location.href = href;
+                }
+            });
+        });
+    </script>
 </body>
 </html>
 

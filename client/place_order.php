@@ -314,6 +314,7 @@ $design_versions_stmt = $pdo->prepare("
 ");
 $design_versions_stmt->execute([$client_id]);
 $design_versions = $design_versions_stmt->fetchAll();
+$preselected_shop_id = (int) ($_GET['shop_id'] ?? 0);
 
 // Place order
 if(isset($_POST['place_order'])) {
@@ -715,7 +716,8 @@ $upload = save_uploaded_media(
                         <div class="text-muted">No shops match the current filters. Try broadening your search.</div>
                     <?php endif; ?>
                     <?php foreach($shops as $index => $shop): ?>
-                    <div class="shop-card" onclick="selectShop(<?php echo $shop['id']; ?>)"
+                     <?php $is_selected = $preselected_shop_id > 0 && (int) $shop['id'] === $preselected_shop_id; ?>
+                    <div class="shop-card<?php echo $is_selected ? ' selected' : ''; ?>" onclick="selectShop(<?php echo $shop['id']; ?>)"
                          data-services="<?php echo htmlspecialchars(json_encode($shop['service_list']), ENT_QUOTES, 'UTF-8'); ?>"
                          data-pricing="<?php echo htmlspecialchars(json_encode($shop['pricing_settings']), ENT_QUOTES, 'UTF-8'); ?>"
                          data-is-open="<?php echo $shop['is_open'] ? '1' : '0'; ?>"
@@ -781,6 +783,7 @@ $upload = save_uploaded_media(
                             </div>
                         </div>
                         <input type="radio" name="shop_id" value="<?php echo $shop['id']; ?>" 
+                         <?php echo $is_selected ? 'checked' : ''; ?>
                                style="display: none;" required>
                     </div>
                     <?php endforeach; ?>
@@ -1102,6 +1105,14 @@ $upload = save_uploaded_media(
             card.dataset.services = services;
         });
         
+          const preselectedShopId = <?php echo $preselected_shop_id; ?>;
+        if (preselectedShopId) {
+            const preselectedCard = document.getElementById('shop-' + preselectedShopId);
+            if (preselectedCard) {
+                selectShop(preselectedShopId);
+            }
+        }
+
         document.getElementById('complexitySelect').addEventListener('change', updateQuoteEstimate);
         document.getElementById('rushService').addEventListener('change', updateQuoteEstimate);
         document.querySelector('input[name="quantity"]').addEventListener('input', updateQuoteEstimate);
