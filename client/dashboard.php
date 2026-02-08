@@ -292,6 +292,9 @@ function client_status_badge($status) {
                                 <?php endif; ?>
                             </div>
                             <div class="shop-actions">
+                                <a href="shop_details.php?shop_id=<?php echo (int) $shop['id']; ?>" class="btn btn-outline btn-sm">
+                                    <i class="fas fa-store"></i> View
+                                </a>
                                 <a href="place_order.php" class="btn btn-primary btn-sm">Place Order</a>
                             </div>
                         </div>

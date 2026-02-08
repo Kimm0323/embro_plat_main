@@ -12,7 +12,7 @@ $portfolio_items = [];
 
 if ($shop_id > 0) {
     $shop_stmt = $pdo->prepare("
-        SELECT id, shop_name, shop_description
+         SELECT id, shop_name, shop_description, address, phone, email, rating, rating_count, opening_time, closing_time
         FROM shops
         WHERE id = ? AND status = 'active'
     ");
@@ -58,6 +58,26 @@ if ($shop_id > 0) {
 
         .portfolio-card h4 {
             margin: 0.85rem 0 0.35rem;
+        }
+         .info-list {
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .info-item {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+            font-size: 0.95rem;
+        }
+
+        .info-item i {
+            color: var(--primary-500);
+        }
+
+        .info-item span {
+            color: var(--gray-600);
         }
     </style>
 </head>
@@ -109,6 +129,46 @@ if ($shop_id > 0) {
             </div>
 
             <div class="card">
+                  <div class="card-header">
+                    <h3><i class="fas fa-store text-primary"></i> Store Information</h3>
+                </div>
+                <div class="info-list">
+                    <div class="info-item">
+                        <i class="fas fa-location-dot"></i>
+                        <span><?php echo htmlspecialchars($shop['address'] ?? 'Address not available.'); ?></span>
+                    </div>
+                    <div class="info-item">
+                        <i class="fas fa-phone"></i>
+                        <span><?php echo htmlspecialchars($shop['phone'] ?? 'Phone not available.'); ?></span>
+                    </div>
+                    <div class="info-item">
+                        <i class="fas fa-envelope"></i>
+                        <span><?php echo htmlspecialchars($shop['email'] ?? 'Email not available.'); ?></span>
+                    </div>
+                    <div class="info-item">
+                        <i class="fas fa-star"></i>
+                        <span>
+                            <?php if (!empty($shop['rating_count'])): ?>
+                                <?php echo number_format((float) $shop['rating'], 1); ?>/5 (<?php echo (int) $shop['rating_count']; ?> reviews)
+                            <?php else: ?>
+                                No ratings yet.
+                            <?php endif; ?>
+                        </span>
+                    </div>
+                    <div class="info-item">
+                        <i class="fas fa-clock"></i>
+                        <span>
+                            <?php if (!empty($shop['opening_time']) && !empty($shop['closing_time'])): ?>
+                                <?php echo htmlspecialchars($shop['opening_time']); ?> - <?php echo htmlspecialchars($shop['closing_time']); ?>
+                            <?php else: ?>
+                                Hours not available.
+                            <?php endif; ?>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-4"></div>
                 <div class="card-header">
                     <h3><i class="fas fa-info-circle text-primary"></i> Shop Description</h3>
                 </div>
