@@ -343,7 +343,11 @@ usort($shops, function(array $a, array $b) {
                         <?php foreach ($shops as $shop): ?>
                             <div class="shop-card">
                                 <div class="d-flex justify-between align-center">
-                                    <h4><?php echo htmlspecialchars($shop['shop_name']); ?></h4>
+                                      <h4>
+                                        <a href="shop_details.php?shop_id=<?php echo (int) $shop['id']; ?>">
+                                            <?php echo htmlspecialchars($shop['shop_name']); ?>
+                                        </a>
+                                    </h4>
                                     <span class="dss-badge"><i class="fas fa-chart-line"></i> DSS <?php echo number_format((float) $shop['dss_score'], 2); ?> / 3</span>
                                 </div>
                                 <p class="text-muted mb-0"><?php echo htmlspecialchars($shop['shop_description'] ?? ''); ?></p>
@@ -391,6 +395,9 @@ usort($shops, function(array $a, array $b) {
                                     <p class="text-muted mb-0"><i class="fas fa-info-circle"></i> No live hiring posts from this shop.</p>
                                 <?php endif; ?>
                                 <div class="d-flex gap-2">
+                                     <a href="shop_details.php?shop_id=<?php echo (int) $shop['id']; ?>" class="btn btn-outline btn-sm">
+                                        <i class="fas fa-store"></i> View Shop
+                                    </a>
                                     <a href="place_order.php" class="btn btn-primary btn-sm"><i class="fas fa-plus-circle"></i> Place Order</a>
                                     <a href="client_posting_community.php" class="btn btn-outline btn-sm"><i class="fas fa-comments"></i> Ask a Question</a>
                                 </div>

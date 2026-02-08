@@ -64,6 +64,15 @@ $orders_stmt = $pdo->prepare("
 $orders_stmt->execute([$client_id]);
 $recent_orders = $orders_stmt->fetchAll();
 
+$shops_stmt = $pdo->query("
+    SELECT id, shop_name, shop_description, rating, address, logo
+    FROM shops
+    WHERE status = 'active'
+    ORDER BY rating DESC, total_orders DESC
+    LIMIT 6
+");
+$featured_shops = $shops_stmt->fetchAll();
+
 function client_status_badge($status) {
     $map = [
         'pending' => 'badge-warning',
@@ -85,22 +94,39 @@ function client_status_badge($status) {
     <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        .quick-actions {
+        .shop-list {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 15px;
-            margin: 25px 0;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
         }
-        .action-card {
-            border: 1px solid #e5e7eb;
+        .shop-card {
+            border: 1px solid #e2e8f0;
             border-radius: 12px;
             padding: 18px;
             background: #fff;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
-        .action-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+        .shop-card h4 {
+            margin: 0;
+        }
+        .shop-meta {
+            color: #64748b;
+            font-size: 0.9rem;
+            display: grid;
+            gap: 6px;
+        }
+         .shop-rating {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        .shop-actions {
+            margin-top: auto;
         }
         .order-list {
             display: grid;
@@ -240,39 +266,44 @@ function client_status_badge($status) {
                 <?php endif; ?>
             </div>
         <?php endif; ?>
-        <div class="quick-actions">
-            <a href="place_order.php" class="action-card">
-                <h4><i class="fas fa-plus-circle text-primary"></i> Place a New Order</h4>
-                <p class="text-muted">Start a new embroidery request and upload your design.</p>
-            </a>
-            <a href="track_order.php" class="action-card">
-                <h4><i class="fas fa-route text-primary"></i> Track Orders</h4>
-                <p class="text-muted">Monitor progress, due dates, and delivery updates.</p>
-            </a>
-            <a href="customize_design.php" class="action-card">
-                <h4><i class="fas fa-paint-brush text-primary"></i> Customize Design</h4>
-                <p class="text-muted">Share revised notes or upload new artwork files.</p>
-            </a>
-            <a href="rate_provider.php" class="action-card">
-                <h4><i class="fas fa-star text-primary"></i> Rate Providers</h4>
-                <p class="text-muted">Leave feedback for completed embroidery orders.</p>
-            </a>
-            <a href="search_discovery.php" class="action-card">
-                <h4><i class="fas fa-compass text-primary"></i> Search &amp; Discovery</h4>
-                <p class="text-muted">Browse shops, check availability, and explore hiring posts.</p>
-            </a>
-            <a href="design_proofing.php" class="action-card">
-                <h4><i class="fas fa-clipboard-check text-primary"></i> Design Proofing &amp; Approval</h4>
-                <p class="text-muted">Review proofs, approve revisions, and unlock production.</p>
-            </a>
-            <a href="pricing_quotation.php" class="action-card">
-                <h4><i class="fas fa-calculator text-primary"></i> Pricing &amp; Quotation</h4>
-                <p class="text-muted">Preview automated quotes based on complexity and workload.</p>
-            </a>
-            <a href="client_posting_community.php" class="action-card">
-                <h4><i class="fas fa-comments text-primary"></i> Client Posting &amp; Community</h4>
-                <p class="text-muted">Share requests, gather inspiration, and connect with shops.</p>
-            </a>
+         <div class="card">
+            <div class="d-flex justify-between align-center">
+                <div>
+                    <h3>Shop List</h3>
+                    <p class="text-muted mb-0">Browse active embroidery shops ready for new orders.</p>
+                </div>
+                <a href="search_discovery.php" class="btn btn-outline-primary">View All Shops</a>
+            </div>
+            <?php if(!empty($featured_shops)): ?>
+                <div class="shop-list">
+                    <?php foreach($featured_shops as $shop): ?>
+                        <div class="shop-card">
+                            <h4><?php echo htmlspecialchars($shop['shop_name']); ?></h4>
+                            <div class="shop-rating">
+                                <i class="fas fa-star text-warning"></i>
+                                <?php echo number_format((float) ($shop['rating'] ?? 0), 1); ?>/5
+                            </div>
+                            <?php if(!empty($shop['shop_description'])): ?>
+                                <p class="text-muted mb-0"><?php echo htmlspecialchars($shop['shop_description']); ?></p>
+                            <?php endif; ?>
+                            <div class="shop-meta">
+                                <?php if(!empty($shop['address'])): ?>
+                                    <span><i class="fas fa-location-dot"></i> <?php echo htmlspecialchars($shop['address']); ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <div class="shop-actions">
+                                <a href="place_order.php" class="btn btn-primary btn-sm">Place Order</a>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php else: ?>
+                <div class="text-center p-4">
+                    <i class="fas fa-store fa-3x text-muted mb-3"></i>
+                    <h4>No Active Shops Yet</h4>
+                    <p class="text-muted">Please check back soon for available embroidery providers.</p>
+                </div>
+            <?php endif; ?>
         </div>
         <div class="card">
             <h3>Recent Orders</h3>
