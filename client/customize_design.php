@@ -141,7 +141,6 @@ if(isset($_POST['update_design'])) {
                         <i class="fas fa-clipboard-list"></i> Orders
                     </a>
                     <div class="dropdown-menu">
-                        <a href="place_order.php" class="dropdown-item"><i class="fas fa-plus-circle"></i> Place Order</a>
                         <a href="track_order.php" class="dropdown-item"><i class="fas fa-route"></i> Track Orders</a>
                     </div>
                 </li>
@@ -253,7 +252,6 @@ if(isset($_POST['update_design'])) {
                     <i class="fas fa-paint-brush fa-3x text-muted mb-3"></i>
                     <h4>No Active Orders</h4>
                     <p class="text-muted">Only pending or in-progress orders can be updated here.</p>
-                    <a href="place_order.php" class="btn btn-primary">Place a New Order</a>
                 </div>
             </div>
         <?php endif; ?>

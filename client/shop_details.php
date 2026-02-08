@@ -89,7 +89,6 @@ if ($shop_id > 0) {
             </a>
             <ul class="navbar-nav">
                 <li><a href="dashboard.php#shop-discovery" class="nav-link">Shop Discovery</a></li>
-                <li><a href="place_order.php" class="nav-link">Place Order</a></li>
                 <li><a href="messages.php" class="nav-link">Messages</a></li>
                 <li><a href="notifications.php" class="nav-link">Notifications
                     <?php if ($unread_notifications > 0): ?>
@@ -124,7 +123,12 @@ if ($shop_id > 0) {
                         <h2><?php echo htmlspecialchars($shop['shop_name']); ?></h2>
                         <p class="text-muted mb-0">Shop description and posted works.</p>
                     </div>
-                     <a href="dashboard.php#shop-discovery" class="btn btn-outline"><i class="fas fa-arrow-left"></i> Back to Shop Discovery</a>
+                      <div class="d-flex align-center" style="gap: 0.75rem;">
+                        <a href="place_order.php?shop_id=<?php echo (int) $shop['id']; ?>" class="btn btn-primary">
+                            <i class="fas fa-plus-circle"></i> Place Order
+                        </a>
+                        <a href="dashboard.php#shop-discovery" class="btn btn-outline"><i class="fas fa-arrow-left"></i> Back to dashboard</a>
+                    </div>
                 </div>
             </div>
 

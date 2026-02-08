@@ -184,7 +184,6 @@ $insight_cards = [
                         <i class="fas fa-clipboard-list"></i> Orders
                     </a>
                     <div class="dropdown-menu">
-                        <a href="place_order.php" class="dropdown-item"><i class="fas fa-plus-circle"></i> Place Order</a>
                         <a href="track_order.php" class="dropdown-item"><i class="fas fa-route"></i> Track Orders</a>
                     </div>
                 </li>

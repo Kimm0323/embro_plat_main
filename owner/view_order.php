@@ -324,6 +324,13 @@ if($schedule_entry && isset($active_staff_map[(int) $schedule_entry['staff_id']]
 }
 
 $quote_details = !empty($order['quote_details']) ? json_decode($order['quote_details'], true) : null;
+$quote_breakdown = is_array($quote_details) ? ($quote_details['breakdown'] ?? []) : [];
+$complexity_label = $quote_details['complexity'] ?? 'Standard';
+$complexity_multiplier = $quote_breakdown['complexity_multiplier'] ?? null;
+$complexity_display = $complexity_multiplier !== null
+    ? sprintf('%s (x%.2f)', $complexity_label, (float) $complexity_multiplier)
+    : $complexity_label;
+$has_price = $order['price'] !== null;
 $payment_status = $order['payment_status'] ?? 'unpaid';
 $payment_class = 'payment-' . $payment_status;
 $design_file_name = $order['design_file'] ?? null;
@@ -492,7 +499,16 @@ $payment_hold = payment_hold_status($order['status'] ?? STATUS_PENDING, $payment
                 <p><strong>Service:</strong> <?php echo htmlspecialchars($order['service_type']); ?></p>
                 <p><strong>Quantity:</strong> <?php echo htmlspecialchars($order['quantity']); ?></p>
                 <p><strong>Created:</strong> <?php echo date('M d, Y', strtotime($order['created_at'])); ?></p>
-                <p><strong>Price:</strong> ₱<?php echo number_format($order['price'], 2); ?></p>
+                <p><strong>Price:</strong>
+                    <?php if ($has_price): ?>
+                        ₱<?php echo number_format((float) $order['price'], 2); ?>
+                    <?php else: ?>
+                        <span class="text-muted">Not set</span>
+                    <?php endif; ?>
+                </p>
+                <?php if (!$has_price): ?>
+                    <p class="text-muted">Set the final price after reviewing the complexity, add-ons, and rush request.</p>
+                <?php endif; ?>
             </div>
             <div class="detail-group">
                 <h4>Status</h4>
@@ -550,9 +566,14 @@ $payment_hold = payment_hold_status($order['status'] ?? STATUS_PENDING, $payment
             <div class="detail-group">
                 <h4>Quote Request</h4>
                 <?php if($quote_details): ?>
-                    <p><strong>Complexity:</strong> <?php echo htmlspecialchars($quote_details['complexity'] ?? 'Standard'); ?></p>
+                    <<p><strong>Complexity:</strong> <?php echo htmlspecialchars($complexity_display); ?></p>
                     <p><strong>Add-ons:</strong> <?php echo htmlspecialchars(!empty($quote_details['add_ons']) ? implode(', ', $quote_details['add_ons']) : 'None'); ?></p>
                     <p><strong>Rush:</strong> <?php echo !empty($quote_details['rush']) ? 'Yes' : 'No'; ?></p>
+                    <?php if (!empty($quote_breakdown)): ?>
+                        <p><strong>Base price:</strong> ₱<?php echo number_format((float) ($quote_breakdown['base_price'] ?? 0), 2); ?></p>
+                        <p><strong>Add-on total:</strong> ₱<?php echo number_format((float) ($quote_breakdown['add_on_total'] ?? 0), 2); ?></p>
+                        <p><strong>Rush fee:</strong> <?php echo (float) ($quote_breakdown['rush_fee_percent'] ?? 0); ?>%</p>
+                    <?php endif; ?>
                     <?php if(isset($quote_details['estimated_total'])): ?>
                         <p><strong>Estimated total:</strong> ₱<?php echo number_format((float) $quote_details['estimated_total'], 2); ?></p>
                     <?php endif; ?>

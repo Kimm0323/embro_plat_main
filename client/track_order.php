@@ -625,7 +625,6 @@ function fulfillment_status_pill(?string $status): string {
                         <i class="fas fa-clipboard-list"></i> Orders
                     </a>
                     <div class="dropdown-menu">
-                        <a href="place_order.php" class="dropdown-item"><i class="fas fa-plus-circle"></i> Place Order</a>
                         <a href="track_order.php" class="dropdown-item active"><i class="fas fa-route"></i> Track Orders</a>
                     </div>
                 </li>
@@ -1013,7 +1012,6 @@ function fulfillment_status_pill(?string $status): string {
                     <i class="fas fa-route fa-3x text-muted mb-3"></i>
                     <h4>No Orders Found</h4>
                     <p class="text-muted">Orders matching this filter will appear here.</p>
-                    <a href="place_order.php" class="btn btn-primary">Place an Order</a>
                 </div>
             </div>
         <?php endif; ?>

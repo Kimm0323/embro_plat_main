@@ -835,9 +835,15 @@ $upload = save_uploaded_media(
                     <div class="form-group">
                         <label>Complexity Level</label>
                         <select name="complexity_level" class="form-control" id="complexitySelect">
-                            <option value="Simple">Simple</option>
-                            <option value="Standard" selected>Standard</option>
-                            <option value="Complex">Complex</option>
+                              <option value="Simple">
+                                Simple (x<?php echo number_format((float) ($default_pricing_settings['complexity_multipliers']['Simple'] ?? 1), 2); ?>)
+                            </option>
+                            <option value="Standard" selected>
+                                Standard (x<?php echo number_format((float) ($default_pricing_settings['complexity_multipliers']['Standard'] ?? 1), 2); ?>)
+                            </option>
+                            <option value="Complex">
+                                Complex (x<?php echo number_format((float) ($default_pricing_settings['complexity_multipliers']['Complex'] ?? 1), 2); ?>)
+                            </option>
                         </select>
                         <small class="text-muted" id="complexityHint">Select a shop to view multipliers.</small>
                     </div>

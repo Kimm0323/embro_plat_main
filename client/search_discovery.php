@@ -249,7 +249,6 @@ usort($shops, function(array $a, array $b) {
                         <i class="fas fa-clipboard-list"></i> Orders
                     </a>
                     <div class="dropdown-menu">
-                        <a href="place_order.php" class="dropdown-item"><i class="fas fa-plus-circle"></i> Place Order</a>
                         <a href="track_order.php" class="dropdown-item"><i class="fas fa-route"></i> Track Orders</a>
                     </div>
                 </li>
@@ -397,7 +396,6 @@ usort($shops, function(array $a, array $b) {
                                      <a href="shop_details.php?shop_id=<?php echo (int) $shop['id']; ?>" class="btn btn-outline btn-sm">
                                         <i class="fas fa-store"></i> View Shop
                                     </a>
-                                    <a href="place_order.php" class="btn btn-primary btn-sm"><i class="fas fa-plus-circle"></i> Place Order</a>
                                     <a href="client_posting_community.php" class="btn btn-outline btn-sm"><i class="fas fa-comments"></i> Ask a Question</a>
                                 </div>
                             </div>

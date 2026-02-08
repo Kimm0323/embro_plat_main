@@ -183,7 +183,6 @@ function client_status_badge($status) {
                         <i class="fas fa-clipboard-list"></i> Orders
                     </a>
                     <div class="dropdown-menu">
-                        <a href="place_order.php" class="dropdown-item"><i class="fas fa-plus-circle"></i> Place Order</a>
                         <a href="track_order.php" class="dropdown-item"><i class="fas fa-route"></i> Track Orders</a>
                     </div>
                 </li>
@@ -301,7 +300,6 @@ function client_status_badge($status) {
                                 <a href="shop_details.php?shop_id=<?php echo (int) $shop['id']; ?>" class="btn btn-outline btn-sm">
                                     <i class="fas fa-store"></i> View
                                 </a>
-                                <a href="place_order.php?shop_id=<?php echo (int) $shop['id']; ?>" class="btn btn-primary btn-sm">Place Order</a>
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -348,7 +346,6 @@ function client_status_badge($status) {
                     <i class="fas fa-receipt fa-3x text-muted mb-3"></i>
                     <h4>No Orders Yet</h4>
                     <p class="text-muted">Start by placing your first embroidery order.</p>
-                    <a href="place_order.php" class="btn btn-primary">Place an Order</a>
                 </div>
             <?php endif; ?>
         </div>
