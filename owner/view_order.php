@@ -14,6 +14,42 @@ if(!$shop) {
     exit();
 }
 
+$default_pricing_settings = [
+    'base_prices' => [
+        'T-shirt Embroidery' => 180,
+        'Logo Embroidery' => 160,
+        'Cap Embroidery' => 150,
+        'Bag Embroidery' => 200,
+        'Custom' => 200,
+    ],
+    'complexity_multipliers' => [
+        'Simple' => 1,
+        'Standard' => 1.15,
+        'Complex' => 1.35,
+    ],
+    'rush_fee_percent' => 25,
+    'add_ons' => [
+        'Metallic Thread' => 50,
+        '3D Puff' => 75,
+        'Extra Color' => 25,
+        'Applique' => 60,
+    ],
+];
+
+function resolve_pricing_settings(array $shop, array $defaults): array {
+    if (!empty($shop['pricing_settings'])) {
+        $decoded = json_decode($shop['pricing_settings'], true);
+        if (is_array($decoded)) {
+            return array_replace_recursive($defaults, $decoded);
+        }
+    }
+
+    return $defaults;
+}
+
+$pricing_settings = resolve_pricing_settings($shop, $default_pricing_settings);
+$complexity_multipliers = $pricing_settings['complexity_multipliers'] ?? [];
+
 $order_id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 if($order_id <= 0) {
     header("Location: shop_orders.php");
@@ -321,6 +357,75 @@ if(isset($_POST['set_price'])) {
     }
 }
 
+if(isset($_POST['update_complexity'])) {
+    $complexity_order_id = (int) ($_POST['order_id'] ?? 0);
+    $selected_complexity = sanitize($_POST['complexity_level'] ?? '');
+    $quote_details = !empty($order['quote_details']) ? json_decode($order['quote_details'], true) : null;
+
+    if($complexity_order_id !== $order_id) {
+        $error = "Unable to update complexity for a different order.";
+    } elseif(!$quote_details || !is_array($quote_details)) {
+        $error = "This order does not have quote details to update.";
+    } elseif(in_array($order['status'], ['completed', 'cancelled'], true)) {
+        $error = "Complexity cannot be updated for completed or cancelled orders.";
+    } elseif($selected_complexity === '' || !array_key_exists($selected_complexity, $complexity_multipliers)) {
+        $error = "Please select a valid complexity level.";
+    } else {
+        $base_prices = $pricing_settings['base_prices'] ?? [];
+        $add_on_fees = $pricing_settings['add_ons'] ?? [];
+        $rush_fee_percent = (float) ($pricing_settings['rush_fee_percent'] ?? 0);
+        $base_price = (float) ($base_prices[$order['service_type']] ?? ($base_prices['Custom'] ?? 0));
+
+        $selected_add_ons = array_values(array_intersect($quote_details['add_ons'] ?? [], array_keys($add_on_fees)));
+        $add_on_total = 0.0;
+        foreach ($selected_add_ons as $addon) {
+            $add_on_total += (float) ($add_on_fees[$addon] ?? 0);
+        }
+
+        $complexity_multiplier = (float) ($complexity_multipliers[$selected_complexity] ?? 1);
+        $rush_multiplier = !empty($quote_details['rush']) ? 1 + ($rush_fee_percent / 100) : 1;
+        $estimated_unit_price = ($base_price + $add_on_total) * $complexity_multiplier * $rush_multiplier;
+        $estimated_total = $estimated_unit_price * (int) $order['quantity'];
+        $previous_complexity = $quote_details['complexity'] ?? null;
+
+        $quote_details['complexity'] = $selected_complexity;
+        $quote_details['breakdown'] = [
+            'base_price' => round($base_price, 2),
+            'add_on_total' => round($add_on_total, 2),
+            'complexity_multiplier' => round($complexity_multiplier, 2),
+            'rush_fee_percent' => !empty($quote_details['rush']) ? round($rush_fee_percent, 2) : 0,
+        ];
+        $quote_details['estimated_unit_price'] = round($estimated_unit_price, 2);
+        $quote_details['estimated_total'] = round($estimated_total, 2);
+        $quote_details_json = json_encode($quote_details);
+
+        $update_stmt = $pdo->prepare("UPDATE orders SET quote_details = ?, updated_at = NOW() WHERE id = ? AND shop_id = ?");
+        $update_stmt->execute([$quote_details_json, $order_id, $shop['id']]);
+        $order['quote_details'] = $quote_details_json;
+
+        create_notification(
+            $pdo,
+            (int) $order['client_id'],
+            $order_id,
+            'info',
+            'The complexity level for order #' . $order['order_number'] . ' has been updated to ' . $selected_complexity . '.'
+        );
+
+        log_audit(
+            $pdo,
+            $owner_id,
+            $_SESSION['user']['role'] ?? null,
+            'update_order_complexity',
+            'orders',
+            $order_id,
+            ['complexity' => $previous_complexity],
+            ['complexity' => $selected_complexity]
+        );
+
+        $success = "Complexity updated successfully.";
+    }
+}
+
 
 $schedule_stmt = $pdo->prepare("
     SELECT js.*, u.fullname as staff_name
@@ -393,6 +498,9 @@ $latest_proof_url = $latest_proof_file ? '../' . $latest_proof_file : null;
 $latest_proof_extension = $latest_proof_file ? strtolower(pathinfo($latest_proof_file, PATHINFO_EXTENSION)) : '';
 $is_latest_proof_image = $latest_proof_file && in_array($latest_proof_extension, ALLOWED_IMAGE_TYPES, true);
 $payment_hold = payment_hold_status($order['status'] ?? STATUS_PENDING, $payment_status);
+$can_update_complexity = $quote_details
+    && !in_array($order['status'], ['completed', 'cancelled'], true)
+    && !empty($complexity_multipliers);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -635,6 +743,23 @@ $payment_hold = payment_hold_status($order['status'] ?? STATUS_PENDING, $payment
                 <h4>Quote Request</h4>
                 <?php if($quote_details): ?>
                     <p><strong>Complexity:</strong> <?php echo htmlspecialchars($complexity_display); ?></p>
+                     <?php if($can_update_complexity): ?>
+                        <form method="POST" class="price-form mt-2">
+                            <?php echo csrf_field(); ?>
+                            <input type="hidden" name="order_id" value="<?php echo (int) $order['id']; ?>">
+                            <select name="complexity_level" class="form-control" required>
+                                <?php foreach ($complexity_multipliers as $level => $multiplier): ?>
+                                    <option value="<?php echo htmlspecialchars($level); ?>" <?php echo $level === $complexity_label ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($level); ?> (x<?php echo number_format((float) $multiplier, 2); ?>)
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <button type="submit" name="update_complexity" class="btn btn-sm btn-outline-primary">
+                                Update complexity
+                            </button>
+                        </form>
+                        <p class="text-muted small mt-2">Adjust complexity to refresh the estimated total.</p>
+                    <?php endif; ?>
                     <p><strong>Add-ons:</strong> <?php echo htmlspecialchars(!empty($quote_details['add_ons']) ? implode(', ', $quote_details['add_ons']) : 'None'); ?></p>
                     <p><strong>Rush:</strong> <?php echo !empty($quote_details['rush']) ? 'Yes' : 'No'; ?></p>
                     <?php if (!empty($quote_breakdown)): ?>
