@@ -88,7 +88,7 @@ if ($shop_id > 0) {
                 <i class="fas fa-user"></i> Client Portal
             </a>
             <ul class="navbar-nav">
-                <li><a href="search_discovery.php" class="nav-link">Shop List</a></li>
+                <li><a href="dashboard.php#shop-discovery" class="nav-link">Shop Discovery</a></li>
                 <li><a href="place_order.php" class="nav-link">Place Order</a></li>
                 <li><a href="messages.php" class="nav-link">Messages</a></li>
                 <li><a href="notifications.php" class="nav-link">Notifications
@@ -112,9 +112,9 @@ if ($shop_id > 0) {
         <?php if (!$shop): ?>
             <div class="card mt-4">
                 <h3>Shop not found</h3>
-                <p class="text-muted mb-0">We couldn't find that shop. Please return to the shop list and try again.</p>
+                <p class="text-muted mb-0">We couldn't find that shop. Please return to the shop discovery list and try again.</p>
                 <div class="mt-3">
-                    <a href="search_discovery.php" class="btn btn-primary"><i class="fas fa-arrow-left"></i> Back to Shop List</a>
+                    <a href="dashboard.php#shop-discovery" class="btn btn-primary"><i class="fas fa-arrow-left"></i> Back to Shop Discovery</a>
                 </div>
             </div>
         <?php else: ?>
@@ -124,7 +124,7 @@ if ($shop_id > 0) {
                         <h2><?php echo htmlspecialchars($shop['shop_name']); ?></h2>
                         <p class="text-muted mb-0">Shop description and posted works.</p>
                     </div>
-                    <a href="search_discovery.php" class="btn btn-outline"><i class="fas fa-arrow-left"></i> Back to Shop List</a>
+                     <a href="dashboard.php#shop-discovery" class="btn btn-outline"><i class="fas fa-arrow-left"></i> Back to Shop Discovery</a>
                 </div>
             </div>
 
