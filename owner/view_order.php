@@ -116,6 +116,7 @@ foreach($active_staff as $staff_member) {
     $active_staff_map[(int) $staff_member['user_id']] = $staff_member;
 }
 
+
 if(isset($_POST['schedule_job'])) {
     $schedule_order_id = (int) ($_POST['order_id'] ?? 0);
     $staff_id = (int) ($_POST['staff_id'] ?? 0);
@@ -277,6 +278,50 @@ if(isset($_POST['schedule_job'])) {
     }
 }
 
+if(isset($_POST['set_price'])) {
+    $price_order_id = (int) ($_POST['order_id'] ?? 0);
+    $price_input = $_POST['price'] ?? '';
+    $price_value = filter_var($price_input, FILTER_VALIDATE_FLOAT);
+
+    if($price_order_id !== $order_id) {
+        $error = "Unable to set the price for a different order.";
+    } elseif($order['status'] !== 'pending') {
+        $error = "Prices can only be set for pending orders.";
+    } elseif($price_value === false || $price_value <= 0) {
+        $error = "Please enter a valid price greater than zero.";
+    } else {
+        $previous_price = $order['price'] ?? null;
+        $update_stmt = $pdo->prepare("UPDATE orders SET price = ?, updated_at = NOW() WHERE id = ? AND shop_id = ?");
+        $update_stmt->execute([$price_value, $order_id, $shop['id']]);
+        $order['price'] = $price_value;
+
+        $invoice_status = determine_invoice_status($order['status'], $order['payment_status'] ?? 'unpaid');
+        ensure_order_invoice($pdo, $order_id, $order['order_number'], (float) $price_value, $invoice_status);
+
+        create_notification(
+            $pdo,
+            (int) $order['client_id'],
+            $order_id,
+            'info',
+            'A price of ₱' . number_format($price_value, 2) . ' has been set for order #' . $order['order_number'] . '. Please review and respond.'
+        );
+
+        log_audit(
+            $pdo,
+            $owner_id,
+            $_SESSION['user']['role'] ?? null,
+            'set_order_price',
+            'orders',
+            $order_id,
+            ['price' => $previous_price],
+            ['price' => $price_value]
+        );
+
+        $success = "Price sent to the client for approval.";
+    }
+}
+
+
 $schedule_stmt = $pdo->prepare("
     SELECT js.*, u.fullname as staff_name
     FROM job_schedule js
@@ -420,6 +465,15 @@ $payment_hold = payment_hold_status($order['status'] ?? STATUS_PENDING, $payment
             display: grid;
             gap: 12px;
         }
+         .price-form {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-top: 8px;
+        }
+        .price-form input {
+            width: 140px;
+        }
         .schedule-grid {
             display: grid;
             gap: 12px;
@@ -506,8 +560,22 @@ $payment_hold = payment_hold_status($order['status'] ?? STATUS_PENDING, $payment
                         <span class="text-muted">Not set</span>
                     <?php endif; ?>
                 </p>
-                <?php if (!$has_price): ?>
-                    <p class="text-muted">Set the final price after reviewing the complexity, add-ons, and rush request.</p>
+                 <?php if ($order['status'] === 'pending'): ?>
+                    <form method="POST" class="price-form">
+                        <?php echo csrf_field(); ?>
+                        <input type="hidden" name="order_id" value="<?php echo (int) $order['id']; ?>">
+                        <input type="number" name="price" class="form-control" step="0.01" min="0" placeholder="Price"
+                            value="<?php echo $order['price'] !== null ? htmlspecialchars($order['price']) : ''; ?>" required>
+                        <button type="submit" name="set_price" class="btn btn-sm btn-outline-primary">
+                            <?php echo $order['price'] !== null ? 'Update' : 'Send'; ?>
+                        </button>
+                    </form>
+                    <p class="text-muted small mt-2">Set the final price after reviewing the complexity, add-ons, and rush request.</p>
+                    <?php if($order['price'] !== null): ?>
+                        <p class="text-muted small">Awaiting client approval.</p>
+                    <?php endif; ?>
+                <?php elseif (!$has_price): ?>
+                    <p class="text-muted">Price can only be set while the order is pending.</p>
                 <?php endif; ?>
             </div>
             <div class="detail-group">
@@ -566,7 +634,7 @@ $payment_hold = payment_hold_status($order['status'] ?? STATUS_PENDING, $payment
             <div class="detail-group">
                 <h4>Quote Request</h4>
                 <?php if($quote_details): ?>
-                    <<p><strong>Complexity:</strong> <?php echo htmlspecialchars($complexity_display); ?></p>
+                    <p><strong>Complexity:</strong> <?php echo htmlspecialchars($complexity_display); ?></p>
                     <p><strong>Add-ons:</strong> <?php echo htmlspecialchars(!empty($quote_details['add_ons']) ? implode(', ', $quote_details['add_ons']) : 'None'); ?></p>
                     <p><strong>Rush:</strong> <?php echo !empty($quote_details['rush']) ? 'Yes' : 'No'; ?></p>
                     <?php if (!empty($quote_breakdown)): ?>

@@ -248,14 +248,7 @@ function format_quote_details(?array $quote_details): array {
         .assignment-form select {
             min-width: 160px;
         }
-        .price-form {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-        .price-form input {
-            width: 120px;
-        }
+    
     </style>
 </head>
 <body>
@@ -350,21 +343,13 @@ function format_quote_details(?array $quote_details): array {
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <?php if($order['status'] === 'pending'): ?>
-                                        <form method="POST" class="price-form">
-                                            <?php echo csrf_field(); ?>
-                                            <input type="hidden" name="order_id" value="<?php echo $order['id']; ?>">
-                                            <input type="number" name="price" class="form-control" step="0.01" min="0" placeholder="Price"
-                                                value="<?php echo $order['price'] !== null ? htmlspecialchars($order['price']) : ''; ?>" required>
-                                            <button type="submit" name="set_price" class="btn btn-sm btn-outline-primary">
-                                                <?php echo $order['price'] !== null ? 'Update' : 'Send'; ?>
-                                            </button>
-                                        </form>
-                                        <?php if($order['price'] !== null): ?>
+                                     <?php if($order['price'] !== null): ?>
+                                        ₱<?php echo number_format($order['price'], 2); ?>
+                                        <?php if($order['status'] === 'pending'): ?>
                                             <div class="text-muted small">Awaiting client approval</div>
                                         <?php endif; ?>
                                     <?php else: ?>
-                                        ₱<?php echo number_format($order['price'] ?? 0, 2); ?>
+                                         <span class="text-muted">Not set</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
