@@ -246,6 +246,12 @@ $staff_workloads = $staff_workload_stmt->fetchAll();
                 <a href="create_hr.php" class="btn btn-outline-info">
                     <i class="fas fa-user-plus"></i> Create HR
                 </a>
+                 <a href="storage_warehouse_management.php" class="btn btn-outline-secondary">
+                    <i class="fas fa-warehouse"></i> Warehouse Management
+                </a>
+                <a href="supplier_management.php" class="btn btn-outline-dark">
+                    <i class="fas fa-truck-loading"></i> Supplier Management
+                </a>
             </div>
         </div>
 
