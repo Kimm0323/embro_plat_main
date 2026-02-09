@@ -32,6 +32,16 @@ function sanitize($input) {
     return htmlspecialchars(strip_tags(trim($input)));
 }
 
+function table_exists(PDO $pdo, string $tableName): bool {
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*)
+        FROM information_schema.tables
+        WHERE table_schema = DATABASE()
+          AND table_name = ?
+    ");
+    $stmt->execute([$tableName]);
+    return (int) $stmt->fetchColumn() > 0;
+}
 function log_audit(PDO $pdo, ?int $actorId, ?string $actorRole, string $action, string $entityType, ?int $entityId, array $oldValues = [], array $newValues = []): void {
     $stmt = $pdo->prepare("
         INSERT INTO audit_logs (actor_id, actor_role, action, entity_type, entity_id, old_values, new_values, ip_address, user_agent)

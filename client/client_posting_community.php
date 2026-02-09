@@ -7,8 +7,14 @@ $client_id = $_SESSION['user']['id'];
 $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
 $form_error = '';
 $form_success = '';
+$client_posts = [];
+$community_table_exists = table_exists($pdo, 'client_community_posts');
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_post'])) {
+if (!$community_table_exists) {
+    $form_error = 'Community posts are unavailable because the database schema is missing the client_community_posts table. Please import the latest embroidery_platform.sql.';
+}
+
+if ($community_table_exists && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_post'])) {
     $title = sanitize($_POST['title'] ?? '');
     $category = sanitize($_POST['category'] ?? '');
     $description = sanitize($_POST['description'] ?? '');
@@ -36,15 +42,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_post'])) {
     }
 }
 
-$client_posts_stmt = $pdo->prepare("
-    SELECT title, category, description, desired_quantity, target_date, status, created_at
-    FROM client_community_posts
-    WHERE client_id = ?
-    ORDER BY created_at DESC
-    LIMIT 6
-");
-$client_posts_stmt->execute([$client_id]);
-$client_posts = $client_posts_stmt->fetchAll();
+if ($community_table_exists) {
+    $client_posts_stmt = $pdo->prepare("
+        SELECT title, category, description, desired_quantity, target_date, status, created_at
+        FROM client_community_posts
+        WHERE client_id = ?
+        ORDER BY created_at DESC
+        LIMIT 6
+    ");
+    $client_posts_stmt->execute([$client_id]);
+    $client_posts = $client_posts_stmt->fetchAll();
+}
 
 $post_channels = [
     [
