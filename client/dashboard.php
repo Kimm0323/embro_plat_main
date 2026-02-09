@@ -73,6 +73,16 @@ $shops_stmt = $pdo->query("
 ");
 $featured_shops = $shops_stmt->fetchAll();
 
+$posts_stmt = $pdo->query("
+    SELECT sp.title, sp.description, sp.image_path, sp.created_at, s.id as shop_id, s.shop_name
+    FROM shop_portfolio sp
+    JOIN shops s ON sp.shop_id = s.id
+    WHERE s.status = 'active'
+    ORDER BY sp.created_at DESC
+    LIMIT 6
+");
+$latest_posts = $posts_stmt->fetchAll();
+
 function client_status_badge($status) {
     $map = [
         'pending' => 'badge-warning',
@@ -167,6 +177,39 @@ function client_status_badge($status) {
         .rating-prompt-list li {
             margin-bottom: 6px;
         }
+        .post-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .post-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .post-card img {
+            width: 100%;
+            height: 160px;
+            object-fit: cover;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+        .post-card h4 {
+            margin: 0;
+        }
+        .post-card small {
+            color: #64748b;
+        }
+        .post-actions {
+            margin-top: auto;
+        }
+
     </style>
 </head>
 <body>
@@ -271,6 +314,45 @@ function client_status_badge($status) {
                 <?php endif; ?>
             </div>
         <?php endif; ?>
+         <div class="card">
+            <div class="d-flex justify-between align-center">
+                <div>
+                    <h3>Latest Shop Posts</h3>
+                    <p class="text-muted mb-0">Recent updates and posted works from shop owners.</p>
+                </div>
+                <a href="search_discovery.php" class="btn btn-outline-primary">Explore Shops</a>
+            </div>
+            <?php if(!empty($latest_posts)): ?>
+                <div class="post-list">
+                    <?php foreach($latest_posts as $post): ?>
+                        <div class="post-card">
+                            <?php if(!empty($post['image_path'])): ?>
+                                <img src="../assets/uploads/<?php echo htmlspecialchars($post['image_path']); ?>" alt="<?php echo htmlspecialchars($post['title']); ?>">
+                            <?php endif; ?>
+                            <h4><?php echo htmlspecialchars($post['title']); ?></h4>
+                            <small>
+                                <i class="fas fa-store"></i> <?php echo htmlspecialchars($post['shop_name']); ?>
+                                · <?php echo date('M d, Y', strtotime($post['created_at'])); ?>
+                            </small>
+                            <?php if(!empty($post['description'])): ?>
+                                <p class="text-muted mb-0"><?php echo nl2br(htmlspecialchars($post['description'])); ?></p>
+                            <?php endif; ?>
+                            <div class="post-actions">
+                                <a href="shop_details.php?shop_id=<?php echo (int) $post['shop_id']; ?>" class="btn btn-outline btn-sm">
+                                    View shop
+                                </a>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php else: ?>
+                <div class="text-center p-4">
+                    <i class="fas fa-images fa-3x text-muted mb-3"></i>
+                    <h4>No Posts Yet</h4>
+                    <p class="text-muted">Shop owners have not posted any updates yet.</p>
+                </div>
+            <?php endif; ?>
+        </div>
          <div class="card">
             <div class="d-flex justify-between align-center">
                 <div>
