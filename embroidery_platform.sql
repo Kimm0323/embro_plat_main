@@ -256,6 +256,20 @@ CREATE TABLE `hiring_posts` (
 
 -- --------------------------------------------------------
 
+-- Table structure for table `client_community_posts`
+CREATE TABLE `client_community_posts` (
+  `id` int(11) NOT NULL,
+  `client_id` int(11) NOT NULL,
+  `title` varchar(150) NOT NULL,
+  `category` varchar(50) NOT NULL,
+  `description` text NOT NULL,
+  `desired_quantity` int(11) DEFAULT NULL,
+  `target_date` date DEFAULT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'open',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 --
 -- Table structure for table `job_schedule`
 --
@@ -1065,6 +1079,11 @@ ALTER TABLE `hiring_posts`
   ADD KEY `created_by` (`created_by`),
   ADD KEY `idx_hiring_posts_shop_status_expires` (`shop_id`,`status`,`expires_at`);
 
+-- Indexes for table `client_community_posts`
+ALTER TABLE `client_community_posts`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_client_community_posts_client` (`client_id`),
+  ADD KEY `idx_client_community_posts_status` (`status`);
 --
 -- Indexes for table `orders`
 --
@@ -1410,6 +1429,9 @@ ALTER TABLE `financial_transactions`
 ALTER TABLE `hiring_posts`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
+-- AUTO_INCREMENT for table `client_community_posts`
+ALTER TABLE `client_community_posts`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 --
 -- AUTO_INCREMENT for table `job_schedule`
 --
@@ -1671,6 +1693,10 @@ ALTER TABLE `staffs`
 ALTER TABLE `hiring_posts`
   ADD CONSTRAINT `hiring_posts_ibfk_1` FOREIGN KEY (`shop_id`) REFERENCES `shops` (`id`),
   ADD CONSTRAINT `hiring_posts_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`);
+
+-- Constraints for table `client_community_posts`
+ALTER TABLE `client_community_posts`
+  ADD CONSTRAINT `client_community_posts_ibfk_1` FOREIGN KEY (`client_id`) REFERENCES `users` (`id`);
 
 --
 -- Constraints for table `job_schedule`
