@@ -21,6 +21,7 @@ $posts_stmt = $pdo->query("
            ccp.description,
            ccp.desired_quantity,
            ccp.target_date,
+           ccp.image_path,
            ccp.status,
            ccp.created_at,
            u.fullname AS client_name
@@ -57,6 +58,14 @@ $community_posts = $posts_stmt->fetchAll();
 
         .community-post h4 {
             margin-bottom: 0.5rem;
+        }
+
+         .community-post img {
+            width: 100%;
+            border-radius: var(--radius);
+            object-fit: cover;
+            max-height: 220px;
+            margin-bottom: 0.75rem;
         }
 
         .community-meta {
@@ -114,6 +123,9 @@ $community_posts = $posts_stmt->fetchAll();
                     <div class="community-post">
                         <span class="badge badge-primary"><?php echo htmlspecialchars($post['category']); ?></span>
                         <h4><?php echo htmlspecialchars($post['title']); ?></h4>
+                        <?php if (!empty($post['image_path'])): ?>
+                            <img src="../assets/uploads/<?php echo htmlspecialchars($post['image_path']); ?>" alt="Post reference image">
+                        <?php endif; ?>
                         <p class="text-muted mb-2"><?php echo nl2br(htmlspecialchars($post['description'])); ?></p>
                         <div class="community-meta">
                             <span><i class="fas fa-user"></i> <?php echo htmlspecialchars($post['client_name']); ?></span>

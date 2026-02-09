@@ -265,6 +265,7 @@ CREATE TABLE `client_community_posts` (
   `description` text NOT NULL,
   `desired_quantity` int(11) DEFAULT NULL,
   `target_date` date DEFAULT NULL,
+   `image_path` varchar(255) DEFAULT NULL,
   `status` varchar(20) NOT NULL DEFAULT 'open',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT NULL

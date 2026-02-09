@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../config/db.php';
+require_once '../includes/media_manager.php';
 require_role('client');
 
 $client_id = $_SESSION['user']['id'];
@@ -20,15 +21,35 @@ if ($community_table_exists && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_
     $description = sanitize($_POST['description'] ?? '');
     $desired_quantity = trim($_POST['desired_quantity'] ?? '');
     $target_date = trim($_POST['target_date'] ?? '');
+    $image_path = null;
+
 
     if ($title === '' || $category === '' || $description === '') {
         $form_error = 'Please complete the required fields to publish your post.';
-    } else {
+     }
+
+    if ($form_error === '' && isset($_FILES['reference_image']) && $_FILES['reference_image']['error'] !== UPLOAD_ERR_NO_FILE) {
+        $upload = save_uploaded_media(
+            $_FILES['reference_image'],
+            ALLOWED_IMAGE_TYPES,
+            MAX_FILE_SIZE,
+            'community_posts',
+            'community_post',
+            (string) $client_id
+        );
+        if (!$upload['success']) {
+            $form_error = $upload['error'];
+        } else {
+            $image_path = $upload['path'];
+        }
+    }
+
+    if ($form_error === '') {
         $insert_stmt = $pdo->prepare("
             INSERT INTO client_community_posts
-                (client_id, title, category, description, desired_quantity, target_date, status, created_at)
+                  (client_id, title, category, description, desired_quantity, target_date, image_path, status, created_at)
             VALUES
-                (?, ?, ?, ?, ?, ?, 'open', NOW())
+                (?, ?, ?, ?, ?, ?, ?, 'open', NOW())
         ");
         $insert_stmt->execute([
             $client_id,
@@ -37,6 +58,7 @@ if ($community_table_exists && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_
             $description,
             $desired_quantity !== '' ? $desired_quantity : null,
             $target_date !== '' ? $target_date : null,
+            $image_path,
         ]);
         $form_success = 'Your post is now live for shop owners to review.';
     }
@@ -44,7 +66,7 @@ if ($community_table_exists && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_
 
 if ($community_table_exists) {
     $client_posts_stmt = $pdo->prepare("
-        SELECT title, category, description, desired_quantity, target_date, status, created_at
+        SELECT title, category, description, desired_quantity, target_date, image_path, status, created_at
         FROM client_community_posts
         WHERE client_id = ?
         ORDER BY created_at DESC
@@ -241,6 +263,14 @@ $insight_cards = [
             padding: 1rem;
             background: var(--bg-primary);
         }
+
+         .post-image {
+            width: 100%;
+            border-radius: var(--radius);
+            object-fit: cover;
+            max-height: 220px;
+            margin-bottom: 0.75rem;
+        }
     </style>
 </head>
 <body>
@@ -393,7 +423,7 @@ $insight_cards = [
                 <?php if ($form_success): ?>
                     <div class="alert alert-success mb-3"><?php echo htmlspecialchars($form_success); ?></div>
                 <?php endif; ?>
-                <form method="POST" class="post-form">
+                <form method="POST" class="post-form" enctype="multipart/form-data">
                     <?php echo csrf_field(); ?>
                     <div class="form-grid">
                         <div>
@@ -425,6 +455,11 @@ $insight_cards = [
                             <input type="date" id="target_date" name="target_date" class="form-control">
                         </div>
                     </div>
+                    <div>
+                        <label for="reference_image">Add a reference image (optional)</label>
+                        <input type="file" id="reference_image" name="reference_image" class="form-control" accept="image/*">
+                        <small class="text-muted">JPG, PNG, or GIF up to 5 MB.</small>
+                    </div>
                     <button type="submit" name="submit_post" class="btn btn-primary">
                         <i class="fas fa-paper-plane"></i> Publish post
                     </button>
@@ -446,6 +481,9 @@ $insight_cards = [
                                     <strong><?php echo htmlspecialchars($post['title']); ?></strong>
                                     <span class="badge badge-primary"><?php echo htmlspecialchars($post['category']); ?></span>
                                 </div>
+                                  <?php if (!empty($post['image_path'])): ?>
+                                    <img class="post-image" src="../assets/uploads/<?php echo htmlspecialchars($post['image_path']); ?>" alt="Post reference image">
+                                <?php endif; ?>
                                 <p class="text-muted mb-2"><?php echo nl2br(htmlspecialchars($post['description'])); ?></p>
                                 <div class="post-meta">
                                     <span><i class="fas fa-calendar"></i> Posted <?php echo date('M d, Y', strtotime($post['created_at'])); ?></span>
