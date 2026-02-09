@@ -88,7 +88,15 @@ $community_posts = $posts_stmt->fetchAll();
                 <li><a href="dashboard.php" class="nav-link">Dashboard</a></li>
                 <li><a href="client_community_posts.php" class="nav-link active">Community Posts</a></li>
                 <li><a href="messages.php" class="nav-link">Messages</a></li>
-                <li><a href="payment_verifications.php" class="nav-link">Payments</a></li>
+                 <li class="dropdown">
+                    <a href="#" class="nav-link dropdown-toggle">
+                        <i class="fas fa-coins"></i> Finance
+                    </a>
+                    <div class="dropdown-menu">
+                        <a href="payment_verifications.php" class="dropdown-item"><i class="fas fa-receipt"></i> Payments</a>
+                        <a href="earnings.php" class="dropdown-item"><i class="fas fa-wallet"></i> Earnings</a>
+                    </div>
+                </li>
                 <li class="dropdown">
                     <a href="#" class="nav-link dropdown-toggle">
                         <i class="fas fa-user"></i> <?php echo htmlspecialchars($_SESSION['user']['fullname']); ?>

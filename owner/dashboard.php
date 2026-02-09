@@ -129,7 +129,7 @@ $staff_workloads = $staff_workload_stmt->fetchAll();
 </head>
 <body>
     <!-- Navigation -->
-    <nav class="navbar">
+    <nav class="navbar navbar--compact">
         <div class="container d-flex justify-between align-center">
             <a href="dashboard.php" class="navbar-brand">
                 <i class="fas fa-store"></i> <?php echo htmlspecialchars($shop['shop_name']); ?>
@@ -143,8 +143,15 @@ $staff_workloads = $staff_workload_stmt->fetchAll();
                 <li><a href="reviews.php" class="nav-link">Reviews</a></li>
                 <li><a href="messages.php" class="nav-link">Messages</a></li>
                 <li><a href="delivery_management.php" class="nav-link">Delivery & Pickup</a></li>
-                <li><a href="payment_verifications.php" class="nav-link">Payments</a></li>
-                <li><a href="earnings.php" class="nav-link">Earnings</a></li>
+                <li class="dropdown">
+                    <a href="#" class="nav-link dropdown-toggle">
+                        <i class="fas fa-coins"></i> Finance
+                    </a>
+                    <div class="dropdown-menu">
+                        <a href="payment_verifications.php" class="dropdown-item"><i class="fas fa-receipt"></i> Payments</a>
+                        <a href="earnings.php" class="dropdown-item"><i class="fas fa-wallet"></i> Earnings</a>
+                    </div>
+                </li>
                 <li><a href="analytics_reporting.php" class="nav-link">Analytics</a></li>
                 <li class="dropdown">
                     <a href="#" class="nav-link dropdown-toggle">

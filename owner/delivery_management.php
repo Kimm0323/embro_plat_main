@@ -311,7 +311,7 @@ function fulfillment_pill(?string $status): string {
     </style>
 </head>
 <body>
-    <nav class="navbar">
+    <nav class="navbar navbar--compact">
         <div class="container d-flex justify-between align-center">
             <a href="dashboard.php" class="navbar-brand">
                 <i class="fas fa-store"></i> <?php echo htmlspecialchars($shop['shop_name']); ?>
