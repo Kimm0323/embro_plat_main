@@ -163,6 +163,14 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
         .nudge-grid .spacer {
             visibility: hidden;
         }
+         .tool-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .tool-grid .btn {
+            width: 100%;
+        }
         @media (max-width: 980px) {
             .editor-layout {
                 grid-template-columns: 1fr;
@@ -332,6 +340,18 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                 </div>
 
                 <div class="form-group">
+                    <label>Precision Tools</label>
+                    <div class="tool-grid">
+                        <button class="btn btn-outline" id="centerHorizontalBtn"><i class="fas fa-arrows-left-right"></i> Center X</button>
+                        <button class="btn btn-outline" id="centerVerticalBtn"><i class="fas fa-arrows-up-down"></i> Center Y</button>
+                        <button class="btn btn-outline" id="flipHorizontalBtn"><i class="fas fa-right-left"></i> Flip X</button>
+                        <button class="btn btn-outline" id="flipVerticalBtn"><i class="fas fa-up-down"></i> Flip Y</button>
+                        <button class="btn btn-outline" id="resetTransformBtn"><i class="fas fa-rotate"></i> Reset</button>
+                        <button class="btn btn-outline" id="lockLayerBtn"><i class="fas fa-lock-open"></i> Lock Layer</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
                     <label>Layer Stack</label>
                     <div id="layerList" class="layer-list"></div>
                 </div>
@@ -391,6 +411,12 @@ const nudgeUpBtn = document.getElementById('nudgeUpBtn');
 const nudgeDownBtn = document.getElementById('nudgeDownBtn');
 const nudgeLeftBtn = document.getElementById('nudgeLeftBtn');
 const nudgeRightBtn = document.getElementById('nudgeRightBtn');
+const centerHorizontalBtn = document.getElementById('centerHorizontalBtn');
+const centerVerticalBtn = document.getElementById('centerVerticalBtn');
+const flipHorizontalBtn = document.getElementById('flipHorizontalBtn');
+const flipVerticalBtn = document.getElementById('flipVerticalBtn');
+const resetTransformBtn = document.getElementById('resetTransformBtn');
+const lockLayerBtn = document.getElementById('lockLayerBtn');
 
 const presets = {
     '4x4': { width: 4, height: 4 },
@@ -412,6 +438,15 @@ const state = {
 
 const storageKey = 'embroider_design_editor';
 
+function normalizeElements(elements) {
+    return (elements || []).map(element => ({
+        scaleX: 1,
+        scaleY: 1,
+        locked: false,
+        ...element
+    }));
+}
+
 function loadState() {
     const saved = localStorage.getItem(storageKey);
     if (!saved) {
@@ -421,7 +456,7 @@ function loadState() {
     }
     const parsed = JSON.parse(saved);
     Object.assign(state, parsed);
-    state.elements = state.elements.map(element => ({ ...element }));
+     state.elements = normalizeElements(state.elements);
     state.history = [];
     state.future = [];
     hoopPreset.value = state.hoopPreset || '4x4';
@@ -460,7 +495,7 @@ function pushHistory() {
 
 function restoreFromHistory(entry) {
     const restored = JSON.parse(entry);
-    state.elements = restored.elements;
+     state.elements = normalizeElements(restored.elements);
     state.hoopPreset = restored.hoopPreset;
     state.threadColor = restored.threadColor;
     state.showSafeArea = restored.showSafeArea;
@@ -516,7 +551,9 @@ function drawCanvas() {
         ctx.save();
         ctx.translate(element.x, element.y);
         ctx.rotate(element.rotation * Math.PI / 180);
-        ctx.scale(element.scale, element.scale);
+        const scaleX = (element.scaleX || 1) * element.scale;
+        const scaleY = (element.scaleY || 1) * element.scale;
+        ctx.scale(scaleX, scaleY);
         ctx.globalAlpha = element.opacity || 1;
 
         if (element.type === 'text') {
@@ -673,10 +710,10 @@ function validateSafeArea() {
 
     const outOfBounds = state.elements.some(element => {
         const bounds = getElementBounds(element);
-        const scaledWidth = bounds.width * element.scale;
-        const scaledHeight = bounds.height * element.scale;
-        const left = element.x + bounds.x * element.scale;
-        const top = element.y + bounds.y * element.scale;
+         const scaledWidth = bounds.width * Math.abs((element.scaleX || 1) * element.scale);
+        const scaledHeight = bounds.height * Math.abs((element.scaleY || 1) * element.scale);
+        const left = element.x - scaledWidth / 2;
+        const top = element.y - scaledHeight / 2;
         const right = left + scaledWidth;
         const bottom = top + scaledHeight;
         return left < safe.x || top < safe.y || right > safe.x + safe.width || bottom > safe.y + safe.height;
@@ -698,7 +735,8 @@ function renderLayerList() {
         item.className = 'layer-item' + (element.id === state.selectedId ? ' active' : '');
          const label = document.createElement('span');
         label.className = 'layer-label';
-        label.textContent = `${element.type === 'text' ? 'Text' : 'Image'}: ${element.label}`;
+        const lockIcon = element.locked ? '🔒 ' : '';
+        label.textContent = `${lockIcon}${element.type === 'text' ? 'Text' : 'Image'}: ${element.label}`;
 
         const deleteBtn = document.createElement('button');
         deleteBtn.type = 'button';
@@ -707,6 +745,7 @@ function renderLayerList() {
         deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
         deleteBtn.onclick = event => {
             event.stopPropagation();
+            if (element.locked) return;
             deleteLayer(element.id);
         };
 
@@ -723,7 +762,7 @@ function renderLayerList() {
 
 function deleteLayer(elementId) {
     const index = state.elements.findIndex(element => element.id === elementId);
-    if (index === -1) return;
+    if (index === -1 || state.elements[index].locked) return;
     state.elements.splice(index, 1);
 
     if (state.selectedId === elementId) {
@@ -749,7 +788,7 @@ function renderVersions() {
         `;
 
         card.querySelector('[data-action="load"]').onclick = () => {
-            state.elements = version.data.elements;
+            state.elements = normalizeElements(version.data.elements);
             state.hoopPreset = version.data.hoopPreset;
             state.threadColor = version.data.threadColor;
             state.showSafeArea = version.data.showSafeArea;
@@ -794,6 +833,8 @@ function updateControlValues() {
         setToggleState(boldBtn, false);
         setToggleState(italicBtn, false);
         setToggleState(underlineBtn, false);
+         lockLayerBtn.innerHTML = '<i class="fas fa-lock-open"></i> Lock Layer';
+        setToggleState(lockLayerBtn, false);
         return;
     }
     scaleSlider.value = selected.scale;
@@ -810,6 +851,10 @@ function updateControlValues() {
         setToggleState(italicBtn, !!selected.fontItalic);
         setToggleState(underlineBtn, !!selected.underline);
     }
+     setToggleState(lockLayerBtn, !!selected.locked);
+    lockLayerBtn.innerHTML = selected.locked
+        ? '<i class="fas fa-lock"></i> Unlock Layer'
+        : '<i class="fas fa-lock-open"></i> Lock Layer';
 }
 
 function setToggleState(button, enabled) {
@@ -833,7 +878,10 @@ function addText() {
         fontItalic: false,
         underline: false,
         color: state.threadColor,
-        opacity: 1
+         opacity: 1,
+        scaleX: 1,
+        scaleY: 1,
+        locked: false
     };
     state.elements.push(element);
     state.selectedId = element.id;
@@ -862,7 +910,10 @@ function addImage(file) {
                 height: img.height * scale,
                 scale: 1,
                 rotation: 0,
-                opacity: 1
+                opacity: 1,
+                scaleX: 1,
+                scaleY: 1,
+                locked: false
             };
             state.elements.push(element);
             state.selectedId = element.id;
@@ -890,6 +941,11 @@ canvas.addEventListener('mousedown', event => {
             && y >= element.y - height / 2 && y <= element.y + height / 2;
     });
     if (selected) {
+         if (selected.locked) {
+            state.selectedId = selected.id;
+            render();
+            return;
+        }
         state.selectedId = selected.id;
         isDragging = true;
         dragOffset = { x: x - selected.x, y: y - selected.y };
@@ -972,14 +1028,14 @@ scaleSlider.addEventListener('input', () => {
 
 scaleSlider.addEventListener('change', () => {
     const selected = state.elements.find(element => element.id === state.selectedId);
-    if (!selected) return;
+    if (!selected || selected.locked) return;
     pushHistory();
     saveState();
 });
 
 rotationSlider.addEventListener('input', () => {
     const selected = state.elements.find(element => element.id === state.selectedId);
-    if (!selected) return;
+    if (!selected || selected.locked) return;
     selected.rotation = parseInt(rotationSlider.value, 10);
     rotationValue.textContent = `${selected.rotation}°`;
     render();
@@ -987,14 +1043,14 @@ rotationSlider.addEventListener('input', () => {
 
 rotationSlider.addEventListener('change', () => {
     const selected = state.elements.find(element => element.id === state.selectedId);
-    if (!selected) return;
+    if (!selected || selected.locked) return;
     pushHistory();
     saveState();
 });
 
 opacitySlider.addEventListener('input', () => {
     const selected = state.elements.find(element => element.id === state.selectedId);
-    if (!selected) return;
+    if (!selected || selected.locked) return;
     selected.opacity = parseFloat(opacitySlider.value);
     opacityValue.textContent = `${Math.round(selected.opacity * 100)}%`;
     render();
@@ -1002,14 +1058,14 @@ opacitySlider.addEventListener('input', () => {
 
 opacitySlider.addEventListener('change', () => {
     const selected = state.elements.find(element => element.id === state.selectedId);
-    if (!selected) return;
+    if (!selected || selected.locked) return;
     pushHistory();
     saveState();
 });
 
 fontFamily.addEventListener('change', () => {
     const selected = state.elements.find(element => element.id === state.selectedId);
-    if (!selected || selected.type !== 'text') return;
+    if (!selected || selected.locked || selected.type !== 'text') return;
     selected.fontFamily = fontFamily.value;
     pushHistory();
     render();
@@ -1018,7 +1074,7 @@ fontFamily.addEventListener('change', () => {
 
 fontSize.addEventListener('change', () => {
     const selected = state.elements.find(element => element.id === state.selectedId);
-    if (!selected || selected.type !== 'text') return;
+    if (!selected || selected.locked || selected.type !== 'text') return;
     const parsed = Math.max(12, Math.min(180, parseInt(fontSize.value, 10) || 48));
     selected.fontSize = parsed;
     fontSize.value = parsed;
@@ -1029,7 +1085,7 @@ fontSize.addEventListener('change', () => {
 
 function toggleTextStyle(key, activeValue, fallbackValue = false) {
     const selected = state.elements.find(element => element.id === state.selectedId);
-    if (!selected || selected.type !== 'text') return;
+    if (!selected || selected.locked || selected.type !== 'text') return;
     selected[key] = selected[key] === activeValue ? fallbackValue : activeValue;
     pushHistory();
     render();
@@ -1042,12 +1098,13 @@ underlineBtn.addEventListener('click', () => toggleTextStyle('underline', true, 
 
 duplicateBtn.addEventListener('click', () => {
     const selected = state.elements.find(element => element.id === state.selectedId);
-    if (!selected) return;
+    if (!selected || selected.locked) return;
     const clone = {
         ...selected,
         id: `${selected.type}-${Date.now()}`,
         x: selected.x + 18,
-        y: selected.y + 18
+        y: selected.y + 18,
+        locked: false
     };
     state.elements.push(clone);
     state.selectedId = clone.id;
@@ -1063,7 +1120,7 @@ deleteSelectedBtn.addEventListener('click', () => {
 
 function nudgeSelected(dx, dy) {
     const selected = state.elements.find(element => element.id === state.selectedId);
-    if (!selected) return;
+     if (!selected || selected.locked) return;
     selected.x += dx;
     selected.y += dy;
     pushHistory();
@@ -1076,9 +1133,61 @@ nudgeDownBtn.addEventListener('click', () => nudgeSelected(0, 5));
 nudgeLeftBtn.addEventListener('click', () => nudgeSelected(-5, 0));
 nudgeRightBtn.addEventListener('click', () => nudgeSelected(5, 0));
 
+function updateElementWithHistory(mutator) {
+    const selected = state.elements.find(element => element.id === state.selectedId);
+    if (!selected || selected.locked) return;
+    mutator(selected);
+    pushHistory();
+    render();
+    saveState();
+}
+
+centerHorizontalBtn.addEventListener('click', () => {
+    updateElementWithHistory(selected => {
+        selected.x = canvas.width / 2;
+    });
+});
+
+centerVerticalBtn.addEventListener('click', () => {
+    updateElementWithHistory(selected => {
+        selected.y = canvas.height / 2;
+    });
+});
+
+flipHorizontalBtn.addEventListener('click', () => {
+    updateElementWithHistory(selected => {
+        selected.scaleX = (selected.scaleX || 1) * -1;
+    });
+});
+
+flipVerticalBtn.addEventListener('click', () => {
+    updateElementWithHistory(selected => {
+        selected.scaleY = (selected.scaleY || 1) * -1;
+    });
+});
+
+resetTransformBtn.addEventListener('click', () => {
+    updateElementWithHistory(selected => {
+        selected.scale = 1;
+        selected.scaleX = 1;
+        selected.scaleY = 1;
+        selected.rotation = 0;
+        selected.opacity = 1;
+    });
+});
+
+lockLayerBtn.addEventListener('click', () => {
+    const selected = state.elements.find(element => element.id === state.selectedId);
+    if (!selected) return;
+    selected.locked = !selected.locked;
+    pushHistory();
+    render();
+    saveState();
+});
+
 function moveLayer(direction) {
     const index = state.elements.findIndex(element => element.id === state.selectedId);
-    if (index === -1) return;
+    iif (index === -1 || state.elements[index].locked) return;
     const newIndex = direction === 'forward' ? index + 1 : index - 1;
     if (newIndex < 0 || newIndex >= state.elements.length) return;
     const [element] = state.elements.splice(index, 1);
