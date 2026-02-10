@@ -320,7 +320,12 @@ function client_status_badge($status) {
                     <h3>Latest Shop Posts</h3>
                     <p class="text-muted mb-0">Recent updates and posted works from shop owners.</p>
                 </div>
-                <a href="search_discovery.php" class="btn btn-outline-primary">Explore Shops</a>
+                 <div class="d-flex align-center" style="gap: 10px;">
+                    <a href="client_posting_community.php" class="btn btn-outline">
+                        <i class="fas fa-user-edit"></i> View My Posts
+                    </a>
+                    <a href="search_discovery.php" class="btn btn-outline-primary">Explore Shops</a>
+                </div>
             </div>
             <?php if(!empty($latest_posts)): ?>
                 <div class="post-list">
