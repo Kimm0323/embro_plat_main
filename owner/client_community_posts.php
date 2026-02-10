@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accept_request'])) {
     } elseif ($quoted_price === false || $quoted_price <= 0) {
         $form_error = 'Please enter a valid price greater than zero before accepting.';
     } else {
-        $post_stmt = $pdo->prepare("SELECT id, client_id, title, status FROM client_community_posts WHERE id = ? LIMIT 1");
+        $post_stmt = $pdo->prepare("SELECT id, client_id, title, category, description, desired_quantity, status FROM client_community_posts WHERE id = ? LIMIT 1");
         $post_stmt->execute([$post_id]);
         $selected_post = $post_stmt->fetch();
 
@@ -36,26 +36,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accept_request'])) {
         } elseif (($selected_post['status'] ?? '') !== 'open') {
             $form_error = 'This request has already been handled by another shop.';
         } else {
-            $update_stmt = $pdo->prepare("UPDATE client_community_posts SET status = 'accepted', updated_at = NOW() WHERE id = ? AND status = 'open'");
-            $update_stmt->execute([$post_id]);
+            try {
+                $pdo->beginTransaction();
 
-            if ($update_stmt->rowCount() > 0) {
+                $update_stmt = $pdo->prepare("UPDATE client_community_posts SET status = 'accepted', updated_at = NOW() WHERE id = ? AND status = 'open'");
+                $update_stmt->execute([$post_id]);
+
+                if ($update_stmt->rowCount() <= 0) {
+                    throw new RuntimeException('Unable to accept this request right now. Please refresh and try again.');
+                }
+
+                $order_number = 'ORD-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -6));
+                $order_stmt = $pdo->prepare("
+                    INSERT INTO orders (
+                        order_number,
+                        client_id,
+                        shop_id,
+                        service_type,
+                        design_description,
+                        quantity,
+                        price,
+                        client_notes,
+                        status
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+                ");
+                $order_stmt->execute([
+                    $order_number,
+                    (int) $selected_post['client_id'],
+                    (int) $shop['id'],
+                    !empty($selected_post['category']) ? $selected_post['category'] : 'Community Request',
+                    $selected_post['description'] ?? null,
+                    !empty($selected_post['desired_quantity']) ? (int) $selected_post['desired_quantity'] : 1,
+                    (float) $quoted_price,
+                    'Converted from community post: ' . ($selected_post['title'] ?? 'Untitled request')
+                ]);
+
+                $order_id = (int) $pdo->lastInsertId();
+
+                $shop_update_stmt = $pdo->prepare("UPDATE shops SET total_orders = total_orders + 1 WHERE id = ?");
+                $shop_update_stmt->execute([(int) $shop['id']]);
+
+                $pdo->commit();
+
                 create_notification(
                     $pdo,
                     (int) $selected_post['client_id'],
-                    null,
+                     $order_id,
                     'community_post_accepted',
                     sprintf(
-                        '%s accepted your request "%s" and sent a quote of ₱%s. Please message the shop to continue.',
+                        '%s accepted your request "%s" with a quote of ₱%s. Order #%s is now in your orders list for review.',
                         $shop['shop_name'],
                         $selected_post['title'],
-                        number_format((float) $quoted_price, 2)
+                         number_format((float) $quoted_price, 2),
+                        $order_number
                     )
                 );
 
-                $form_success = 'Request accepted and quote has been sent to the client.';
-            } else {
-                $form_error = 'Unable to accept this request right now. Please refresh and try again.';
+                $form_success = 'Request accepted, quote sent, and order created for the client.';
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                $form_error = $e instanceof RuntimeException
+                    ? $e->getMessage()
+                    : 'Unable to convert this community request into an order right now.';
             }
         }
     }
