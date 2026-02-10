@@ -140,6 +140,29 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             align-items: center;
             gap: 12px;
         }
+         .editor-inline-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .icon-toggle {
+            min-width: 40px;
+            padding: 8px 10px;
+        }
+        .icon-toggle.active {
+            background: #dbeafe;
+            color: #1d4ed8;
+            border-color: #93c5fd;
+        }
+        .nudge-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 40px);
+            gap: 6px;
+            justify-content: start;
+        }
+        .nudge-grid .spacer {
+            visibility: hidden;
+        }
         @media (max-width: 980px) {
             .editor-layout {
                 grid-template-columns: 1fr;
@@ -253,6 +276,25 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                     </div>
                 </div>
 
+                 <div class="form-group">
+                    <label>Text Styling</label>
+                    <div class="d-flex gap-2">
+                        <select id="fontFamily" class="form-control">
+                            <option value="Inter">Inter</option>
+                            <option value="Arial">Arial</option>
+                            <option value="Georgia">Georgia</option>
+                            <option value="Courier New">Courier New</option>
+                            <option value="Times New Roman">Times New Roman</option>
+                        </select>
+                        <input type="number" id="fontSize" class="form-control" min="12" max="180" value="48">
+                    </div>
+                    <div class="editor-inline-toolbar mt-2">
+                        <button class="btn btn-outline icon-toggle" id="boldBtn" title="Bold"><i class="fas fa-bold"></i></button>
+                        <button class="btn btn-outline icon-toggle" id="italicBtn" title="Italic"><i class="fas fa-italic"></i></button>
+                        <button class="btn btn-outline icon-toggle" id="underlineBtn" title="Underline"><i class="fas fa-underline"></i></button>
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label>Selected Element</label>
                     <div class="slider-row">
@@ -266,6 +308,26 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                     <div class="d-flex gap-2 mt-2">
                         <button class="btn btn-outline" id="bringForwardBtn"><i class="fas fa-layer-group"></i> Forward</button>
                         <button class="btn btn-outline" id="sendBackwardBtn"><i class="fas fa-layer-group"></i> Back</button>
+                    </div>
+                     <div class="slider-row mt-2">
+                        <input type="range" id="opacitySlider" min="0.1" max="1" step="0.05" value="1">
+                        <span id="opacityValue">100%</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Quick Tools</label>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline" id="duplicateBtn"><i class="fas fa-clone"></i> Duplicate</button>
+                        <button class="btn btn-danger" id="deleteSelectedBtn"><i class="fas fa-trash"></i> Delete</button>
+                    </div>
+                    <div class="nudge-grid mt-2">
+                        <span class="spacer">.</span>
+                        <button class="btn btn-outline" id="nudgeUpBtn"><i class="fas fa-arrow-up"></i></button>
+                        <span class="spacer">.</span>
+                        <button class="btn btn-outline" id="nudgeLeftBtn"><i class="fas fa-arrow-left"></i></button>
+                        <button class="btn btn-outline" id="nudgeDownBtn"><i class="fas fa-arrow-down"></i></button>
+                        <button class="btn btn-outline" id="nudgeRightBtn"><i class="fas fa-arrow-right"></i></button>
                     </div>
                 </div>
 
@@ -307,6 +369,8 @@ const scaleSlider = document.getElementById('scaleSlider');
 const scaleValue = document.getElementById('scaleValue');
 const rotationSlider = document.getElementById('rotationSlider');
 const rotationValue = document.getElementById('rotationValue');
+const opacitySlider = document.getElementById('opacitySlider');
+const opacityValue = document.getElementById('opacityValue');
 const layerList = document.getElementById('layerList');
 const saveVersionBtn = document.getElementById('saveVersionBtn');
 const exportJsonBtn = document.getElementById('exportJsonBtn');
@@ -316,6 +380,17 @@ const versionList = document.getElementById('versionList');
 const undoBtn = document.getElementById('undoBtn');
 const redoBtn = document.getElementById('redoBtn');
 const safeStatus = document.getElementById('safeStatus');
+const fontFamily = document.getElementById('fontFamily');
+const fontSize = document.getElementById('fontSize');
+const boldBtn = document.getElementById('boldBtn');
+const italicBtn = document.getElementById('italicBtn');
+const underlineBtn = document.getElementById('underlineBtn');
+const duplicateBtn = document.getElementById('duplicateBtn');
+const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+const nudgeUpBtn = document.getElementById('nudgeUpBtn');
+const nudgeDownBtn = document.getElementById('nudgeDownBtn');
+const nudgeLeftBtn = document.getElementById('nudgeLeftBtn');
+const nudgeRightBtn = document.getElementById('nudgeRightBtn');
 
 const presets = {
     '4x4': { width: 4, height: 4 },
@@ -442,13 +517,24 @@ function drawCanvas() {
         ctx.translate(element.x, element.y);
         ctx.rotate(element.rotation * Math.PI / 180);
         ctx.scale(element.scale, element.scale);
+        ctx.globalAlpha = element.opacity || 1;
 
         if (element.type === 'text') {
             ctx.fillStyle = element.color;
-            ctx.font = `bold ${element.fontSize}px 'Inter', sans-serif`;
+            ctx.font = getTextFont(element);
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(element.text, 0, 0);
+             if (element.underline) {
+                const metrics = getTextMetrics(element);
+                const underlineY = metrics.height * 0.35;
+                ctx.strokeStyle = element.color;
+                ctx.lineWidth = Math.max(1.5, element.fontSize / 16);
+                ctx.beginPath();
+                ctx.moveTo(-metrics.width / 2, underlineY);
+                ctx.lineTo(metrics.width / 2, underlineY);
+                ctx.stroke();
+            }
         }
 
         if (element.type === 'image' && element.image) {
@@ -466,6 +552,22 @@ function drawCanvas() {
 
         ctx.restore();
     });
+}
+
+function getTextFont(element) {
+    const isItalic = element.fontItalic ? 'italic' : 'normal';
+    const isBold = element.fontWeight || 'normal';
+    const family = element.fontFamily || 'Inter';
+    return `${isItalic} ${isBold} ${element.fontSize}px '${family}', sans-serif`;
+}
+
+function getTextMetrics(element) {
+    ctx.save();
+    ctx.font = getTextFont(element);
+    const width = Math.max(30, ctx.measureText(element.text).width);
+    ctx.restore();
+    const height = element.fontSize * 1.25;
+    return { width, height };
 }
 
 function drawShirtGuide(hoopX, hoopY, hoopWidth, hoopHeight) {
@@ -550,8 +652,9 @@ function drawShirtGuide(hoopX, hoopY, hoopWidth, hoopHeight) {
 
 function getElementBounds(element) {
     if (element.type === 'text') {
-        const width = element.text.length * element.fontSize * 0.6;
-        const height = element.fontSize * 1.2;
+        const metrics = getTextMetrics(element);
+        const width = metrics.width;
+        const height = metrics.height;
         return { x: -width / 2, y: -height / 2, width, height };
     }
     return { x: -element.width / 2, y: -element.height / 2, width: element.width, height: element.height };
@@ -682,14 +785,35 @@ function updateControlValues() {
     if (!selected) {
         scaleSlider.value = 1;
         rotationSlider.value = 0;
+        opacitySlider.value = 1;
         scaleValue.textContent = '100%';
         rotationValue.textContent = '0°';
+        opacityValue.textContent = '100%';
+        fontFamily.value = 'Inter';
+        fontSize.value = 48;
+        setToggleState(boldBtn, false);
+        setToggleState(italicBtn, false);
+        setToggleState(underlineBtn, false);
         return;
     }
     scaleSlider.value = selected.scale;
     rotationSlider.value = selected.rotation;
+    opacitySlider.value = selected.opacity || 1;
     scaleValue.textContent = `${Math.round(selected.scale * 100)}%`;
     rotationValue.textContent = `${selected.rotation}°`;
+    opacityValue.textContent = `${Math.round((selected.opacity || 1) * 100)}%`;
+
+    if (selected.type === 'text') {
+        fontFamily.value = selected.fontFamily || 'Inter';
+        fontSize.value = selected.fontSize;
+        setToggleState(boldBtn, (selected.fontWeight || 'normal') === 'bold');
+        setToggleState(italicBtn, !!selected.fontItalic);
+        setToggleState(underlineBtn, !!selected.underline);
+    }
+}
+
+function setToggleState(button, enabled) {
+    button.classList.toggle('active', enabled);
 }
 
 function addText() {
@@ -704,7 +828,12 @@ function addText() {
         scale: 1,
         rotation: 0,
         fontSize: 48,
-        color: state.threadColor
+         fontFamily: fontFamily.value,
+        fontWeight: 'normal',
+        fontItalic: false,
+        underline: false,
+        color: state.threadColor,
+        opacity: 1
     };
     state.elements.push(element);
     state.selectedId = element.id;
@@ -732,7 +861,8 @@ function addImage(file) {
                 width: img.width * scale,
                 height: img.height * scale,
                 scale: 1,
-                rotation: 0
+                rotation: 0,
+                opacity: 1
             };
             state.elements.push(element);
             state.selectedId = element.id;
@@ -861,6 +991,90 @@ rotationSlider.addEventListener('change', () => {
     pushHistory();
     saveState();
 });
+
+opacitySlider.addEventListener('input', () => {
+    const selected = state.elements.find(element => element.id === state.selectedId);
+    if (!selected) return;
+    selected.opacity = parseFloat(opacitySlider.value);
+    opacityValue.textContent = `${Math.round(selected.opacity * 100)}%`;
+    render();
+});
+
+opacitySlider.addEventListener('change', () => {
+    const selected = state.elements.find(element => element.id === state.selectedId);
+    if (!selected) return;
+    pushHistory();
+    saveState();
+});
+
+fontFamily.addEventListener('change', () => {
+    const selected = state.elements.find(element => element.id === state.selectedId);
+    if (!selected || selected.type !== 'text') return;
+    selected.fontFamily = fontFamily.value;
+    pushHistory();
+    render();
+    saveState();
+});
+
+fontSize.addEventListener('change', () => {
+    const selected = state.elements.find(element => element.id === state.selectedId);
+    if (!selected || selected.type !== 'text') return;
+    const parsed = Math.max(12, Math.min(180, parseInt(fontSize.value, 10) || 48));
+    selected.fontSize = parsed;
+    fontSize.value = parsed;
+    pushHistory();
+    render();
+    saveState();
+});
+
+function toggleTextStyle(key, activeValue, fallbackValue = false) {
+    const selected = state.elements.find(element => element.id === state.selectedId);
+    if (!selected || selected.type !== 'text') return;
+    selected[key] = selected[key] === activeValue ? fallbackValue : activeValue;
+    pushHistory();
+    render();
+    saveState();
+}
+
+boldBtn.addEventListener('click', () => toggleTextStyle('fontWeight', 'bold', 'normal'));
+italicBtn.addEventListener('click', () => toggleTextStyle('fontItalic', true, false));
+underlineBtn.addEventListener('click', () => toggleTextStyle('underline', true, false));
+
+duplicateBtn.addEventListener('click', () => {
+    const selected = state.elements.find(element => element.id === state.selectedId);
+    if (!selected) return;
+    const clone = {
+        ...selected,
+        id: `${selected.type}-${Date.now()}`,
+        x: selected.x + 18,
+        y: selected.y + 18
+    };
+    state.elements.push(clone);
+    state.selectedId = clone.id;
+    pushHistory();
+    render();
+    saveState();
+});
+
+deleteSelectedBtn.addEventListener('click', () => {
+    if (!state.selectedId) return;
+    deleteLayer(state.selectedId);
+});
+
+function nudgeSelected(dx, dy) {
+    const selected = state.elements.find(element => element.id === state.selectedId);
+    if (!selected) return;
+    selected.x += dx;
+    selected.y += dy;
+    pushHistory();
+    render();
+    saveState();
+}
+
+nudgeUpBtn.addEventListener('click', () => nudgeSelected(0, -5));
+nudgeDownBtn.addEventListener('click', () => nudgeSelected(0, 5));
+nudgeLeftBtn.addEventListener('click', () => nudgeSelected(-5, 0));
+nudgeRightBtn.addEventListener('click', () => nudgeSelected(5, 0));
 
 function moveLayer(direction) {
     const index = state.elements.findIndex(element => element.id === state.selectedId);
