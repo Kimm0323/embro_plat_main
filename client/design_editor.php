@@ -426,6 +426,8 @@ function drawCanvas() {
     const hoopX = (canvas.width - hoop.width) / 2;
     const hoopY = (canvas.height - hoop.height) / 2;
 
+    drawShirtGuide(hoopX, hoopY, hoop.width, hoop.height);
+
     ctx.save();
     ctx.strokeStyle = '#94a3b8';
     ctx.lineWidth = 3;
@@ -470,6 +472,46 @@ function drawCanvas() {
 
         ctx.restore();
     });
+}
+
+function drawShirtGuide(hoopX, hoopY, hoopWidth, hoopHeight) {
+    const shirtCenterX = canvas.width / 2;
+    const shirtTop = Math.max(24, hoopY - 72);
+    const shirtWidth = Math.min(canvas.width - 80, hoopWidth + 180);
+    const shirtHeight = Math.min(canvas.height - shirtTop - 24, hoopHeight + 170);
+    const shirtBottom = shirtTop + shirtHeight;
+    const shoulderY = shirtTop + 34;
+    const sleeveWidth = Math.max(56, shirtWidth * 0.21);
+    const bodyWidth = shirtWidth - sleeveWidth * 2;
+    const leftBody = shirtCenterX - bodyWidth / 2;
+    const rightBody = shirtCenterX + bodyWidth / 2;
+    const leftSleeve = leftBody - sleeveWidth;
+    const rightSleeve = rightBody + sleeveWidth;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(leftBody, shirtTop);
+    ctx.lineTo(rightBody, shirtTop);
+    ctx.lineTo(rightSleeve, shoulderY);
+    ctx.lineTo(rightBody, shoulderY + 46);
+    ctx.lineTo(rightBody, shirtBottom);
+    ctx.lineTo(leftBody, shirtBottom);
+    ctx.lineTo(leftBody, shoulderY + 46);
+    ctx.lineTo(leftSleeve, shoulderY);
+    ctx.closePath();
+    ctx.fillStyle = '#eef2ff';
+    ctx.fill();
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(shirtCenterX, shirtTop + 10, 24, 0, Math.PI, false);
+    ctx.fillStyle = '#f8fafc';
+    ctx.fill();
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.stroke();
+    ctx.restore();
 }
 
 function getElementBounds(element) {
