@@ -100,6 +100,10 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             border: 1px solid #e2e8f0;
             background: #ffffff;
         }
+        .version-actions {
+            display: flex;
+            gap: 8px;
+        }
         .help-grid {
             display: grid;
             gap: 12px;
@@ -509,8 +513,15 @@ function renderVersions() {
     state.versions.slice().reverse().forEach(version => {
         const card = document.createElement('div');
         card.className = 'version-card';
-        card.innerHTML = `<span>${version.name}</span><button class="btn btn-outline btn-sm">Load</button>`;
-        card.querySelector('button').onclick = () => {
+         card.innerHTML = `
+            <span>${version.name}</span>
+            <div class="version-actions">
+                <button class="btn btn-outline btn-sm" data-action="load">Load</button>
+                <button class="btn btn-danger btn-sm" data-action="delete">Delete</button>
+            </div>
+        `;
+
+        card.querySelector('[data-action="load"]').onclick = () => {
             state.elements = version.data.elements;
             state.hoopPreset = version.data.hoopPreset;
             state.threadColor = version.data.threadColor;
@@ -524,6 +535,13 @@ function renderVersions() {
             render();
             saveState();
         };
+        
+          card.querySelector('[data-action="delete"]').onclick = () => {
+            state.versions = state.versions.filter(savedVersion => savedVersion.savedAt !== version.savedAt);
+            renderVersions();
+            saveState();
+        };
+
         versionList.appendChild(card);
     });
 }
