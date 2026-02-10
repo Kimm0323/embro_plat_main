@@ -419,7 +419,7 @@ function getHoopDimensions() {
 
 function drawCanvas() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#f8fafc';
+     ctx.fillStyle = '#ddddda';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     const hoop = getHoopDimensions();
@@ -428,17 +428,11 @@ function drawCanvas() {
 
     drawShirtGuide(hoopX, hoopY, hoop.width, hoop.height);
 
-    ctx.save();
-    ctx.strokeStyle = '#94a3b8';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(hoopX, hoopY, hoop.width, hoop.height);
-    ctx.restore();
-
     if (state.showSafeArea) {
         ctx.save();
-        ctx.strokeStyle = '#38bdf8';
-        ctx.setLineDash([10, 8]);
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#1f2937';
+        ctx.setLineDash([8, 8]);
+        ctx.lineWidth = 1.5;
         ctx.strokeRect(hoopX + 24, hoopY + 24, hoop.width - 48, hoop.height - 48);
         ctx.restore();
     }
@@ -476,43 +470,83 @@ function drawCanvas() {
 
 function drawShirtGuide(hoopX, hoopY, hoopWidth, hoopHeight) {
     const shirtCenterX = canvas.width / 2;
-    const shirtTop = Math.max(24, hoopY - 72);
-    const shirtWidth = Math.min(canvas.width - 80, hoopWidth + 180);
-    const shirtHeight = Math.min(canvas.height - shirtTop - 24, hoopHeight + 170);
+    const shirtTop = Math.max(18, hoopY - 86);
+    const shirtWidth = Math.min(canvas.width - 64, hoopWidth + 220);
+    const shirtHeight = Math.min(canvas.height - shirtTop - 18, hoopHeight + 210);
     const shirtBottom = shirtTop + shirtHeight;
-    const shoulderY = shirtTop + 34;
-    const sleeveWidth = Math.max(56, shirtWidth * 0.21);
-    const bodyWidth = shirtWidth - sleeveWidth * 2;
+    const shoulderY = shirtTop + shirtHeight * 0.18;
+    const sleeveWidth = Math.max(70, shirtWidth * 0.23);
+    const sleeveDrop = Math.max(86, shirtHeight * 0.29);
+    const bodyWidth = shirtWidth - sleeveWidth * 2.1;
     const leftBody = shirtCenterX - bodyWidth / 2;
     const rightBody = shirtCenterX + bodyWidth / 2;
     const leftSleeve = leftBody - sleeveWidth;
     const rightSleeve = rightBody + sleeveWidth;
+    const hemY = shirtBottom - 8;
+    const neckOuterRadius = Math.max(48, bodyWidth * 0.14);
+    const neckInnerRadius = neckOuterRadius - 11;
+    const neckY = shirtTop + 20;
 
     ctx.save();
     ctx.beginPath();
-    ctx.moveTo(leftBody, shirtTop);
-    ctx.lineTo(rightBody, shirtTop);
-    ctx.lineTo(rightSleeve, shoulderY);
-    ctx.lineTo(rightBody, shoulderY + 46);
-    ctx.lineTo(rightBody, shirtBottom);
-    ctx.lineTo(leftBody, shirtBottom);
-    ctx.lineTo(leftBody, shoulderY + 46);
-    ctx.lineTo(leftSleeve, shoulderY);
+    ctx.moveTo(leftBody + 22, shirtTop + 8);
+    ctx.lineTo(rightBody - 22, shirtTop + 8);
+    ctx.lineTo(rightSleeve + 14, shoulderY + 30);
+    ctx.lineTo(rightSleeve - 6, shoulderY + sleeveDrop);
+    ctx.lineTo(rightBody + 8, shoulderY + sleeveDrop + 2);
+    ctx.lineTo(rightBody - 10, hemY);
+    ctx.lineTo(leftBody + 10, hemY);
+    ctx.lineTo(leftBody - 8, shoulderY + sleeveDrop + 2);
+    ctx.lineTo(leftSleeve + 6, shoulderY + sleeveDrop);
+    ctx.lineTo(leftSleeve - 14, shoulderY + 30);
     ctx.closePath();
-    ctx.fillStyle = '#eef2ff';
+    ctx.fillStyle = '#f5f5f5';
     ctx.fill();
-    ctx.strokeStyle = '#cbd5e1';
+    ctx.strokeStyle = '#2f2f2f';
+    ctx.lineWidth = 2.2;
+    ctx.stroke();
+
+    // Neck band and inner opening.
+    ctx.beginPath();
+    ctx.ellipse(shirtCenterX, neckY, neckOuterRadius, neckOuterRadius * 0.62, 0, Math.PI, 0, true);
+    ctx.fillStyle = '#efefef';
+    ctx.fill();
+    ctx.strokeStyle = '#2f2f2f';
     ctx.lineWidth = 2;
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.arc(shirtCenterX, shirtTop + 10, 24, 0, Math.PI, false);
-    ctx.fillStyle = '#f8fafc';
+    ctx.ellipse(shirtCenterX, neckY + 4, neckInnerRadius, neckInnerRadius * 0.56, 0, Math.PI, 0, true);
+    ctx.fillStyle = '#d0d0d0';
     ctx.fill();
-    ctx.strokeStyle = '#cbd5e1';
+    ctx.strokeStyle = '#5f5f5f';
+    ctx.lineWidth = 1;
     ctx.stroke();
+
+     // Stitch-like guide lines on sleeves and shoulder seams.
+    ctx.strokeStyle = '#b9b9b9';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(leftSleeve - 6, shoulderY + 34);
+    ctx.lineTo(leftSleeve + 14, shoulderY + sleeveDrop - 6);
+    ctx.moveTo(rightSleeve + 6, shoulderY + 34);
+    ctx.lineTo(rightSleeve - 14, shoulderY + sleeveDrop - 6);
+    ctx.moveTo(leftBody + 28, shirtTop + 12);
+    ctx.lineTo(leftBody + 14, shoulderY + 42);
+    ctx.moveTo(rightBody - 28, shirtTop + 12);
+    ctx.lineTo(rightBody - 14, shoulderY + 42);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#9c9c9c';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(leftBody + 12, hemY - 2);
+    ctx.lineTo(rightBody - 12, hemY - 2);
+    ctx.stroke();
+
     ctx.restore();
 }
+
 
 function getElementBounds(element) {
     if (element.type === 'text') {
