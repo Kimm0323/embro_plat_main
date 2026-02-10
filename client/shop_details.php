@@ -9,6 +9,8 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
 $shop_id = isset($_GET['shop_id']) ? (int) $_GET['shop_id'] : 0;
 $shop = null;
 $portfolio_items = [];
+$formatted_opening_time = '';
+$formatted_closing_time = '';
 
 if ($shop_id > 0) {
     $shop_stmt = $pdo->prepare("
@@ -20,6 +22,14 @@ if ($shop_id > 0) {
     $shop = $shop_stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($shop) {
+         $opening_dt = DateTime::createFromFormat('H:i:s', $shop['opening_time'])
+            ?: DateTime::createFromFormat('H:i', $shop['opening_time']);
+        $closing_dt = DateTime::createFromFormat('H:i:s', $shop['closing_time'])
+            ?: DateTime::createFromFormat('H:i', $shop['closing_time']);
+        if ($opening_dt && $closing_dt) {
+            $formatted_opening_time = $opening_dt->format('g:i A');
+            $formatted_closing_time = $closing_dt->format('g:i A');
+        }
         $portfolio_stmt = $pdo->prepare("
             SELECT title, description, image_path, created_at
             FROM shop_portfolio
@@ -162,8 +172,8 @@ if ($shop_id > 0) {
                     <div class="info-item">
                         <i class="fas fa-clock"></i>
                         <span>
-                            <?php if (!empty($shop['opening_time']) && !empty($shop['closing_time'])): ?>
-                                <?php echo htmlspecialchars($shop['opening_time']); ?> - <?php echo htmlspecialchars($shop['closing_time']); ?>
+                            <?php if ($formatted_opening_time !== '' && $formatted_closing_time !== ''): ?>
+                                <?php echo htmlspecialchars($formatted_opening_time); ?> - <?php echo htmlspecialchars($formatted_closing_time); ?> (PHT)
                             <?php else: ?>
                                 Hours not available.
                             <?php endif; ?>

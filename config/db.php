@@ -20,6 +20,8 @@ try {
     die("Connection failed: " . $e->getMessage());
 }
 
+date_default_timezone_set('Asia/Manila');
+
 require_once __DIR__ . '/auth_functions.php';
 require_once __DIR__ . '/notification_functions.php';
 require_once __DIR__ . '/order_helpers.php';

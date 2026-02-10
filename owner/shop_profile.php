@@ -361,7 +361,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <div class="card" style="background: #f8fafc;">
                     <h4>Operating Hours</h4>
-                    <p class="text-muted">Set when your shop accepts new orders.</p>
+                    <p class="text-muted">Set when your shop accepts new orders (Philippine Time, PHT).</p>
                     <div class="row" style="display: flex; gap: 15px; flex-wrap: wrap;">
                         <div class="form-group" style="flex: 1; min-width: 200px;">
                             <label>Opening Time</label>
