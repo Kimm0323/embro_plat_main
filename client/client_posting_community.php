@@ -502,5 +502,40 @@ $insight_cards = [
             </div>
         </div>
     </div>
+
+    <script>
+(function hydrateDraftFromDesignEditor() {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.get('from_design_editor')) {
+        return;
+    }
+
+    const draftRaw = localStorage.getItem('embroider_community_post_draft');
+    if (!draftRaw) {
+        return;
+    }
+
+    try {
+        const draft = JSON.parse(draftRaw);
+        const titleField = document.getElementById('title');
+        const categoryField = document.getElementById('category');
+        const descriptionField = document.getElementById('description');
+
+        if (titleField && draft.title) {
+            titleField.value = draft.title;
+        }
+        if (categoryField && draft.category) {
+            categoryField.value = draft.category;
+        }
+        if (descriptionField && draft.description) {
+            descriptionField.value = draft.description;
+        }
+
+        localStorage.removeItem('embroider_community_post_draft');
+    } catch (error) {
+        console.warn('Unable to prefill community draft from design editor.', error);
+    }
+})();
+</script>
 </body>
 </html>

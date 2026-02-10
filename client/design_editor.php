@@ -257,6 +257,7 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                         <button class="btn btn-primary" id="saveVersionBtn"><i class="fas fa-save"></i> Save Version</button>
                         <button class="btn btn-outline" id="exportJsonBtn"><i class="fas fa-file-code"></i> Design JSON</button>
                         <button class="btn btn-outline" id="exportPngBtn"><i class="fas fa-image"></i> PNG Proof</button>
+                        <button class="btn btn-outline" id="postToCommunityBtn"><i class="fas fa-paper-plane"></i> Post to Owner Community</button>
                     </div>
                     <div class="version-list" id="versionList"></div>
                 </div>
@@ -287,6 +288,7 @@ const layerList = document.getElementById('layerList');
 const saveVersionBtn = document.getElementById('saveVersionBtn');
 const exportJsonBtn = document.getElementById('exportJsonBtn');
 const exportPngBtn = document.getElementById('exportPngBtn');
+const postToCommunityBtn = document.getElementById('postToCommunityBtn');
 const versionList = document.getElementById('versionList');
 const undoBtn = document.getElementById('undoBtn');
 const redoBtn = document.getElementById('redoBtn');
@@ -786,6 +788,29 @@ exportPngBtn.addEventListener('click', () => {
     link.download = 'design-proof.png';
     link.click();
 });
+postToCommunityBtn.addEventListener('click', () => {
+    if (!state.elements.length) {
+        alert('Please add at least one design element before posting to the owner community.');
+        return;
+    }
+
+    const generatedTitle = `Design concept ${new Date().toLocaleDateString()}`;
+    const elementSummary = state.elements
+        .map(element => element.type === 'text' ? `Text: "${element.text}"` : `Image: ${element.label}`)
+        .join(', ');
+
+    const communityDraft = {
+        source: 'design_editor',
+        title: generatedTitle,
+        category: 'Request',
+        description: `I created this design in the editor and I would like feedback/quotes from shop owners.\n\nHoop preset: ${state.hoopPreset}\nThread color: ${state.threadColor}\nElements: ${elementSummary}`,
+        generatedAt: new Date().toISOString()
+    };
+
+    localStorage.setItem('embroider_community_post_draft', JSON.stringify(communityDraft));
+    window.location.href = 'client_posting_community.php?from_design_editor=1';
+});
+
 
 setInterval(() => {
     const name = `Auto-save v${state.versionCounter}`;
