@@ -5,6 +5,8 @@ require_role('owner');
 
 $owner_id = $_SESSION['user']['id'];
 $unread_notifications = fetch_unread_notification_count($pdo, $owner_id);
+$form_error = '';
+$form_success = '';
 
 $shop_stmt = $pdo->prepare("SELECT id, shop_name FROM shops WHERE owner_id = ?");
 $shop_stmt->execute([$owner_id]);
@@ -15,8 +17,53 @@ if (!$shop) {
     exit();
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accept_request'])) {
+    $post_id = (int) ($_POST['post_id'] ?? 0);
+    $price_input = trim($_POST['quoted_price'] ?? '');
+    $quoted_price = filter_var($price_input, FILTER_VALIDATE_FLOAT);
+
+    if ($post_id <= 0) {
+        $form_error = 'Unable to process the selected request.';
+    } elseif ($quoted_price === false || $quoted_price <= 0) {
+        $form_error = 'Please enter a valid price greater than zero before accepting.';
+    } else {
+        $post_stmt = $pdo->prepare("SELECT id, client_id, title, status FROM client_community_posts WHERE id = ? LIMIT 1");
+        $post_stmt->execute([$post_id]);
+        $selected_post = $post_stmt->fetch();
+
+        if (!$selected_post) {
+            $form_error = 'The selected community request no longer exists.';
+        } elseif (($selected_post['status'] ?? '') !== 'open') {
+            $form_error = 'This request has already been handled by another shop.';
+        } else {
+            $update_stmt = $pdo->prepare("UPDATE client_community_posts SET status = 'accepted', updated_at = NOW() WHERE id = ? AND status = 'open'");
+            $update_stmt->execute([$post_id]);
+
+            if ($update_stmt->rowCount() > 0) {
+                create_notification(
+                    $pdo,
+                    (int) $selected_post['client_id'],
+                    null,
+                    'community_post_accepted',
+                    sprintf(
+                        '%s accepted your request "%s" and sent a quote of ₱%s. Please message the shop to continue.',
+                        $shop['shop_name'],
+                        $selected_post['title'],
+                        number_format((float) $quoted_price, 2)
+                    )
+                );
+
+                $form_success = 'Request accepted and quote has been sent to the client.';
+            } else {
+                $form_error = 'Unable to accept this request right now. Please refresh and try again.';
+            }
+        }
+    }
+}
+
 $posts_stmt = $pdo->query("
-    SELECT ccp.title,
+     SELECT ccp.id,
+           ccp.title,
            ccp.category,
            ccp.description,
            ccp.desired_quantity,
@@ -121,6 +168,14 @@ $community_posts = $posts_stmt->fetchAll();
             </div>
         </div>
 
+         <?php if ($form_error !== ''): ?>
+            <div class="alert alert-danger mb-3"><?php echo htmlspecialchars($form_error); ?></div>
+        <?php endif; ?>
+
+        <?php if ($form_success !== ''): ?>
+            <div class="alert alert-success mb-3"><?php echo htmlspecialchars($form_success); ?></div>
+        <?php endif; ?>
+
         <?php if (empty($community_posts)): ?>
             <div class="card">
                 <p class="text-muted mb-0">No client community posts are available right now. Check back soon.</p>
@@ -145,6 +200,23 @@ $community_posts = $posts_stmt->fetchAll();
                                 <span><i class="fas fa-clock"></i> Target <?php echo date('M d, Y', strtotime($post['target_date'])); ?></span>
                             <?php endif; ?>
                         </div>
+                         <form method="POST" class="mt-3 d-flex" style="gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+                            <?php echo csrf_field(); ?>
+                            <input type="hidden" name="post_id" value="<?php echo (int) $post['id']; ?>">
+                            <input
+                                type="number"
+                                class="form-control"
+                                name="quoted_price"
+                                min="0.01"
+                                step="0.01"
+                                placeholder="Set quote price"
+                                required
+                                style="max-width: 180px;"
+                            >
+                            <button type="submit" name="accept_request" class="btn btn-primary btn-sm">
+                                <i class="fas fa-check"></i> Accept Request
+                            </button>
+                        </form>
                     </div>
                 <?php endforeach; ?>
             </div>
