@@ -78,9 +78,28 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 10px;
             padding: 8px 10px;
             border-radius: 10px;
             cursor: pointer;
+        }
+         .layer-label {
+            flex: 1;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .layer-delete-btn {
+            border: 0;
+            background: transparent;
+            color: #dc2626;
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 6px;
+        }
+        .layer-delete-btn:hover {
+            background: #fee2e2;
         }
         .layer-item.active {
             background: #e0f2fe;
@@ -498,7 +517,22 @@ function renderLayerList() {
     state.elements.slice().reverse().forEach(element => {
         const item = document.createElement('div');
         item.className = 'layer-item' + (element.id === state.selectedId ? ' active' : '');
-        item.textContent = `${element.type === 'text' ? 'Text' : 'Image'}: ${element.label}`;
+         const label = document.createElement('span');
+        label.className = 'layer-label';
+        label.textContent = `${element.type === 'text' ? 'Text' : 'Image'}: ${element.label}`;
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'layer-delete-btn';
+        deleteBtn.title = 'Delete layer';
+        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+        deleteBtn.onclick = event => {
+            event.stopPropagation();
+            deleteLayer(element.id);
+        };
+
+        item.appendChild(label);
+        item.appendChild(deleteBtn);
         item.onclick = () => {
             state.selectedId = element.id;
             updateControlValues();
@@ -506,6 +540,20 @@ function renderLayerList() {
         };
         layerList.appendChild(item);
     });
+}
+
+function deleteLayer(elementId) {
+    const index = state.elements.findIndex(element => element.id === elementId);
+    if (index === -1) return;
+    state.elements.splice(index, 1);
+
+    if (state.selectedId === elementId) {
+        state.selectedId = null;
+    }
+
+    pushHistory();
+    render();
+    saveState();
 }
 
 function renderVersions() {
