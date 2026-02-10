@@ -1187,7 +1187,7 @@ lockLayerBtn.addEventListener('click', () => {
 
 function moveLayer(direction) {
     const index = state.elements.findIndex(element => element.id === state.selectedId);
-    iif (index === -1 || state.elements[index].locked) return;
+    if (index === -1 || state.elements[index].locked) return;
     const newIndex = direction === 'forward' ? index + 1 : index - 1;
     if (newIndex < 0 || newIndex >= state.elements.length) return;
     const [element] = state.elements.splice(index, 1);
