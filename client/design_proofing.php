@@ -122,7 +122,7 @@ $approvals_stmt = $pdo->prepare("
     SELECT o.id as order_id, o.order_number, o.status as order_status, o.design_approved,
            o.design_version_id,o.design_file as order_design_file,
            s.shop_name, s.owner_id,
-           da.status as approval_status, da.design_file, da.revision_count,
+           da.status as approval_status, da.design_file, da.provider_notes, da.revision_count,
            COALESCE(da.updated_at, o.updated_at) as updated_at,
            dv.version_no as design_version_no, dv.preview_file as design_version_preview,
            dv.created_at as design_version_created_at, dp.title as design_project_title
@@ -271,6 +271,12 @@ $approvals = $approvals_stmt->fetchAll();
                                     : ($approval['order_design_file'] ?? '');
                             ?>
                             <span class="badge badge-warning">Proof <?php echo htmlspecialchars($approval_status); ?></span>
+                            <?php if(!empty($approval['provider_notes'])): ?>
+                                <div class="alert alert-info mt-3 mb-2">
+                                    <strong><i class="fas fa-user-tie"></i> Staff approval request:</strong>
+                                    <p class="mb-0"><?php echo nl2br(htmlspecialchars($approval['provider_notes'])); ?></p>
+                                </div>
+                            <?php endif; ?>
                             <?php if($has_design_version): ?>
                                 <div class="mt-3">
                                     <p class="text-muted mb-1">
