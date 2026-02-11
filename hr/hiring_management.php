@@ -120,6 +120,56 @@ if (isset($_POST['delete_post'])) {
     }
 }
 
+if (isset($_POST['hire_by_email'])) {
+    $candidate_email = sanitize($_POST['candidate_email'] ?? '');
+    $candidate_position = sanitize($_POST['candidate_position'] ?? 'Staff');
+
+    if ($candidate_email === '') {
+        $errors[] = 'Please provide a candidate email address.';
+    }
+
+    if ($candidate_position === '') {
+        $candidate_position = 'Staff';
+    }
+
+    if (empty($errors)) {
+        try {
+            $user_stmt = $pdo->prepare("SELECT id, role FROM users WHERE email = ?");
+            $user_stmt->execute([$candidate_email]);
+            $candidate = $user_stmt->fetch();
+
+            if (!$candidate) {
+                $errors[] = 'No account found with that email. Ask the candidate to register first.';
+            } elseif (in_array($candidate['role'], ['owner', 'hr'], true)) {
+                $errors[] = 'Owner and HR accounts cannot be hired as staff.';
+            } else {
+                if ($candidate['role'] === 'client') {
+                    $promote_stmt = $pdo->prepare("UPDATE users SET role = 'staff', status = 'active' WHERE id = ?");
+                    $promote_stmt->execute([$candidate['id']]);
+                }
+
+                $check_stmt = $pdo->prepare("SELECT id, status FROM shop_staffs WHERE user_id = ? AND shop_id = ?");
+                $check_stmt->execute([$candidate['id'], $shop_id]);
+                $existing_staff = $check_stmt->fetch();
+
+                if (!$existing_staff) {
+                    $hire_stmt = $pdo->prepare("\n                        INSERT INTO shop_staffs (shop_id, user_id, staff_role, position, hired_date)\n                        VALUES (?, ?, 'staff', ?, CURDATE())\n                    ");
+                    $hire_stmt->execute([$shop_id, $candidate['id'], $candidate_position]);
+                    $success = 'Candidate hired successfully using email.';
+                } elseif ($existing_staff['status'] === 'inactive') {
+                    $reactivate_stmt = $pdo->prepare("\n                        UPDATE shop_staffs\n                        SET status = 'active', staff_role = 'staff', position = ?, hired_date = CURDATE()\n                        WHERE id = ? AND shop_id = ?\n                    ");
+                    $reactivate_stmt->execute([$candidate_position, $existing_staff['id'], $shop_id]);
+                    $success = 'Candidate reactivated and hired successfully.';
+                } else {
+                    $errors[] = 'This email is already an active staff member for your shop.';
+                }
+            }
+        } catch (PDOException $e) {
+            $errors[] = 'Unable to process hire by email right now.';
+        }
+    }
+}
+
 $posts_stmt = $pdo->prepare("
     SELECT hp.*, u.fullname AS creator_name
     FROM hiring_posts hp
@@ -336,6 +386,23 @@ $closed_roles = (int) $closed_stmt->fetchColumn();
                     <div class="form-group span-6" style="display:flex;align-items:end;">
                         <button type="submit" name="create_post" class="btn btn-primary">Create post</button>
                     </div>
+                </form>
+            </div>
+
+             <div class="card channels-card">
+                <h2>Hire by client email</h2>
+                <form method="POST">
+                    <?php echo csrf_field(); ?>
+                    <div class="form-group">
+                        <label>Client email</label>
+                        <input type="email" name="candidate_email" required placeholder="candidate@email.com">
+                        <small class="text-muted">Existing client accounts will be converted to staff when hired.</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Position</label>
+                        <input type="text" name="candidate_position" value="Staff" placeholder="Embroidery Technician">
+                    </div>
+                    <button type="submit" name="hire_by_email" class="btn btn-primary">Hire candidate</button>
                 </form>
             </div>
 
