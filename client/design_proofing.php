@@ -120,18 +120,25 @@ if(isset($_POST['request_revision'])) {
 
 $approvals_stmt = $pdo->prepare("
     SELECT o.id as order_id, o.order_number, o.status as order_status, o.design_approved,
-           o.design_version_id,
+           o.design_version_id,o.design_file as order_design_file,
            s.shop_name, s.owner_id,
-           da.status as approval_status, da.design_file, da.revision_count, da.updated_at,
+           da.status as approval_status, da.design_file, da.revision_count,
+           COALESCE(da.updated_at, o.updated_at) as updated_at,
            dv.version_no as design_version_no, dv.preview_file as design_version_preview,
            dv.created_at as design_version_created_at, dp.title as design_project_title
     FROM orders o
     JOIN shops s ON o.shop_id = s.id
-    JOIN design_approvals da ON da.order_id = o.id
+    LEFT JOIN design_approvals da ON da.order_id = o.id
     LEFT JOIN design_versions dv ON dv.id = o.design_version_id
     LEFT JOIN design_projects dp ON dp.id = dv.project_id
-    WHERE o.client_id = ? AND da.status IN ('pending', 'revision')
-    ORDER BY da.updated_at DESC
+    WHERE o.client_id = ?
+      AND o.status IN ('accepted', 'in_progress')
+      AND o.design_approved = 0
+      AND (
+        (da.id IS NOT NULL AND da.status IN ('pending', 'revision'))
+        OR o.design_file IS NOT NULL
+      )
+    ORDER BY COALESCE(da.updated_at, o.updated_at) DESC
 ");
 $approvals_stmt->execute([$client_id]);
 $approvals = $approvals_stmt->fetchAll();
@@ -252,14 +259,18 @@ $approvals = $approvals_stmt->fetchAll();
                         <div class="proof-card">
                             <h4>Order #<?php echo htmlspecialchars($approval['order_number']); ?></h4>
                             <p class="text-muted mb-2"><i class="fas fa-store"></i> <?php echo htmlspecialchars($approval['shop_name']); ?></p>
-                            <span class="badge badge-warning">Proof <?php echo htmlspecialchars($approval['approval_status']); ?></span>
 
                             <?php
                                 $design_version_preview = !empty($approval['design_version_preview'])
                                     ? '../assets/uploads/designs/' . $approval['design_version_preview']
                                     : null;
                                 $has_design_version = !empty($approval['design_version_id']);
+                                $approval_status = $approval['approval_status'] ?? 'pending';
+                                $proof_file = !empty($approval['design_file'])
+                                    ? $approval['design_file']
+                                    : ($approval['order_design_file'] ?? '');
                             ?>
+                            <span class="badge badge-warning">Proof <?php echo htmlspecialchars($approval_status); ?></span>
                             <?php if($has_design_version): ?>
                                 <div class="mt-3">
                                     <p class="text-muted mb-1">
@@ -288,12 +299,12 @@ $approvals = $approvals_stmt->fetchAll();
                                 </div>
                             <?php endif; ?>
 
-            <?php if(!empty($approval['design_file'])): ?>
-                                <?php if(is_design_image($approval['design_file'])): ?>
-                                    <img src="../<?php echo htmlspecialchars($approval['design_file']); ?>" alt="Design proof">
+            <?php if(!empty($proof_file)): ?>
+                                <?php if(is_design_image($proof_file)): ?>
+                                    <img src="../<?php echo htmlspecialchars($proof_file); ?>" alt="Design proof">
                                 <?php endif; ?>
                                 <p class="mt-2 mb-0">
-                                    <a href="../<?php echo htmlspecialchars($approval['design_file']); ?>" target="_blank" rel="noopener noreferrer">
+                                   <a href="../<?php echo htmlspecialchars($proof_file); ?>" target="_blank" rel="noopener noreferrer">
                                         <i class="fas fa-paperclip"></i> View proof file
                                     </a>
                                 </p>
@@ -324,3 +335,7 @@ $approvals = $approvals_stmt->fetchAll();
             <?php else: ?>
                 <p class="text-muted mb-0">No proofs are waiting for your approval right now.</p>
             <?php endif; ?>
+            </div>
+    </div>
+</body>
+</html>
