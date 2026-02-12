@@ -838,25 +838,25 @@ $upload = save_uploaded_media(
             <div class="card mb-4">
                 <h3>Step 2: Select Service Type</h3>
                 <div class="row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
-                    <div class="service-option" data-service="T-shirt Embroidery" onclick="selectService('T-shirt Embroidery')">
+                     <div class="service-option" data-service="T-shirt Embroidery" onclick="selectService('T-shirt Embroidery', this)">
                         <h5>T-shirt Embroidery</h5>
                         <p class="text-muted small">Custom embroidery on t-shirts</p>
                         <input type="radio" name="service_type" value="T-shirt Embroidery" style="display: none;">
                     </div>
                     
-                    <div class="service-option" data-service="Logo Embroidery" onclick="selectService('Logo Embroidery')">
+                    <div class="service-option" data-service="Logo Embroidery" onclick="selectService('Logo Embroidery', this)">
                         <h5>Logo Embroidery</h5>
                         <p class="text-muted small">Company logo on uniforms</p>
                         <input type="radio" name="service_type" value="Logo Embroidery" style="display: none;">
                     </div>
                     
-                    <div class="service-option" data-service="Cap Embroidery" onclick="selectService('Cap Embroidery')">
+                    <div class="service-option" data-service="Cap Embroidery" onclick="selectService('Cap Embroidery', this)">
                         <h5>Cap Embroidery</h5>
                         <p class="text-muted small">Custom embroidery on caps</p>
                         <input type="radio" name="service_type" value="Cap Embroidery" style="display: none;">
                     </div>
                     
-                    <div class="service-option" data-service="Bag Embroidery" onclick="selectService('Bag Embroidery')">
+                    <div class="service-option" data-service="Bag Embroidery" onclick="selectService('Bag Embroidery', this)">
                         <h5>Bag Embroidery</h5>
                         <p class="text-muted small">Embroidery on bags and backpacks</p>
                         <input type="radio" name="service_type" value="Bag Embroidery" style="display: none;">
@@ -1000,6 +1000,7 @@ $upload = save_uploaded_media(
                     <input type="hidden" name="tshirt_thread_type" id="tshirtThreadType" value="Simple">
                     <input type="hidden" name="tshirt_thread_colors" id="tshirtThreadColors" value="Red, Blue">
                 </div>
+
                     <label>Design Description *</label>
                     <textarea name="design_description" id="designDescriptionInput" class="form-control" rows="4" required
                               placeholder="Placement: (e.g., left chest)&#10;Size: (e.g., 3in x 2in)&#10;Colors/Thread: (e.g., navy + white)&#10;Fabric/Item: (e.g., cotton polo)&#10;Notes: (optional)"></textarea>
@@ -1313,17 +1314,21 @@ $upload = save_uploaded_media(
         }
         
         // Service selection
-        function selectService(service) {
+         function selectService(service, triggerElement = null) {
             // Remove selected class from all services
             document.querySelectorAll('.service-option').forEach(option => {
                 option.classList.remove('selected');
             });
+              const serviceCard = triggerElement || document.querySelector(`.service-option[data-service="${CSS.escape(service)}"]`);
+            if (!serviceCard) {
+                return;
+            }
             
             // Add to clicked service
-            event.currentTarget.classList.add('selected');
+            serviceCard.classList.add('selected');
             
             // Check the radio button
-            const radio = event.currentTarget.querySelector('input[type="radio"]');
+            const radio = serviceCard.querySelector('input[type="radio"]');
             radio.checked = true;
             
             // Update custom service field
