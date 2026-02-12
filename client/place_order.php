@@ -565,53 +565,6 @@ $upload = save_uploaded_media(
             border-color: #4361ee;
             background: #f8f9ff;
         }
-<<<<<<< HEAD
-=======
-        .tshirt-config-panel {
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            padding: 16px;
-            background: #f9fafb;
-        }
-        .tshirt-config-group {
-            margin-top: 16px;
-        }
-        .tshirt-config-options {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 8px;
-        }
-        .tshirt-option-chip {
-            border: none;
-            border-radius: 4px;
-            padding: 7px 12px;
-            background: #e5e7eb;
-            color: #111827;
-            font-size: 0.85rem;
-            cursor: pointer;
-        }
-        .tshirt-option-chip.is-selected {
-            background: #1f2937;
-            color: #fff;
-        }
-        .tshirt-color-option {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            border: 2px solid transparent;
-            cursor: pointer;
-        }
-        .tshirt-color-option.is-selected {
-            border-color: #111827;
-            transform: scale(1.05);
-        }
-        .tshirt-total {
-            margin-top: 16px;
-            font-size: 1.5rem;
-            font-weight: 700;
-        }
->>>>>>> 434cfd9205b378d5e87847635dac318af78071bd
         .portfolio-strip {
             display: flex;
             gap: 8px;
@@ -841,41 +794,22 @@ $upload = save_uploaded_media(
             <div class="card mb-4">
                 <h3>Step 2: Select Service Type</h3>
                 <div class="row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
-<<<<<<< HEAD
                     <div class="service-option" data-service="T-shirt Embroidery" onclick="selectService('T-shirt Embroidery')">
-=======
-                     <div class="service-option" data-service="T-shirt Embroidery" onclick="selectService('T-shirt Embroidery', this)">
->>>>>>> 434cfd9205b378d5e87847635dac318af78071bd
                         <h5>T-shirt Embroidery</h5>
                         <p class="text-muted small">Custom embroidery on t-shirts</p>
                         <input type="radio" name="service_type" value="T-shirt Embroidery" style="display: none;">
                     </div>
-                    
-<<<<<<< HEAD
                     <div class="service-option" data-service="Logo Embroidery" onclick="selectService('Logo Embroidery')">
-=======
-                    <div class="service-option" data-service="Logo Embroidery" onclick="selectService('Logo Embroidery', this)">
->>>>>>> 434cfd9205b378d5e87847635dac318af78071bd
                         <h5>Logo Embroidery</h5>
                         <p class="text-muted small">Company logo on uniforms</p>
                         <input type="radio" name="service_type" value="Logo Embroidery" style="display: none;">
                     </div>
-                    
-<<<<<<< HEAD
                     <div class="service-option" data-service="Cap Embroidery" onclick="selectService('Cap Embroidery')">
-=======
-                    <div class="service-option" data-service="Cap Embroidery" onclick="selectService('Cap Embroidery', this)">
->>>>>>> 434cfd9205b378d5e87847635dac318af78071bd
                         <h5>Cap Embroidery</h5>
                         <p class="text-muted small">Custom embroidery on caps</p>
                         <input type="radio" name="service_type" value="Cap Embroidery" style="display: none;">
                     </div>
-                    
-<<<<<<< HEAD
                     <div class="service-option" data-service="Bag Embroidery" onclick="selectService('Bag Embroidery')">
-=======
-                    <div class="service-option" data-service="Bag Embroidery" onclick="selectService('Bag Embroidery', this)">
->>>>>>> 434cfd9205b378d5e87847635dac318af78071bd
                         <h5>Bag Embroidery</h5>
                         <p class="text-muted small">Embroidery on bags and backpacks</p>
                         <input type="radio" name="service_type" value="Bag Embroidery" style="display: none;">
@@ -936,98 +870,9 @@ $upload = save_uploaded_media(
             <!-- Step 4: Design Details -->
             <div class="card mb-4">
                 <h3>Step 4: Design Details</h3>
-<<<<<<< HEAD
                 <div class="form-group">
                     <label>Design Description *</label>
                     <textarea name="design_description" class="form-control" rows="4" required
-=======
-                <div id="tshirtConfigPanel" class="tshirt-config-panel" style="display: none;">
-                    <div class="form-group">
-                        <label>Embroidery Text</label>
-                        <input type="text" id="embroideryTextInput" class="form-control" placeholder="Enter embroidery text">
-                    </div>
-
-                    <div class="tshirt-config-group">
-                        <strong>1. Shirt Type</strong>
-                        <div class="tshirt-config-options" data-group="shirt_type">
-                            <button type="button" class="tshirt-option-chip" data-value="Round Neck">Round Neck</button>
-                            <button type="button" class="tshirt-option-chip" data-value="V-Neck">V-Neck</button>
-                            <button type="button" class="tshirt-option-chip" data-value="Polo Shirt">Polo Shirt</button>
-                            <button type="button" class="tshirt-option-chip is-selected" data-value="Bring My Own Shirt">Bring My Own Shirt</button>
-                        </div>
-                    </div>
-
-                    <div class="tshirt-config-group">
-                        <strong>2. Embroidery Placement</strong>
-                        <div class="tshirt-config-options" data-group="embroidery_placement">
-                            <button type="button" class="tshirt-option-chip" data-value="Upper Right-Front">Upper Right-Front</button>
-                            <button type="button" class="tshirt-option-chip" data-value="Upper Left-Front">Upper Left-Front</button>
-                            <button type="button" class="tshirt-option-chip" data-value="Center-Front">Center-Front</button>
-                            <button type="button" class="tshirt-option-chip is-selected" data-value="Center-Back">Center-Back</button>
-                        </div>
-                    </div>
-
-                    <div class="tshirt-config-group">
-                        <strong>3. Embroidery Size</strong>
-                        <div class="tshirt-config-options" data-group="embroidery_size">
-                            <button type="button" class="tshirt-option-chip" data-value="5×3 cm">5×3 cm</button>
-                            <button type="button" class="tshirt-option-chip" data-value="5×5 cm">5×5 cm</button>
-                            <button type="button" class="tshirt-option-chip" data-value="8×3 cm">8×3 cm</button>
-                            <button type="button" class="tshirt-option-chip" data-value="8×5 cm">8×5 cm</button>
-                            <button type="button" class="tshirt-option-chip" data-value="10×3 cm">10×3 cm</button>
-                            <button type="button" class="tshirt-option-chip is-selected" data-value="10×4 cm">10×4 cm</button>
-                            <button type="button" class="tshirt-option-chip" data-value="10×5 cm">10×5 cm</button>
-                            <button type="button" class="tshirt-option-chip" data-value="12×4 cm">12×4 cm</button>
-                            <button type="button" class="tshirt-option-chip" data-value="12×5 cm">12×5 cm</button>
-                        </div>
-                    </div>
-
-                    <div class="tshirt-config-group">
-                        <strong>4. Embroidery Font</strong>
-                        <div class="tshirt-config-options" data-group="embroidery_font">
-                            <button type="button" class="tshirt-option-chip" data-value="Block Stitch">Block Stitch</button>
-                            <button type="button" class="tshirt-option-chip" data-value="Script Stitch">Script Stitch</button>
-                            <button type="button" class="tshirt-option-chip" data-value="Satin Stitch">Satin Stitch</button>
-                            <button type="button" class="tshirt-option-chip" data-value="Decorative Stitch">Decorative Stitch</button>
-                            <button type="button" class="tshirt-option-chip is-selected" data-value="Classic Serif">Classic Serif</button>
-                            <button type="button" class="tshirt-option-chip" data-value="Bold Embroidery">Bold Embroidery</button>
-                            <button type="button" class="tshirt-option-chip" data-value="Hand Stitch">Hand Stitch</button>
-                        </div>
-                    </div>
-
-                    <div class="tshirt-config-group">
-                        <strong>5. Thread Type</strong>
-                        <div class="tshirt-config-options" data-group="thread_type">
-                            <button type="button" class="tshirt-option-chip is-selected" data-value="Simple">Simple</button>
-                            <button type="button" class="tshirt-option-chip" data-value="Ombre (2 Colors)">Ombre (2 Colors)</button>
-                        </div>
-                    </div>
-
-                    <div class="tshirt-config-group">
-                        <strong>6. Thread Colors</strong>
-                        <div class="tshirt-config-options" id="threadColorOptions">
-                            <button type="button" class="tshirt-color-option is-selected" data-color="Red" style="background: #ef4444;"></button>
-                            <button type="button" class="tshirt-color-option is-selected" data-color="Blue" style="background: #1d4ed8;"></button>
-                            <button type="button" class="tshirt-color-option" data-color="Green" style="background: #15803d;"></button>
-                            <button type="button" class="tshirt-color-option" data-color="Yellow" style="background: #facc15;"></button>
-                            <button type="button" class="tshirt-color-option" data-color="Black" style="background: #111827;"></button>
-                            <button type="button" class="tshirt-color-option" data-color="Gold" style="background: #facc15; border-color: #92400e;"></button>
-                        </div>
-                    </div>
-
-                    <div class="tshirt-total">Total: <span id="tshirtOptionTotal">₱200</span></div>
-
-                    <input type="hidden" name="tshirt_shirt_type" id="tshirtShirtType" value="Bring My Own Shirt">
-                    <input type="hidden" name="tshirt_embroidery_placement" id="tshirtPlacement" value="Center-Back">
-                    <input type="hidden" name="tshirt_embroidery_size" id="tshirtSize" value="10×4 cm">
-                    <input type="hidden" name="tshirt_embroidery_font" id="tshirtFont" value="Classic Serif">
-                    <input type="hidden" name="tshirt_thread_type" id="tshirtThreadType" value="Simple">
-                    <input type="hidden" name="tshirt_thread_colors" id="tshirtThreadColors" value="Red, Blue">
-                </div>
-
-                    <label>Design Description *</label>
-                    <textarea name="design_description" id="designDescriptionInput" class="form-control" rows="4" required
->>>>>>> 434cfd9205b378d5e87847635dac318af78071bd
                               placeholder="Placement: (e.g., left chest)&#10;Size: (e.g., 3in x 2in)&#10;Colors/Thread: (e.g., navy + white)&#10;Fabric/Item: (e.g., cotton polo)&#10;Notes: (optional)"></textarea>
                     <small class="text-muted">Provide at least 30 characters with placement, size, and color details for consistent quoting.</small>
                 </div>
@@ -1139,108 +984,6 @@ $upload = save_uploaded_media(
             const totalEstimate = unitEstimate * quantity;
 
             quoteEstimate.textContent = `${formatCurrency(unitEstimate)} per item • ${formatCurrency(totalEstimate)} total`;
-<<<<<<< HEAD
-=======
-             updateTshirtOptionTotal();
-        }
-
-        function updateTshirtOptionTotal() {
-            const service = getSelectedService();
-            const totalEl = document.getElementById('tshirtOptionTotal');
-            if (!totalEl) {
-                return;
-            }
-            if (service !== 'T-shirt Embroidery') {
-                totalEl.textContent = '₱200';
-                return;
-            }
-            const tshirtBase = pricingState.base_prices['T-shirt Embroidery'] ?? 200;
-            totalEl.textContent = formatCurrency(tshirtBase);
-        }
-
-        function buildTshirtDescription() {
-            const text = (document.getElementById('embroideryTextInput')?.value || '').trim() || 'N/A';
-            const shirtType = document.getElementById('tshirtShirtType').value;
-            const placement = document.getElementById('tshirtPlacement').value;
-            const size = document.getElementById('tshirtSize').value;
-            const font = document.getElementById('tshirtFont').value;
-            const threadType = document.getElementById('tshirtThreadType').value;
-            const threadColors = document.getElementById('tshirtThreadColors').value || 'Not specified';
-            return `Embroidery Text: ${text}\nShirt Type: ${shirtType}\nPlacement: ${placement}\nSize: ${size}\nFont: ${font}\nThread Type: ${threadType}\nThread Colors: ${threadColors}`;
-        }
-
-        function toggleStep4ForService(service) {
-            const panel = document.getElementById('tshirtConfigPanel');
-            const descriptionInput = document.getElementById('designDescriptionInput');
-            const descriptionGroup = document.getElementById('designDescriptionGroup');
-            if (!panel || !descriptionInput || !descriptionGroup) {
-                return;
-            }
-
-            if (service === 'T-shirt Embroidery') {
-                panel.style.display = 'block';
-                descriptionGroup.style.display = 'none';
-                descriptionInput.value = buildTshirtDescription();
-            } else {
-                panel.style.display = 'none';
-                descriptionGroup.style.display = 'block';
-                if (descriptionInput.value.includes('Embroidery Text:')) {
-                    descriptionInput.value = '';
-                }
-            }
-            updateTshirtOptionTotal();
-        }
-
-        function initializeTshirtConfigurator() {
-            document.querySelectorAll('.tshirt-config-options[data-group]').forEach(group => {
-                group.addEventListener('click', (event) => {
-                    const option = event.target.closest('.tshirt-option-chip');
-                    if (!option) {
-                        return;
-                    }
-                    const groupName = group.dataset.group;
-                    group.querySelectorAll('.tshirt-option-chip').forEach(chip => chip.classList.remove('is-selected'));
-                    option.classList.add('is-selected');
-
-                    const hiddenMap = {
-                        shirt_type: 'tshirtShirtType',
-                        embroidery_placement: 'tshirtPlacement',
-                        embroidery_size: 'tshirtSize',
-                        embroidery_font: 'tshirtFont',
-                        thread_type: 'tshirtThreadType'
-                    };
-                    const hiddenInputId = hiddenMap[groupName];
-                    if (hiddenInputId) {
-                        document.getElementById(hiddenInputId).value = option.dataset.value;
-                    }
-                    if (getSelectedService() === 'T-shirt Embroidery') {
-                        document.getElementById('designDescriptionInput').value = buildTshirtDescription();
-                    }
-                });
-            });
-
-            const embroideryTextInput = document.getElementById('embroideryTextInput');
-            embroideryTextInput?.addEventListener('input', () => {
-                if (getSelectedService() === 'T-shirt Embroidery') {
-                    document.getElementById('designDescriptionInput').value = buildTshirtDescription();
-                }
-            });
-
-            const threadColorOptions = document.getElementById('threadColorOptions');
-            threadColorOptions?.addEventListener('click', (event) => {
-                const colorBtn = event.target.closest('.tshirt-color-option');
-                if (!colorBtn) {
-                    return;
-                }
-                colorBtn.classList.toggle('is-selected');
-                const selectedColors = Array.from(threadColorOptions.querySelectorAll('.tshirt-color-option.is-selected'))
-                    .map((btn) => btn.dataset.color);
-                document.getElementById('tshirtThreadColors').value = selectedColors.join(', ');
-                if (getSelectedService() === 'T-shirt Embroidery') {
-                    document.getElementById('designDescriptionInput').value = buildTshirtDescription();
-                }
-            });
->>>>>>> 434cfd9205b378d5e87847635dac318af78071bd
         }
 
         function renderAddOns(addOns) {
@@ -1342,42 +1085,20 @@ $upload = save_uploaded_media(
         }
         
         // Service selection
-<<<<<<< HEAD
         function selectService(service) {
-=======
-         function selectService(service, triggerElement = null) {
->>>>>>> 434cfd9205b378d5e87847635dac318af78071bd
             // Remove selected class from all services
             document.querySelectorAll('.service-option').forEach(option => {
                 option.classList.remove('selected');
             });
-<<<<<<< HEAD
-            
             // Add to clicked service
             event.currentTarget.classList.add('selected');
             
             // Check the radio button
             const radio = event.currentTarget.querySelector('input[type="radio"]');
-=======
-              const serviceCard = triggerElement || document.querySelector(`.service-option[data-service="${CSS.escape(service)}"]`);
-            if (!serviceCard) {
-                return;
-            }
-            
-            // Add to clicked service
-            serviceCard.classList.add('selected');
-            
-            // Check the radio button
-            const radio = serviceCard.querySelector('input[type="radio"]');
->>>>>>> 434cfd9205b378d5e87847635dac318af78071bd
             radio.checked = true;
             
             // Update custom service field
             document.querySelector('input[name="custom_service"]').value = service;
-<<<<<<< HEAD
-=======
-            toggleStep4ForService(service);
->>>>>>> 434cfd9205b378d5e87847635dac318af78071bd
             updateQuoteEstimate();
         }
 
@@ -1393,18 +1114,6 @@ $upload = save_uploaded_media(
                 selectShop(preselectedShopId);
             }
         }
-<<<<<<< HEAD
-=======
-        initializeTshirtConfigurator();
-        toggleStep4ForService(getSelectedService());
-
-        document.querySelector('form')?.addEventListener('submit', () => {
-            if (getSelectedService() === 'T-shirt Embroidery') {
-                document.getElementById('designDescriptionInput').value = buildTshirtDescription();
-            }
-        });
->>>>>>> 434cfd9205b378d5e87847635dac318af78071bd
-
         document.getElementById('complexitySelect').addEventListener('change', updateQuoteEstimate);
         document.getElementById('rushService').addEventListener('change', updateQuoteEstimate);
         document.querySelector('input[name="quantity"]').addEventListener('input', updateQuoteEstimate);
