@@ -839,22 +839,22 @@ $upload = save_uploaded_media(
             <div class="card mb-4">
                 <h3>Step 2: Select Service Type</h3>
                 <div class="row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
-                    <div class="service-option" data-service="T-shirt Embroidery" onclick="selectService('T-shirt Embroidery')">
+                    <div class="service-option" data-service="T-shirt Embroidery" onclick="selectService('T-shirt Embroidery', this)">
                         <h5>T-shirt Embroidery</h5>
                         <p class="text-muted small">Custom embroidery on t-shirts</p>
                         <input type="radio" name="service_type" value="T-shirt Embroidery" style="display: none;">
                     </div>
-                    <div class="service-option" data-service="Logo Embroidery" onclick="selectService('Logo Embroidery')">
+                    <div class="service-option" data-service="T-shirt Embroidery" onclick="selectService('T-shirt Embroidery', this)">
                         <h5>Logo Embroidery</h5>
                         <p class="text-muted small">Company logo on uniforms</p>
                         <input type="radio" name="service_type" value="Logo Embroidery" style="display: none;">
                     </div>
-                    <div class="service-option" data-service="Cap Embroidery" onclick="selectService('Cap Embroidery')">
+                    <div class="service-option" data-service="Cap Embroidery" onclick="selectService('Cap Embroidery', this)">
                         <h5>Cap Embroidery</h5>
                         <p class="text-muted small">Custom embroidery on caps</p>
                         <input type="radio" name="service_type" value="Cap Embroidery" style="display: none;">
                     </div>
-                    <div class="service-option" data-service="Bag Embroidery" onclick="selectService('Bag Embroidery')">
+                    <div class="service-option" data-service="Bag Embroidery" onclick="selectService('Bag Embroidery', this)">
                         <h5>Bag Embroidery</h5>
                         <p class="text-muted small">Embroidery on bags and backpacks</p>
                         <input type="radio" name="service_type" value="Bag Embroidery" style="display: none;">
@@ -1265,21 +1265,25 @@ $upload = save_uploaded_media(
         }
         
         // Service selection
-        function selectService(service) {
+         function selectService(service, selectedOption) {
             // Remove selected class from all services
             document.querySelectorAll('.service-option').forEach(option => {
                 option.classList.remove('selected');
             });
             // Add to clicked service
-            event.currentTarget.classList.add('selected');
+             if (selectedOption) {
+                selectedOption.classList.add('selected');
+            }
             
             // Check the radio button
-            const radio = event.currentTarget.querySelector('input[type="radio"]');
-            radio.checked = true;
+            const radio = selectedOption ? selectedOption.querySelector('input[type="radio"]') : null;
+            if (radio) {
+                radio.checked = true;
+            }
             
             // Update custom service field
             document.querySelector('input[name="custom_service"]').value = service;
-            toggleTshirtSelections();
+             toggleDetailSelections();
             updateQuoteEstimate();
         }
          document.querySelectorAll('.selection-buttons').forEach(group => {
