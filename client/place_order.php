@@ -335,6 +335,11 @@ if(isset($_POST['place_order'])) {
         'thread_type' => sanitize($_POST['thread_type'] ?? ''),
         'thread_color' => sanitize($_POST['thread_color'] ?? ''),
     ];
+    $logo_fields = [
+        'logo_size_cm' => sanitize($_POST['logo_size_cm'] ?? ''),
+        'logo_design_type' => sanitize($_POST['logo_design_type'] ?? ''),
+        'logo_digitizing' => sanitize($_POST['logo_digitizing'] ?? ''),
+    ];
     if (!is_array($requested_add_ons)) {
         $requested_add_ons = [];
     }
@@ -427,7 +432,8 @@ if(isset($_POST['place_order'])) {
             'complexity' => $complexity_level,
             'add_ons' => $selected_add_ons,
             'rush' => $rush_requested,
-             'tshirt_details' => $service_type === 'T-shirt Embroidery' ? $tshirt_fields : new stdClass(),
+            'tshirt_details' => $service_type === 'T-shirt Embroidery' ? $tshirt_fields : new stdClass(),
+            'logo_details' => $service_type === 'Logo Embroidery' ? $logo_fields : new stdClass(),
             'breakdown' => [
                 'base_price' => round($base_price, 2),
                 'add_on_total' => round($add_on_total, 2),
@@ -983,6 +989,39 @@ $upload = save_uploaded_media(
                         <input type="hidden" name="thread_color" id="threadColorInput" value="">
                     </div>
                 </div>
+                 <div id="logoDetailSelections" class="form-group" style="display: none; margin-top: 16px;">
+                    <label>Logo Embroidery Preferences</label>
+                    <p class="text-muted small">Choose logo details so the shop can prepare an accurate quote.</p>
+
+                    <div class="selection-group">
+                        <span class="selection-label">Logo Size (cm)</span>
+                        <div class="selection-buttons" data-target-input="logoSizeCmInput">
+                            <button type="button" class="selection-btn" data-value="3x3 cm">3 x 3 cm</button>
+                            <button type="button" class="selection-btn" data-value="5x5 cm">5 x 5 cm</button>
+                            <button type="button" class="selection-btn" data-value="8x8 cm">8 x 8 cm</button>
+                            <button type="button" class="selection-btn" data-value="10x10 cm">10 x 10 cm</button>
+                        </div>
+                        <input type="hidden" name="logo_size_cm" id="logoSizeCmInput" value="">
+                    </div>
+
+                    <div class="selection-group">
+                        <span class="selection-label">Design Type</span>
+                        <div class="selection-buttons" data-target-input="logoDesignTypeInput">
+                            <button type="button" class="selection-btn" data-value="Plain">Plain</button>
+                            <button type="button" class="selection-btn" data-value="Multi Color">Multi Color</button>
+                        </div>
+                        <input type="hidden" name="logo_design_type" id="logoDesignTypeInput" value="">
+                    </div>
+
+                    <div class="selection-group mb-0">
+                        <span class="selection-label">Digitizing</span>
+                        <div class="selection-buttons" data-target-input="logoDigitizingInput">
+                            <button type="button" class="selection-btn" data-value="With Digitizing">With Digitizing</button>
+                            <button type="button" class="selection-btn" data-value="No Digitizing">No Digitizing</button>
+                        </div>
+                        <input type="hidden" name="logo_digitizing" id="logoDigitizingInput" value="">
+                    </div>
+                </div>
                 <div class="form-group">
                     <label>Design Description *</label>
                     <textarea name="design_description" class="form-control" rows="4" required
@@ -1075,20 +1114,31 @@ $upload = save_uploaded_media(
             return custom && custom.value.trim() ? custom.value.trim() : '';
         }
 
-         function toggleTshirtSelections() {
+          function resetSelectionGroup(container) {
+            container.querySelectorAll('.selection-buttons').forEach(group => {
+                const targetInput = document.getElementById(group.dataset.targetInput);
+                if (targetInput) {
+                    targetInput.value = '';
+                }
+                group.querySelectorAll('.selection-btn').forEach(btn => btn.classList.remove('selected'));
+            });
+        }
+
+        function toggleDetailSelections() {
             const tshirtDetails = document.getElementById('tshirtDetailSelections');
+            const logoDetails = document.getElementById('logoDetailSelections');
             const selectedService = getSelectedService();
             const isTshirt = selectedService === 'T-shirt Embroidery';
+             const isLogo = selectedService === 'Logo Embroidery';
+
             tshirtDetails.style.display = isTshirt ? 'block' : 'none';
+             logoDetails.style.display = isLogo ? 'block' : 'none';
 
             if (!isTshirt) {
-                tshirtDetails.querySelectorAll('.selection-buttons').forEach(group => {
-                    const targetInput = document.getElementById(group.dataset.targetInput);
-                    if (targetInput) {
-                        targetInput.value = '';
-                    }
-                    group.querySelectorAll('.selection-btn').forEach(btn => btn.classList.remove('selected'));
-                });
+               resetSelectionGroup(tshirtDetails);
+            }
+            if (!isLogo) {
+                resetSelectionGroup(logoDetails);
             }
         }
 
@@ -1260,7 +1310,10 @@ $upload = save_uploaded_media(
         document.getElementById('complexitySelect').addEventListener('change', updateQuoteEstimate);
         document.getElementById('rushService').addEventListener('change', updateQuoteEstimate);
         document.querySelector('input[name="quantity"]').addEventListener('input', updateQuoteEstimate);
-        document.querySelector('input[name="custom_service"]').addEventListener('input', updateQuoteEstimate);
+         document.querySelector('input[name="custom_service"]').addEventListener('input', () => {
+            toggleDetailSelections();
+            updateQuoteEstimate();
+        });
     </script>
 </body>
 </html>
