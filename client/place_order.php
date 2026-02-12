@@ -327,6 +327,14 @@ if(isset($_POST['place_order'])) {
     $complexity_level = sanitize($_POST['complexity_level'] ?? 'Standard');
     $design_version_id = (int) ($_POST['design_version_id'] ?? 0);
     $requested_add_ons = $_POST['add_ons'] ?? [];
+     $tshirt_fields = [
+        'shirt_type' => sanitize($_POST['shirt_type'] ?? ''),
+        'embroidery_placement' => sanitize($_POST['embroidery_placement'] ?? ''),
+        'embroidery_size' => sanitize($_POST['embroidery_size'] ?? ''),
+        'embroidery_font' => sanitize($_POST['embroidery_font'] ?? ''),
+        'thread_type' => sanitize($_POST['thread_type'] ?? ''),
+        'thread_color' => sanitize($_POST['thread_color'] ?? ''),
+    ];
     if (!is_array($requested_add_ons)) {
         $requested_add_ons = [];
     }
@@ -419,6 +427,7 @@ if(isset($_POST['place_order'])) {
             'complexity' => $complexity_level,
             'add_ons' => $selected_add_ons,
             'rush' => $rush_requested,
+             'tshirt_details' => $service_type === 'T-shirt Embroidery' ? $tshirt_fields : new stdClass(),
             'breakdown' => [
                 'base_price' => round($base_price, 2),
                 'add_on_total' => round($add_on_total, 2),
@@ -603,6 +612,36 @@ $upload = save_uploaded_media(
         }
         .shop-card.selected .ranking-meta {
             color: rgba(255, 255, 255, 0.8);
+        }
+         .selection-group {
+            margin-bottom: 14px;
+        }
+        .selection-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .selection-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .selection-btn {
+            border: 1px solid #cbd5e1;
+            border-radius: 999px;
+            background: #fff;
+            color: #334155;
+            padding: 6px 14px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .selection-btn:hover {
+            border-color: #4361ee;
+        }
+        .selection-btn.selected {
+            background: #4361ee;
+            border-color: #4361ee;
+            color: #fff;
         }
     </style>
 </head>
@@ -870,6 +909,80 @@ $upload = save_uploaded_media(
             <!-- Step 4: Design Details -->
             <div class="card mb-4">
                 <h3>Step 4: Design Details</h3>
+                <div id="tshirtDetailSelections" class="form-group" style="display: none;">
+                    <label>T-shirt Embroidery Preferences</label>
+                    <p class="text-muted small">Choose options below for a clearer specification.</p>
+
+                    <div class="selection-group">
+                        <span class="selection-label">Shirt Type</span>
+                        <div class="selection-buttons" data-target-input="shirtTypeInput">
+                            <button type="button" class="selection-btn" data-value="Round Neck">Round Neck</button>
+                            <button type="button" class="selection-btn" data-value="Polo Shirt">Polo Shirt</button>
+                            <button type="button" class="selection-btn" data-value="V-Neck">V-Neck</button>
+                            <button type="button" class="selection-btn" data-value="Long Sleeve">Long Sleeve</button>
+                            <button type="button" class="selection-btn" data-value="Dri-Fit">Dri-Fit</button>
+                        </div>
+                        <input type="hidden" name="shirt_type" id="shirtTypeInput" value="">
+                    </div>
+
+                    <div class="selection-group">
+                        <span class="selection-label">Embroidery Placement</span>
+                        <div class="selection-buttons" data-target-input="embroideryPlacementInput">
+                            <button type="button" class="selection-btn" data-value="Left Chest">Left Chest</button>
+                            <button type="button" class="selection-btn" data-value="Right Chest">Right Chest</button>
+                            <button type="button" class="selection-btn" data-value="Center Chest">Center Chest</button>
+                            <button type="button" class="selection-btn" data-value="Back">Back</button>
+                            <button type="button" class="selection-btn" data-value="Sleeve">Sleeve</button>
+                        </div>
+                        <input type="hidden" name="embroidery_placement" id="embroideryPlacementInput" value="">
+                    </div>
+
+                    <div class="selection-group">
+                        <span class="selection-label">Embroidery Size</span>
+                        <div class="selection-buttons" data-target-input="embroiderySizeInput">
+                            <button type="button" class="selection-btn" data-value="Small (2-3 in)">Small (5x3 cm)</button>
+                            <button type="button" class="selection-btn" data-value="Medium (4-5 in)">Medium (5x5 cm)</button>
+                            <button type="button" class="selection-btn" data-value="Large (6-8 in)">Large (8x3 cm)</button>
+                        </div>
+                        <input type="hidden" name="embroidery_size" id="embroiderySizeInput" value="">
+                    </div>
+
+                    <div class="selection-group">
+                        <span class="selection-label">Embroidery Font</span>
+                        <div class="selection-buttons" data-target-input="embroideryFontInput">
+                            <button type="button" class="selection-btn" data-value="Block">Block</button>
+                            <button type="button" class="selection-btn" data-value="Script">Script</button>
+                            <button type="button" class="selection-btn" data-value="Serif">Serif</button>
+                            <button type="button" class="selection-btn" data-value="Sans Serif">Sans Serif</button>
+                            <button type="button" class="selection-btn" data-value="Custom">Custom</button>
+                        </div>
+                        <input type="hidden" name="embroidery_font" id="embroideryFontInput" value="">
+                    </div>
+
+                    <div class="selection-group">
+                        <span class="selection-label">Thread Type</span>
+                        <div class="selection-buttons" data-target-input="threadTypeInput">
+                            <button type="button" class="selection-btn" data-value="Rayon">Rayon</button>
+                            <button type="button" class="selection-btn" data-value="Polyester">Polyester</button>
+                            <button type="button" class="selection-btn" data-value="Cotton">Cotton</button>
+                            <button type="button" class="selection-btn" data-value="Metallic">Metallic</button>
+                        </div>
+                        <input type="hidden" name="thread_type" id="threadTypeInput" value="">
+                    </div>
+
+                    <div class="selection-group mb-0">
+                        <span class="selection-label">Thread Color</span>
+                        <div class="selection-buttons" data-target-input="threadColorInput">
+                            <button type="button" class="selection-btn" data-value="Black">Black</button>
+                            <button type="button" class="selection-btn" data-value="White">White</button>
+                            <button type="button" class="selection-btn" data-value="Red">Red</button>
+                            <button type="button" class="selection-btn" data-value="Blue">Blue</button>
+                            <button type="button" class="selection-btn" data-value="Gold">Gold</button>
+                            <button type="button" class="selection-btn" data-value="Custom">Custom</button>
+                        </div>
+                        <input type="hidden" name="thread_color" id="threadColorInput" value="">
+                    </div>
+                </div>
                 <div class="form-group">
                     <label>Design Description *</label>
                     <textarea name="design_description" class="form-control" rows="4" required
@@ -960,6 +1073,23 @@ $upload = save_uploaded_media(
             }
             const custom = document.querySelector('input[name="custom_service"]');
             return custom && custom.value.trim() ? custom.value.trim() : '';
+        }
+
+         function toggleTshirtSelections() {
+            const tshirtDetails = document.getElementById('tshirtDetailSelections');
+            const selectedService = getSelectedService();
+            const isTshirt = selectedService === 'T-shirt Embroidery';
+            tshirtDetails.style.display = isTshirt ? 'block' : 'none';
+
+            if (!isTshirt) {
+                tshirtDetails.querySelectorAll('.selection-buttons').forEach(group => {
+                    const targetInput = document.getElementById(group.dataset.targetInput);
+                    if (targetInput) {
+                        targetInput.value = '';
+                    }
+                    group.querySelectorAll('.selection-btn').forEach(btn => btn.classList.remove('selected'));
+                });
+            }
         }
 
         function updateQuoteEstimate() {
@@ -1099,8 +1229,21 @@ $upload = save_uploaded_media(
             
             // Update custom service field
             document.querySelector('input[name="custom_service"]').value = service;
+             toggleTshirtSelections();
             updateQuoteEstimate();
         }
+         document.querySelectorAll('.selection-buttons').forEach(group => {
+            group.querySelectorAll('.selection-btn').forEach(button => {
+                button.addEventListener('click', () => {
+                    group.querySelectorAll('.selection-btn').forEach(btn => btn.classList.remove('selected'));
+                    button.classList.add('selected');
+                    const targetInput = document.getElementById(group.dataset.targetInput);
+                    if (targetInput) {
+                        targetInput.value = button.dataset.value;
+                    }
+                });
+            });
+        });
 
         document.querySelectorAll('.shop-card').forEach(card => {
             const services = card.dataset.services || '[]';
