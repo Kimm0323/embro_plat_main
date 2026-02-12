@@ -1279,7 +1279,7 @@ $upload = save_uploaded_media(
             
             // Update custom service field
             document.querySelector('input[name="custom_service"]').value = service;
-             toggleTshirtSelections();
+            toggleTshirtSelections();
             updateQuoteEstimate();
         }
          document.querySelectorAll('.selection-buttons').forEach(group => {
@@ -1310,7 +1310,8 @@ $upload = save_uploaded_media(
         document.getElementById('complexitySelect').addEventListener('change', updateQuoteEstimate);
         document.getElementById('rushService').addEventListener('change', updateQuoteEstimate);
         document.querySelector('input[name="quantity"]').addEventListener('input', updateQuoteEstimate);
-         document.querySelector('input[name="custom_service"]').addEventListener('input', () => {
+        toggleDetailSelections();
+        document.querySelector('input[name="custom_service"]').addEventListener('input', () => {
             toggleDetailSelections();
             updateQuoteEstimate();
         });
