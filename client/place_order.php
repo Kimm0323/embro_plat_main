@@ -340,6 +340,14 @@ if(isset($_POST['place_order'])) {
         'logo_design_type' => sanitize($_POST['logo_design_type'] ?? ''),
         'logo_digitizing' => sanitize($_POST['logo_digitizing'] ?? ''),
     ];
+
+     $cap_fields = [
+        'cap_type' => sanitize($_POST['cap_type'] ?? ''),
+        'cap_embroidery_placement' => sanitize($_POST['cap_embroidery_placement'] ?? ''),
+        'cap_embroidery_size' => sanitize($_POST['cap_embroidery_size'] ?? ''),
+        'cap_embroidery_style' => sanitize($_POST['cap_embroidery_style'] ?? ''),
+        'cap_thread_colors' => sanitize($_POST['cap_thread_colors'] ?? ''),
+    ];
     if (!is_array($requested_add_ons)) {
         $requested_add_ons = [];
     }
@@ -434,6 +442,7 @@ if(isset($_POST['place_order'])) {
             'rush' => $rush_requested,
             'tshirt_details' => $service_type === 'T-shirt Embroidery' ? $tshirt_fields : new stdClass(),
             'logo_details' => $service_type === 'Logo Embroidery' ? $logo_fields : new stdClass(),
+            'cap_details' => $service_type === 'Cap Embroidery' ? $cap_fields : new stdClass(),
             'breakdown' => [
                 'base_price' => round($base_price, 2),
                 'add_on_total' => round($add_on_total, 2),
@@ -1022,6 +1031,68 @@ $upload = save_uploaded_media(
                         <input type="hidden" name="logo_digitizing" id="logoDigitizingInput" value="">
                     </div>
                 </div>
+                <div id="capDetailSelections" class="form-group" style="display: none; margin-top: 16px;">
+                    <label>Cap Embroidery Preferences</label>
+                    <p class="text-muted small">Choose cap details for clearer production instructions.</p>
+
+                    <div class="selection-group">
+                        <span class="selection-label">Cap Type</span>
+                        <div class="selection-buttons" data-target-input="capTypeInput">
+                            <button type="button" class="selection-btn" data-value="Baseball Cap">Baseball Cap</button>
+                            <button type="button" class="selection-btn" data-value="Snapback Cap">Snapback Cap</button>
+                            <button type="button" class="selection-btn" data-value="Dad Cap">Dad Cap</button>
+                            <button type="button" class="selection-btn" data-value="No Cap">No Cap</button>
+                        </div>
+                        <input type="hidden" name="cap_type" id="capTypeInput" value="">
+                    </div>
+
+                    <div class="selection-group">
+                        <span class="selection-label">Embroidery Placement</span>
+                        <div class="selection-buttons" data-target-input="capEmbroideryPlacementInput">
+                            <button type="button" class="selection-btn" data-value="Center">Center</button>
+                            <button type="button" class="selection-btn" data-value="Front">Front</button>
+                            <button type="button" class="selection-btn" data-value="Left">Left</button>
+                            <button type="button" class="selection-btn" data-value="Right">Right</button>
+                        </div>
+                        <input type="hidden" name="cap_embroidery_placement" id="capEmbroideryPlacementInput" value="">
+                    </div>
+
+                    <div class="selection-group">
+                        <span class="selection-label">Embroidery Size</span>
+                        <div class="selection-buttons" data-target-input="capEmbroiderySizeInput">
+                            <button type="button" class="selection-btn" data-value="Small (5x3 cm)">Small (5x3 cm)</button>
+                            <button type="button" class="selection-btn" data-value="Medium (5x5 cm)">Medium (5x5 cm)</button>
+                            <button type="button" class="selection-btn" data-value="Large (8x3 cm)">Large (8x3 cm)</button>
+                        </div>
+                        <input type="hidden" name="cap_embroidery_size" id="capEmbroiderySizeInput" value="">
+                    </div>
+
+                    <div class="selection-group">
+                        <span class="selection-label">Embroidery Style</span>
+                        <div class="selection-buttons" data-target-input="capEmbroideryStyleInput">
+                            <button type="button" class="selection-btn" data-value="Block Stitch">Block Stitch</button>
+                            <button type="button" class="selection-btn" data-value="Script Stitch">Script Stitch</button>
+                            <button type="button" class="selection-btn" data-value="Satin Stitch">Satin Stitch</button>
+                            <button type="button" class="selection-btn" data-value="Cursiv Stitch">Cursiv Stitch</button>
+                            <button type="button" class="selection-btn" data-value="Serif Stitch">Serif Stitch</button>
+                            <button type="button" class="selection-btn" data-value="Gothic Stitch">Gothic Stitch</button>
+                        </div>
+                        <input type="hidden" name="cap_embroidery_style" id="capEmbroideryStyleInput" value="">
+                    </div>
+
+                    <div class="selection-group mb-0">
+                        <span class="selection-label">Thread Colors</span>
+                        <div class="selection-buttons" data-target-input="capThreadColorsInput">
+                            <button type="button" class="selection-btn" data-value="Black">Black</button>
+                            <button type="button" class="selection-btn" data-value="White">White</button>
+                            <button type="button" class="selection-btn" data-value="Red">Red</button>
+                            <button type="button" class="selection-btn" data-value="Blue">Blue</button>
+                            <button type="button" class="selection-btn" data-value="Gold">Gold</button>
+                            <button type="button" class="selection-btn" data-value="Custom">Custom</button>
+                        </div>
+                        <input type="hidden" name="cap_thread_colors" id="capThreadColorsInput" value="">
+                    </div>
+                </div>
                 <div class="form-group">
                     <label>Design Description *</label>
                     <textarea name="design_description" class="form-control" rows="4" required
@@ -1127,18 +1198,24 @@ $upload = save_uploaded_media(
         function toggleDetailSelections() {
             const tshirtDetails = document.getElementById('tshirtDetailSelections');
             const logoDetails = document.getElementById('logoDetailSelections');
+            const capDetails = document.getElementById('capDetailSelections');
             const selectedService = getSelectedService();
             const isTshirt = selectedService === 'T-shirt Embroidery';
-             const isLogo = selectedService === 'Logo Embroidery';
+            const isLogo = selectedService === 'Logo Embroidery';
+            const isCap = selectedService === 'Cap Embroidery';
 
             tshirtDetails.style.display = isTshirt ? 'block' : 'none';
-             logoDetails.style.display = isLogo ? 'block' : 'none';
+            logoDetails.style.display = isLogo ? 'block' : 'none';
+            capDetails.style.display = isCap ? 'block' : 'none';
 
             if (!isTshirt) {
                resetSelectionGroup(tshirtDetails);
             }
             if (!isLogo) {
                 resetSelectionGroup(logoDetails);
+            }
+            if (!isCap) {
+                resetSelectionGroup(capDetails);
             }
         }
 
