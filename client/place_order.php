@@ -295,9 +295,10 @@ $preselected_portfolio_id = (int) ($_GET['portfolio_id'] ?? 0);
 $preselected_portfolio = null;
 if ($preselected_shop_id > 0 && $preselected_portfolio_id > 0) {
     $portfolio_preselect_stmt = $pdo->prepare("
-        SELECT id, shop_id, title, description
-        FROM shop_portfolio
-        WHERE id = ? AND shop_id = ?
+        SELECT p.id, p.shop_id, p.title, p.description, p.image_path, s.shop_name
+        FROM shop_portfolio p
+        INNER JOIN shops s ON s.id = p.shop_id
+        WHERE p.id = ? AND p.shop_id = ?
         LIMIT 1
     ");
     $portfolio_preselect_stmt->execute([$preselected_portfolio_id, $preselected_shop_id]);
@@ -734,6 +735,10 @@ if(isset($_POST['place_order'])) {
             <?php if ($preselected_portfolio): ?>
                 <div class="alert alert-info mb-3" id="selectedPostBanner" data-title="<?php echo htmlspecialchars($preselected_portfolio['title']); ?>">
                     <strong>Selected posted work:</strong> <?php echo htmlspecialchars($preselected_portfolio['title']); ?>
+                     <div class="small mt-1"><strong>Shop:</strong> <?php echo htmlspecialchars($preselected_portfolio['shop_name']); ?></div>
+                    <?php if (!empty($preselected_portfolio['description'])): ?>
+                        <div class="small text-muted mt-1"><?php echo nl2br(htmlspecialchars($preselected_portfolio['description'])); ?></div>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
             <!-- Step 1: Select Shop -->
@@ -805,7 +810,19 @@ if(isset($_POST['place_order'])) {
                                     <span>Pricing: <?php echo $shop['ranking_breakdown']['pricing']; ?>%</span>
                                     <span>Specialization: <?php echo $shop['ranking_breakdown']['specialization']; ?>%</span>
                                 </div>
-                                <?php if (!empty($shop['portfolio_samples'])): ?>
+                                 <?php if ($preselected_portfolio && (int) $shop['id'] === (int) $preselected_portfolio['shop_id']): ?>
+                                    <div class="portfolio-strip" title="Selected posted work">
+                                        <?php if (!empty($preselected_portfolio['image_path'])): ?>
+                                            <img src="../assets/uploads/<?php echo htmlspecialchars($preselected_portfolio['image_path']); ?>" alt="<?php echo htmlspecialchars($preselected_portfolio['title']); ?>">
+                                        <?php endif; ?>
+                                        <div class="small text-light">
+                                            <strong><?php echo htmlspecialchars($preselected_portfolio['title']); ?></strong>
+                                            <?php if (!empty($preselected_portfolio['description'])): ?>
+                                                <div><?php echo htmlspecialchars($preselected_portfolio['description']); ?></div>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                <?php elseif (!$preselected_portfolio && !empty($shop['portfolio_samples'])): ?>
                                     <div class="portfolio-strip">
                                         <?php foreach ($shop['portfolio_samples'] as $sample): ?>
                                             <img src="../assets/uploads/<?php echo htmlspecialchars($sample['image_path']); ?>" alt="<?php echo htmlspecialchars($sample['title']); ?>">
@@ -1392,7 +1409,9 @@ if(isset($_POST['place_order'])) {
 
         const changeShopBtn = document.getElementById('changeShopBtn');
         if (changeShopBtn) {
-            changeShopBtn.addEventListener('click', showAllShops);
+            changeShopBtn.addEventListener('click', () => {
+                window.location.href = 'dashboard.php';
+            });
         }
          document.querySelectorAll('.selection-buttons').forEach(group => {
             group.querySelectorAll('.selection-btn').forEach(button => {
