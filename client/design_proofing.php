@@ -321,9 +321,7 @@ $approvals = $approvals_stmt->fetchAll();
                             <p class="text-muted mb-2"><i class="fas fa-store"></i> <?php echo htmlspecialchars($approval['shop_name']); ?></p>
 
                             <?php
-                                $design_version_preview = !empty($approval['design_version_preview'])
-                                    ? '../assets/uploads/designs/' . $approval['design_version_preview']
-                                    : null;
+                                $design_version_preview = proof_file_url($approval['design_version_preview'] ?? null);
                                 $has_design_version = !empty($approval['design_version_id']);
                                 $approval_status = $approval['approval_status'] ?? 'pending';
                                 $proof_file = !empty($approval['design_file'])
@@ -383,6 +381,16 @@ $approvals = $approvals_stmt->fetchAll();
                                     <input type="hidden" name="order_id" value="<?php echo $approval['order_id']; ?>">
                                     <button type="submit" name="approve_proof" class="btn btn-success btn-block">
                                         <i class="fas fa-check-circle"></i> Approve Proof
+                                    </button>
+                                </form>
+                                <form method="POST">
+                                    <?php echo csrf_field(); ?>
+                                    <input type="hidden" name="order_id" value="<?php echo $approval['order_id']; ?>">
+                                    <div class="form-group">
+                                        <textarea name="revision_notes" class="form-control" rows="2" placeholder="Request a revision (optional details)" required></textarea>
+                                    </div>
+                                    <button type="submit" name="request_revision" class="btn btn-outline-warning btn-block">
+                                        <i class="fas fa-rotate-left"></i> Request Revision
                                     </button>
                                 </form>
                                 <form method="POST">
