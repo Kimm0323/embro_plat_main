@@ -483,6 +483,10 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label>Title *</label>
                         <input type="text" name="portfolio_title" class="form-control" required>
                     </div>
+                     <div class="form-group" style="flex: 1; min-width: 180px;">
+                        <label>Price</label>
+                        <input type="number" name="portfolio_price" class="form-control" min="0" step="0.01" placeholder="0.00">
+                    </div>
                     <div class="form-group" style="flex: 2; min-width: 240px;">
                         <label>Description</label>
                         <input type="text" name="portfolio_description" class="form-control" maxlength="255">
