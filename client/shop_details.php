@@ -83,6 +83,18 @@ if ($shop_id > 0) {
         .portfolio-card h4 {
             margin: 0 0 0.35rem;
         }
+
+        .portfolio-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.85rem;
+        }
+
+        .portfolio-actions .btn {
+            flex: 1;
+            justify-content: center;
+        }
+
          .info-list {
             display: grid;
             gap: 0.75rem;
@@ -217,6 +229,14 @@ if ($shop_id > 0) {
                                  <div class="portfolio-card-body">
                                     <h4><?php echo htmlspecialchars($item['title']); ?></h4>
                                     <p class="text-muted mb-0"><?php echo nl2br(htmlspecialchars($item['description'] ?? '')); ?></p>
+                                     <div class="portfolio-actions">
+                                        <a href="../assets/uploads/<?php echo htmlspecialchars($item['image_path']); ?>" target="_blank" rel="noopener" class="btn btn-outline btn-sm">
+                                            <i class="fas fa-eye"></i> View
+                                        </a>
+                                        <a href="place_order.php?shop_id=<?php echo (int) $shop['id']; ?>" class="btn btn-primary btn-sm">
+                                            <i class="fas fa-cart-plus"></i> Order
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                         <?php endforeach; ?>
