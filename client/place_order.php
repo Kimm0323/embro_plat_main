@@ -420,13 +420,16 @@ if(isset($_POST['place_order'])) {
             $product_price = 0;
         }
         $service_type_price = (float) ($base_prices[$service_type] ?? ($base_prices['Custom'] ?? 0));
+        $base_price = $service_type_price;
         $selected_add_ons = array_values(array_intersect($requested_add_ons, array_keys($add_on_fees)));
         $add_on_total = 0.0;
         foreach ($selected_add_ons as $addon) {
             $add_on_total += (float) ($add_on_fees[$addon] ?? 0);
         }
-        $rush_fee_amount = $rush_requested ? (($product_price + $service_type_price + $add_on_total) * ($rush_fee_percent / 100)) : 0;
-        $estimated_unit_price = $product_price + $service_type_price + $add_on_total + $rush_fee_amount;
+        $subtotal = $product_price + $service_type_price + $add_on_total;
+        $rush_fee_amount = $rush_requested ? ($subtotal * ($rush_fee_percent / 100)) : 0;
+        $estimated_unit_price = $subtotal + $rush_fee_amount;
+        $estimated_total = $estimated_unit_price * $quantity;
         $quote_details = [
             'service_type' => $service_type,
             'complexity' => $complexity_level,
