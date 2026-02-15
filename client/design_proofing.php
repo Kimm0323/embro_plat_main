@@ -118,6 +118,40 @@ if(isset($_POST['request_revision'])) {
     }
 }
 
+if(isset($_POST['reject_proof'])) {
+    $order_id = (int) ($_POST['order_id'] ?? 0);
+    $rejection_notes = sanitize($_POST['rejection_notes'] ?? '');
+
+    $approval_stmt = $pdo->prepare("\n        SELECT o.id, o.order_number, o.shop_id, o.client_id, s.owner_id, s.shop_name,\n               da.id as approval_id, da.design_file, da.status as approval_status\n        FROM orders o\n        JOIN shops s ON o.shop_id = s.id\n        JOIN design_approvals da ON da.order_id = o.id\n        WHERE o.id = ? AND o.client_id = ?\n        LIMIT 1\n    ");
+    $approval_stmt->execute([$order_id, $client_id]);
+    $approval = $approval_stmt->fetch();
+
+    if(!$approval) {
+        $error = 'Unable to locate the proof to reject.';
+    } elseif($rejection_notes === '') {
+        $error = 'Please provide rejection notes for the shop.';
+    } elseif(empty($approval['design_file'])) {
+        $error = 'There is no proof file to reject yet.';
+    } elseif($approval['approval_status'] === 'approved') {
+        $error = 'This proof is already approved and cannot be rejected.';
+    } else {
+        $update_stmt = $pdo->prepare("\n            UPDATE design_approvals\n            SET status = 'rejected', customer_notes = ?, updated_at = NOW()\n            WHERE id = ?\n        ");
+        $update_stmt->execute([$rejection_notes, $approval['approval_id']]);
+
+        $order_update = $pdo->prepare("\n            UPDATE orders\n            SET design_approved = 0,\n                revision_notes = ?,\n                revision_requested_at = NOW(),\n                updated_at = NOW()\n            WHERE id = ?\n        ");
+        $order_update->execute([$rejection_notes, $order_id]);
+
+        $message = sprintf('Design proof rejected for order #%s.', $approval['order_number']);
+        create_notification($pdo, $client_id, $order_id, 'warning', $message);
+        if(!empty($approval['owner_id'])) {
+            create_notification($pdo, (int) $approval['owner_id'], $order_id, 'order_status', $message);
+        }
+        notify_shop_staff($pdo, (int) $approval['shop_id'], $order_id, 'order_status', $message);
+
+        $success = 'The proof was rejected and sent back to the shop for updates.';
+    }
+}
+
 $approvals_stmt = $pdo->prepare("
     SELECT o.id as order_id, o.order_number, o.status as order_status, o.design_approved,
            o.design_version_id,o.design_file as order_design_file,
@@ -251,7 +285,7 @@ $approvals = $approvals_stmt->fetchAll();
         <div class="card">
             <div class="card-header">
                 <h3><i class="fas fa-shield-halved text-primary"></i> Proofs Awaiting Your Approval</h3>
-                <p class="text-muted">Approve the proof to unlock production or request a revision.</p>
+                <p class="text-muted">Approve the proof to unlock production or reject it with feedback.</p>
             </div>
             <?php if(!empty($approvals)): ?>
                 <div class="proofing-grid">
@@ -328,10 +362,10 @@ $approvals = $approvals_stmt->fetchAll();
                                     <?php echo csrf_field(); ?>
                                     <input type="hidden" name="order_id" value="<?php echo $approval['order_id']; ?>">
                                     <div class="form-group">
-                                        <textarea name="revision_notes" class="form-control" rows="2" placeholder="Share revision notes" required></textarea>
+                                        <textarea name="rejection_notes" class="form-control" rows="2" placeholder="Share rejection notes" required></textarea>
                                     </div>
-                                    <button type="submit" name="request_revision" class="btn btn-outline-warning btn-block">
-                                        <i class="fas fa-pen"></i> Request Revision
+                                    <button type="submit" name="reject_proof" class="btn btn-outline-danger btn-block">
+                                        <i class="fas fa-times-circle"></i> Reject Proof
                                     </button>
                                 </form>
                             </div>
