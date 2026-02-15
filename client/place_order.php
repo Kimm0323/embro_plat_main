@@ -295,7 +295,7 @@ $preselected_portfolio_id = (int) ($_GET['portfolio_id'] ?? 0);
 $preselected_portfolio = null;
 if ($preselected_shop_id > 0 && $preselected_portfolio_id > 0) {
     $portfolio_preselect_stmt = $pdo->prepare("
-        SELECT p.id, p.shop_id, p.title, p.description, p.image_path, s.shop_name
+        SELECT p.id, p.shop_id, p.title, p.description, p.image_path, p.price, s.shop_name
         FROM shop_portfolio p
         INNER JOIN shops s ON s.id = p.shop_id
         WHERE p.id = ? AND p.shop_id = ?
@@ -734,12 +734,13 @@ if(isset($_POST['place_order'])) {
         </form>
          <form method="POST" id="orderForm">
             <?php echo csrf_field(); ?>
-            <input type="hidden" name="product_price" id="productPrice" value="0">
+            <input type="hidden" name="product_price" id="productPrice" value="<?php echo $preselected_portfolio ? (float) $preselected_portfolio['price'] : 0; ?>">
              <input type="hidden" name="selected_portfolio_id" id="selectedPortfolioId" value="<?php echo $preselected_portfolio ? (int) $preselected_portfolio['id'] : 0; ?>">
             <?php if ($preselected_portfolio): ?>
-                <div class="alert alert-info mb-3" id="selectedPostBanner" data-title="<?php echo htmlspecialchars($preselected_portfolio['title']); ?>">
+                <div class="alert alert-info mb-3" id="selectedPostBanner" data-title="<?php echo htmlspecialchars($preselected_portfolio['title']); ?>" data-price="<?php echo (float) ($preselected_portfolio['price'] ?? 0); ?>">
                     <strong>Selected posted work:</strong> <?php echo htmlspecialchars($preselected_portfolio['title']); ?>
                      <div class="small mt-1"><strong>Shop:</strong> <?php echo htmlspecialchars($preselected_portfolio['shop_name']); ?></div>
+                      <div class="small mt-1"><strong>Portfolio price:</strong> ₱<?php echo number_format((float) ($preselected_portfolio['price'] ?? 0), 2); ?></div>
                     <?php if (!empty($preselected_portfolio['description'])): ?>
                         <div class="small text-muted mt-1"><?php echo nl2br(htmlspecialchars($preselected_portfolio['description'])); ?></div>
                     <?php endif; ?>
@@ -901,7 +902,7 @@ if(isset($_POST['place_order'])) {
                 <div class="alert alert-info mt-3">
                     <strong>Estimated quote:</strong>
                     <span id="quoteEstimate">Select a shop and service to see estimates.</span>
-                    <div class="text-muted small mt-2">Estimates are based on shop rules and quantity, and may change after review.</div>
+                    <div class="text-muted small mt-2" id="selectedPortfolioPrice">Selected portfolio price: <?php echo $preselected_portfolio ? '₱' . number_format((float) ($preselected_portfolio['price'] ?? 0), 2) : '₱0.00'; ?></div>
                 </div>
             </div>
 
@@ -1233,16 +1234,18 @@ if(isset($_POST['place_order'])) {
 
         function updateQuoteEstimate() {
             const quoteEstimate = document.getElementById('quoteEstimate');
+            const selectedPortfolioPrice = document.getElementById('selectedPortfolioPrice');
             const service = getSelectedService();
             const quantity = parseInt(document.querySelector('input[name="quantity"]').value || '0', 10);
+            const productPriceInput = document.querySelector('input[name="product_price"]');
+            const productPrice = Number(productPriceInput ? productPriceInput.value : 0);
+            selectedPortfolioPrice.textContent = `Selected portfolio price: ${formatCurrency(productPrice)}`;
             if (!service || Object.keys(pricingState.base_prices).length === 0 || quantity <= 0) {
                 quoteEstimate.textContent = 'Select a shop and service to see estimates.';
                 return;
             }
 
             const serviceTypePrice = Number(pricingState.base_prices[service] ?? pricingState.base_prices.Custom ?? 0);
-            const productPriceInput = document.querySelector('input[name="product_price"]');
-            const productPrice = Number(productPriceInput ? productPriceInput.value : 0);
             const addOns = Array.from(document.querySelectorAll('input[name="add_ons[]"]:checked'))
                 .map((input) => input.value);
             const addOnTotal = addOns.reduce((sum, addon) => sum + (pricingState.add_ons[addon] || 0), 0);           
