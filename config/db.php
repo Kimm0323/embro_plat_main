@@ -61,7 +61,8 @@ function ensure_orders_price_column(PDO $pdo): void {
         return;
     }
 
-    $pdo->exec("ALTER TABLE orders ADD COLUMN price DECIMAL(10,2) DEFAULT NULL AFTER quantity");
+    $positionClause = column_exists($pdo, 'orders', 'quantity') ? ' AFTER quantity' : '';
+    $pdo->exec("ALTER TABLE orders ADD COLUMN price DECIMAL(10,2) DEFAULT NULL{$positionClause}");
 }
 
 ensure_orders_price_column($pdo);
