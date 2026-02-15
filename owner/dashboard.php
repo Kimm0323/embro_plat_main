@@ -137,6 +137,7 @@ $staff_workloads = $staff_workload_stmt->fetchAll();
             <ul class="navbar-nav">
                 <li><a href="dashboard.php" class="nav-link active">Dashboard</a></li>
                 <li><a href="shop_profile.php" class="nav-link">Shop Profile</a></li>
+                <li><a href="pricing_management.php" class="nav-link">Pricing</a></li>
                 <li><a href="manage_staff.php" class="nav-link">Staff</a></li>
                 <li><a href="shop_orders.php" class="nav-link">Orders</a></li>
                 <li><a href="client_community_posts.php" class="nav-link">Community Posts</a></li>

@@ -284,6 +284,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             <ul class="navbar-nav">
                 <li><a href="dashboard.php" class="nav-link">Dashboard</a></li>
                 <li><a href="shop_profile.php" class="nav-link active">Shop Profile</a></li>
+                <li><a href="pricing_management.php" class="nav-link">Pricing</a></li>
                 <li><a href="manage_staff.php" class="nav-link">Staff</a></li>
                 <li><a href="shop_orders.php" class="nav-link">Orders</a></li>
                 <li><a href="reviews.php" class="nav-link">Reviews</a></li>
