@@ -22,7 +22,7 @@ if(!$shop) {
 }
 
 $order_stmt = $pdo->prepare("
-    SELECT o.status, o.order_number, o.client_id, s.shop_name
+    SELECT o.status, o.order_number, o.client_id, o.price, o.payment_status, o.quote_details, s.shop_name
     FROM orders o
     JOIN shops s ON o.shop_id = s.id
     WHERE o.id = ? AND o.shop_id = ?
@@ -35,8 +35,29 @@ if(!$order || $order['status'] !== 'pending') {
     exit();
 }
 
-$update_stmt = $pdo->prepare("UPDATE orders SET status = 'accepted', updated_at = NOW() WHERE id = ? AND shop_id = ?");
-$update_stmt->execute([$order_id, $shop['id']]);
+$estimated_price = null;
+if(!empty($order['quote_details'])) {
+    $quote_details = json_decode($order['quote_details'], true);
+    if(is_array($quote_details) && isset($quote_details['estimated_total'])) {
+        $estimated_total = filter_var($quote_details['estimated_total'], FILTER_VALIDATE_FLOAT);
+        if($estimated_total !== false && $estimated_total > 0) {
+            $estimated_price = (float) $estimated_total;
+        }
+    }
+}
+
+$final_price = $order['price'] !== null ? (float) $order['price'] : $estimated_price;
+
+if($final_price !== null) {
+    $update_stmt = $pdo->prepare("UPDATE orders SET status = 'accepted', price = ?, updated_at = NOW() WHERE id = ? AND shop_id = ?");
+    $update_stmt->execute([$final_price, $order_id, $shop['id']]);
+
+    $invoice_status = determine_invoice_status('accepted', $order['payment_status'] ?? 'unpaid');
+    ensure_order_invoice($pdo, $order_id, $order['order_number'], $final_price, $invoice_status);
+} else {
+    $update_stmt = $pdo->prepare("UPDATE orders SET status = 'accepted', updated_at = NOW() WHERE id = ? AND shop_id = ?");
+    $update_stmt->execute([$order_id, $shop['id']]);
+}
 record_order_status_history($pdo, $order_id, STATUS_ACCEPTED, 0, 'Order accepted by shop.');
 
 if($order) {

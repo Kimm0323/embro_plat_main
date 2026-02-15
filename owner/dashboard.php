@@ -298,6 +298,9 @@ $staff_workloads = $staff_workload_stmt->fetchAll();
                                             <div class="d-flex" style="gap: 5px;">
                                                 <a href="view_order.php?id=<?php echo $order['id']; ?>" 
                                                    class="btn btn-sm btn-outline-primary">View</a>
+                                                    <a href="accept_order.php?id=<?php echo $order['id']; ?>"
+                                                   class="btn btn-sm btn-success"
+                                                   onclick="return confirm('Accept this order and use the estimated price as the official price?');">Accept</a>
                                                 <a href="reject_order.php?id=<?php echo $order['id']; ?>" 
                                                    class="btn btn-sm btn-danger">Reject</a>
                                             </div>
