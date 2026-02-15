@@ -11,9 +11,36 @@ function is_design_image(?string $filename): bool {
     if(!$filename) {
         return false;
     }
-    $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+    $path = parse_url($filename, PHP_URL_PATH);
+    $extension = strtolower(pathinfo((string) $path, PATHINFO_EXTENSION));
     return in_array($extension, ALLOWED_IMAGE_TYPES, true);
 }
+
+function proof_file_url(?string $proof_file): ?string {
+    if(!$proof_file) {
+        return null;
+    }
+
+    $normalized = ltrim(trim($proof_file), '/');
+    if($normalized === '') {
+        return null;
+    }
+
+    if(str_starts_with($normalized, 'assets/uploads/')) {
+        return '../' . $normalized;
+    }
+
+    if(str_starts_with($normalized, 'uploads/')) {
+        return '../assets/' . $normalized;
+    }
+
+    if(str_contains($normalized, '/')) {
+        return '../' . $normalized;
+    }
+
+    return '../assets/uploads/designs/' . $normalized;
+}
+
 
 function notify_shop_staff(PDO $pdo, int $shop_id, int $order_id, string $type, string $message): void {
     $staff_stmt = $pdo->prepare("SELECT user_id FROM shop_staffs WHERE shop_id = ? AND status = 'active'");
@@ -303,6 +330,7 @@ $approvals = $approvals_stmt->fetchAll();
                                 $proof_file = !empty($approval['design_file'])
                                     ? $approval['design_file']
                                     : ($approval['order_design_file'] ?? '');
+                                    $proof_file_url = proof_file_url($proof_file);
                             ?>
                             <span class="badge badge-warning">Proof <?php echo htmlspecialchars($approval_status); ?></span>
                             <?php if(!empty($approval['provider_notes'])): ?>
@@ -339,12 +367,12 @@ $approvals = $approvals_stmt->fetchAll();
                                 </div>
                             <?php endif; ?>
 
-            <?php if(!empty($proof_file)): ?>
+            <?php if($proof_file_url): ?>
                                 <?php if(is_design_image($proof_file)): ?>
-                                    <img src="../<?php echo htmlspecialchars($proof_file); ?>" alt="Design proof">
+                                     <img src="<?php echo htmlspecialchars($proof_file_url); ?>" alt="Design proof">
                                 <?php endif; ?>
                                 <p class="mt-2 mb-0">
-                                   <a href="../<?php echo htmlspecialchars($proof_file); ?>" target="_blank" rel="noopener noreferrer">
+                                   <a href="<?php echo htmlspecialchars($proof_file_url); ?>" target="_blank" rel="noopener noreferrer">
                                         <i class="fas fa-paperclip"></i> View proof file
                                     </a>
                                 </p>
