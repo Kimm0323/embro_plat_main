@@ -41,7 +41,6 @@ function proof_file_url(?string $proof_file): ?string {
     return '../assets/uploads/designs/' . $normalized;
 }
 
-
 function notify_shop_staff(PDO $pdo, int $shop_id, int $order_id, string $type, string $message): void {
     $staff_stmt = $pdo->prepare("SELECT user_id FROM shop_staffs WHERE shop_id = ? AND status = 'active'");
     $staff_stmt->execute([$shop_id]);

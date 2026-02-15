@@ -95,8 +95,29 @@ if(isset($_POST['upload_proof'])) {
         $design_file = sanitize($_POST['design_file'] ?? '');
         $provider_notes = sanitize($_POST['provider_notes'] ?? '');
 
+        if($design_file === '' && isset($_FILES['proof_file']) && $_FILES['proof_file']['error'] !== UPLOAD_ERR_NO_FILE) {
+            if($_FILES['proof_file']['error'] !== UPLOAD_ERR_OK) {
+                $error = 'Please upload a valid proof image file.';
+            } else {
+                $upload = save_uploaded_media(
+                    $_FILES['proof_file'],
+                    ALLOWED_IMAGE_TYPES,
+                    MAX_FILE_SIZE,
+                    '',
+                    'design-proof'
+                );
+
+                if(!$upload['success']) {
+                    $error = $upload['error'];
+                } else {
+                    $design_file = 'assets/uploads/' . $upload['path'];
+                }
+            }
+        }
+
         $order_info = fetch_order_info($pdo, $staff_id, $order_id);
-        if(!$order_info) {
+         if(isset($error)) {
+        } elseif(!$order_info) {
             $error = "Unable to upload proof for this order.";
         } elseif($design_file === '') {
             $error = "Please upload a proof file before submitting.";
