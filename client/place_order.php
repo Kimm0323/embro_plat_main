@@ -291,10 +291,23 @@ usort($shops, function($a, $b) {
     return $b['ranking_score'] <=> $a['ranking_score'];
 });
 $preselected_shop_id = (int) ($_GET['shop_id'] ?? 0);
+$preselected_portfolio_id = (int) ($_GET['portfolio_id'] ?? 0);
+$preselected_portfolio = null;
+if ($preselected_shop_id > 0 && $preselected_portfolio_id > 0) {
+    $portfolio_preselect_stmt = $pdo->prepare("
+        SELECT id, shop_id, title, description
+        FROM shop_portfolio
+        WHERE id = ? AND shop_id = ?
+        LIMIT 1
+    ");
+    $portfolio_preselect_stmt->execute([$preselected_portfolio_id, $preselected_shop_id]);
+    $preselected_portfolio = $portfolio_preselect_stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+}
 
 // Place order
 if(isset($_POST['place_order'])) {
     $shop_id = (int) ($_POST['shop_id'] ?? 0);
+     $selected_portfolio_id = (int) ($_POST['selected_portfolio_id'] ?? 0);
     $service_type = sanitize($_POST['service_type'] ?? '');
     $custom_service = sanitize($_POST['custom_service'] ?? '');
     $design_description = '';
@@ -363,6 +376,24 @@ if(isset($_POST['place_order'])) {
 
         if (!$service_type) {
             throw new RuntimeException('Please select a service type.');
+        }
+
+        if ($selected_portfolio_id > 0) {
+            $selected_portfolio_stmt = $pdo->prepare("
+                SELECT title, description
+                FROM shop_portfolio
+                WHERE id = ? AND shop_id = ?
+                LIMIT 1
+            ");
+            $selected_portfolio_stmt->execute([$selected_portfolio_id, $shop_id]);
+            $selected_portfolio = $selected_portfolio_stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$selected_portfolio) {
+                throw new RuntimeException('Selected posted work is no longer available for this shop.');
+            }
+            $design_description = 'Selected posted work: ' . $selected_portfolio['title'];
+            if (!empty($selected_portfolio['description'])) {
+                $design_description .= ' - ' . $selected_portfolio['description'];
+            }
         }
 
         if (!$is_custom_allowed && !in_array($service_type, $enabled_services, true)) {
@@ -699,6 +730,12 @@ if(isset($_POST['place_order'])) {
         </form>
          <form method="POST" id="orderForm">
             <?php echo csrf_field(); ?>
+             <input type="hidden" name="selected_portfolio_id" id="selectedPortfolioId" value="<?php echo $preselected_portfolio ? (int) $preselected_portfolio['id'] : 0; ?>">
+            <?php if ($preselected_portfolio): ?>
+                <div class="alert alert-info mb-3" id="selectedPostBanner" data-title="<?php echo htmlspecialchars($preselected_portfolio['title']); ?>">
+                    <strong>Selected posted work:</strong> <?php echo htmlspecialchars($preselected_portfolio['title']); ?>
+                </div>
+            <?php endif; ?>
             <!-- Step 1: Select Shop -->
             <div class="card mb-4">
                 <h3>Step 1: Select Service Provider</h3>
@@ -1210,8 +1247,12 @@ if(isset($_POST['place_order'])) {
             const shopNameElement = selectedCard ? selectedCard.querySelector('h5') : null;
             const shopName = shopNameElement ? shopNameElement.textContent.trim() : 'Selected shop';
             const orderText = selectedService || document.querySelector('input[name="custom_service"]').value.trim() || 'No order selected yet';
+            const selectedPostBanner = document.getElementById('selectedPostBanner');
+            const selectedPostTitle = selectedPostBanner ? selectedPostBanner.dataset.title : '';
 
-            summary.textContent = `Shop: ${shopName} • Order: ${orderText}`;
+            summary.textContent = selectedPostTitle
+                ? `Shop: ${shopName} • Order: ${orderText} • Post: ${selectedPostTitle}`
+                : `Shop: ${shopName} • Order: ${orderText}`;
         }
 
         function showOnlySelectedShop(selectedShopId) {

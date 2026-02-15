@@ -31,7 +31,7 @@ if ($shop_id > 0) {
             $formatted_closing_time = $closing_dt->format('g:i A');
         }
         $portfolio_stmt = $pdo->prepare("
-            SELECT title, description, price, image_path, created_at
+            SELECT id, title, description, price, image_path, created_at
             FROM shop_portfolio
             WHERE shop_id = ?
             ORDER BY created_at DESC
@@ -236,7 +236,7 @@ if ($shop_id > 0) {
                                         <a href="../assets/uploads/<?php echo htmlspecialchars($item['image_path']); ?>" target="_blank" rel="noopener" class="btn btn-outline btn-sm">
                                             <i class="fas fa-eye"></i> View
                                         </a>
-                                        <a href="place_order.php?shop_id=<?php echo (int) $shop['id']; ?>" class="btn btn-primary btn-sm">
+                                        <a href="place_order.php?shop_id=<?php echo (int) $shop['id']; ?>&portfolio_id=<?php echo (int) $item['id']; ?>" class="btn btn-primary btn-sm">
                                             <i class="fas fa-cart-plus"></i> Order
                                         </a>
                                     </div>
