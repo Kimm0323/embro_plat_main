@@ -2,6 +2,7 @@
 session_start();
 require_once '../config/db.php';
 require_once '../config/constants.php';
+require_once '../includes/media_manager.php';
 require_role(['staff','employee']);
 
 $staff_id = $_SESSION['user']['id'];
@@ -21,7 +22,13 @@ if(!$staff) {
 }
 
 $staff_permissions = fetch_staff_permissions($pdo, $staff_id);
-require_staff_permission($pdo, $staff_id, 'update_status');
+$can_update_status = !empty($staff_permissions['update_status']);
+$can_upload_photos = !empty($staff_permissions['upload_photos']);
+
+if(!$can_update_status && !$can_upload_photos) {
+    http_response_code(403);
+    die('You do not have access to job status updates or photo uploads.');
+}
 
 // Get assigned jobs
 $jobs_stmt = $pdo->prepare("
@@ -81,16 +88,19 @@ if(!empty($jobs)) {
 
 // Update status
 if(isset($_POST['upload_proof'])) {
-    $order_id = (int) ($_POST['order_id'] ?? 0);
-    $design_file = sanitize($_POST['design_file'] ?? '');
-    $provider_notes = sanitize($_POST['provider_notes'] ?? '');
-
-    $order_info = fetch_order_info($pdo, $staff_id, $order_id);
-    if(!$order_info) {
-        $error = "Unable to upload proof for this order.";
-    } elseif($design_file === '') {
-        $error = "Please upload a proof file before submitting.";
+     if(!$can_update_status) {
+        $error = 'You do not have permission to upload design proofs.';
     } else {
+        $order_id = (int) ($_POST['order_id'] ?? 0);
+        $design_file = sanitize($_POST['design_file'] ?? '');
+        $provider_notes = sanitize($_POST['provider_notes'] ?? '');
+
+        $order_info = fetch_order_info($pdo, $staff_id, $order_id);
+        if(!$order_info) {
+            $error = "Unable to upload proof for this order.";
+        } elseif($design_file === '') {
+            $error = "Please upload a proof file before submitting.";
+        } else {
         $provider_stmt = $pdo->prepare("
             SELECT sp.id
             FROM shops s
@@ -101,9 +111,9 @@ if(isset($_POST['upload_proof'])) {
         $provider_stmt->execute([$staff['shop_id']]);
         $service_provider_id = $provider_stmt->fetchColumn();
 
-        if(!$service_provider_id) {
-            $error = "Unable to locate the shop's service provider profile.";
-        } else {
+         if(!$service_provider_id) {
+                $error = "Unable to locate the shop's service provider profile.";
+            } else {
             $existing_stmt = $pdo->prepare("SELECT id FROM design_approvals WHERE order_id = ? LIMIT 1");
             $existing_stmt->execute([$order_id]);
             $approval_id = $existing_stmt->fetchColumn();
@@ -139,28 +149,32 @@ if(isset($_POST['upload_proof'])) {
                 create_notification($pdo, (int) $order_info['owner_id'], $order_id, 'info', $message);
             }
 
-            $success = 'Proof uploaded and sent to the client for approval.';
+             $success = 'Proof uploaded and sent to the client for approval.';
+            }
         }
     }
 }
 
 if(isset($_POST['escalate_issue'])) {
-    $order_id = (int) ($_POST['order_id'] ?? 0);
-    $escalation_type = $_POST['escalate_issue'] ?? '';
-    $escalation_note = sanitize($_POST['escalation_note'] ?? '');
-    $valid_escalations = [
-        'needs_clarification' => 'Needs clarification',
-        'blocked' => 'Blocked',
-    ];
-    $order_info = fetch_order_info($pdo, $staff_id, $order_id);
-
-    if(!$order_info) {
-        $error = "Unable to escalate this order.";
-    } elseif(!array_key_exists($escalation_type, $valid_escalations)) {
-        $error = "Invalid escalation option.";
-    } elseif($escalation_note === '') {
-        $error = "Please add details before escalating.";
+    if(!$can_update_status) {
+        $error = 'You do not have permission to escalate issues.';
     } else {
+         $order_id = (int) ($_POST['order_id'] ?? 0);
+        $escalation_type = $_POST['escalate_issue'] ?? '';
+        $escalation_note = sanitize($_POST['escalation_note'] ?? '');
+        $valid_escalations = [
+            'needs_clarification' => 'Needs clarification',
+            'blocked' => 'Blocked',
+        ];
+        $order_info = fetch_order_info($pdo, $staff_id, $order_id);
+
+        if(!$order_info) {
+            $error = "Unable to escalate this order.";
+        } elseif(!array_key_exists($escalation_type, $valid_escalations)) {
+            $error = "Invalid escalation option.";
+        } elseif($escalation_note === '') {
+            $error = "Please add details before escalating.";
+        } else {
         $label = $valid_escalations[$escalation_type];
         $note = sprintf('[%s] %s', $label, $escalation_note);
         $update_stmt = $pdo->prepare("
@@ -184,11 +198,56 @@ if(isset($_POST['escalate_issue'])) {
             create_notification($pdo, (int) $order_info['client_id'], (int) $order_id, 'warning', $message);
         }
 
-        $success = $label . " request sent successfully.";
+         $success = $label . " request sent successfully.";
+        }
+    }
+}
+
+if(isset($_POST['upload_photo'])) {
+    if(!$can_upload_photos) {
+        $error = 'You do not have permission to upload photos.';
+    } else {
+        $order_id = (int) ($_POST['order_id'] ?? 0);
+        $caption = sanitize($_POST['caption'] ?? '');
+        $order_info = fetch_order_info($pdo, $staff_id, $order_id);
+
+        if(!$order_info) {
+            $error = 'Please select a valid job.';
+        } elseif(!isset($_FILES['photo']) || $_FILES['photo']['error'] !== UPLOAD_ERR_OK) {
+            $error = 'Please upload a valid image file.';
+        } else {
+            $upload = save_uploaded_media(
+                $_FILES['photo'],
+                ALLOWED_IMAGE_TYPES,
+                MAX_FILE_SIZE,
+                'job_photos',
+                'job',
+                $order_id . '_' . $staff_id
+            );
+
+            if(!$upload['success']) {
+                $error = $upload['error'] === 'File size exceeds the limit.'
+                    ? 'File size exceeds the 5MB limit.'
+                    : 'Only JPG, JPEG, PNG, and GIF files are allowed.';
+            } else {
+                $photo_path = media_public_path('job_photos', $upload['filename']);
+                $photo_stmt = $pdo->prepare('
+                    INSERT INTO order_photos (order_id, staff_id, photo_url, caption)
+                    VALUES (?, ?, ?, ?)
+                ');
+                $photo_stmt->execute([$order_id, $staff_id, $photo_path, $caption]);
+                $photo_counts[$order_id] = ($photo_counts[$order_id] ?? 0) + 1;
+                cleanup_media($pdo);
+                $success = 'Photo uploaded successfully! You can now update the job status.';
+            }
+        }
     }
 }
 
 if(isset($_POST['update_status'])) {
+    if(!$can_update_status) {
+        $error = 'You do not have permission to update job status.';
+    } else {
     $order_id = (int) ($_POST['order_id'] ?? 0);
     $progress = (int) ($_POST['progress'] ?? 0);
     $status = $_POST['status'] ?? '';
@@ -291,6 +350,7 @@ if(isset($_POST['update_status'])) {
                 ]
             );
         }
+    }
     }
 }
 ?>
@@ -419,11 +479,8 @@ if(isset($_POST['update_status'])) {
                     <li><a href="assigned_jobs.php" class="nav-link">My Jobs</a></li>
                     <li><a href="schedule.php" class="nav-link">Schedule</a></li>
                 <?php endif; ?>
-                <?php if(!empty($staff_permissions['update_status'])): ?>
-                    <li><a href="update_status.php" class="nav-link active">Update Status</a></li>
-                <?php endif; ?>
-                <?php if(!empty($staff_permissions['upload_photos'])): ?>
-                    <li><a href="upload_photos.php" class="nav-link">Upload Photos</a></li>
+                <?php if($can_update_status || $can_upload_photos): ?>
+                    <li><a href="update_status.php" class="nav-link active">Job Updates</a></li>
                 <?php endif; ?>
                 <li><a href="../auth/logout.php" class="nav-link">Logout</a></li>
             </ul>
@@ -496,6 +553,31 @@ if(isset($_POST['update_status'])) {
                     </div>
                 </div>
 
+                <?php if($can_upload_photos): ?>
+                    <form method="POST" enctype="multipart/form-data" class="photo-upload">
+                        <?php echo csrf_field(); ?>
+                        <input type="hidden" name="order_id" value="<?php echo $job['id']; ?>">
+                        <div class="section-header">Progress Photos</div>
+                        <div class="form-group">
+                            <label>Upload Photo</label>
+                            <input type="file" name="photo" class="form-control" accept="image/*" required>
+                            <small class="text-muted">Max 5MB, JPG/PNG/GIF.</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Caption (Optional)</label>
+                            <textarea name="caption" class="form-control" rows="2" placeholder="Add a short update..."></textarea>
+                        </div>
+                        <div class="d-flex justify-between align-center">
+                            <small class="text-muted">Uploaded photos for this job: <?php echo (int) ($photo_counts[$job['id']] ?? 0); ?></small>
+                            <button type="submit" name="upload_photo" class="btn btn-outline-primary">
+                                <i class="fas fa-camera"></i> Upload Photo
+                            </button>
+                        </div>
+                    </form>
+                <?php endif; ?>
+
+                <?php if($can_update_status): ?>
+
                 <form method="POST">
                     <?php echo csrf_field(); ?>
                     <input type="hidden" name="order_id" value="<?php echo $job['id']; ?>">
@@ -559,7 +641,6 @@ if(isset($_POST['update_status'])) {
                     <?php if(!$has_photo): ?>
                         <div class="alert alert-warning">
                             Please upload a progress photo before updating this job.
-                            <a href="upload_photos.php">Upload a photo</a>.
                         </div>
                     <?php endif; ?>
 
@@ -610,6 +691,7 @@ if(isset($_POST['update_status'])) {
                         </div>
                     </div>
                 </form>
+                <?php endif; ?>
             </div>
             <?php endforeach; ?>
         <?php else: ?>
