@@ -40,20 +40,6 @@ $default_pricing_settings = [
 $search_term = sanitize($_GET['search'] ?? '');
 $service_filter = sanitize($_GET['service'] ?? '');
 $open_filter = sanitize($_GET['open'] ?? '');
-$prefill_design_version_id = (int) ($_GET['design_version_id'] ?? 0);
-
-function validate_design_description(string $description): string {
-    $trimmed = trim($description);
-    $length = mb_strlen($trimmed);
-    if ($length < 30) {
-        return 'Design description must be at least 30 characters and include placement, size, and color details.';
-    }
-    if ($length > 1000) {
-        return 'Design description cannot exceed 1000 characters.';
-    }
-
-    return '';
-}
 
 function resolve_pricing_settings(array $shop, array $defaults): array {
     if (!empty($shop['pricing_settings'])) {
@@ -304,16 +290,6 @@ usort($shops, function($a, $b) {
     }
     return $b['ranking_score'] <=> $a['ranking_score'];
 });
-$max_upload_mb = (int) ceil(MAX_FILE_SIZE / (1024 * 1024));
-$design_versions_stmt = $pdo->prepare("
-    SELECT dv.id, dv.version_no, dv.preview_file, dv.created_at, dp.title AS project_title
-    FROM design_versions dv
-    INNER JOIN design_projects dp ON dp.id = dv.project_id
-    WHERE dp.client_id = ?
-    ORDER BY dv.created_at DESC
-");
-$design_versions_stmt->execute([$client_id]);
-$design_versions = $design_versions_stmt->fetchAll();
 $preselected_shop_id = (int) ($_GET['shop_id'] ?? 0);
 
 // Place order
@@ -321,11 +297,10 @@ if(isset($_POST['place_order'])) {
     $shop_id = (int) ($_POST['shop_id'] ?? 0);
     $service_type = sanitize($_POST['service_type'] ?? '');
     $custom_service = sanitize($_POST['custom_service'] ?? '');
-    $design_description = sanitize($_POST['design_description'] ?? '');
+    $design_description = '';
     $quantity = (int) ($_POST['quantity'] ?? 0);
     $client_notes = sanitize($_POST['client_notes'] ?? '');
-    $complexity_level = sanitize($_POST['complexity_level'] ?? 'Standard');
-    $design_version_id = (int) ($_POST['design_version_id'] ?? 0);
+    $complexity_level = 'Standard';
     $requested_add_ons = $_POST['add_ons'] ?? [];
      $tshirt_fields = [
         'shirt_type' => sanitize($_POST['shirt_type'] ?? ''),
@@ -398,29 +373,6 @@ if(isset($_POST['place_order'])) {
             throw new RuntimeException('Quantity must be between 1 and 1000.');
         }
 
-        $design_error = validate_design_description($design_description);
-        if ($design_error !== '') {
-            throw new RuntimeException($design_error);
-        }
-
-        $design_version = null;
-        if ($design_version_id > 0) {
-            if (isset($_FILES['design_file']) && $_FILES['design_file']['error'] !== UPLOAD_ERR_NO_FILE) {
-                throw new RuntimeException('Please choose either a saved design version or upload a file, not both.');
-            }
-            $design_version_stmt = $pdo->prepare("
-                SELECT dv.id, dv.preview_file
-                FROM design_versions dv
-                INNER JOIN design_projects dp ON dv.project_id = dp.id
-                WHERE dv.id = ? AND dp.client_id = ?
-            ");
-            $design_version_stmt->execute([$design_version_id, $client_id]);
-            $design_version = $design_version_stmt->fetch();
-            if (!$design_version) {
-                throw new RuntimeException('Selected design version is not available.');
-            }
-        }
-
         if (!is_shop_open($shop_policy)) {
             throw new RuntimeException('Selected shop is currently closed and cannot accept new orders.');
         }
@@ -460,7 +412,7 @@ if(isset($_POST['place_order'])) {
             'estimated_total' => round($estimated_total, 2),
         ];
         $quote_details_json = json_encode($quote_details);
-        $design_file = $design_version['preview_file'] ?? null;
+        $design_file = null;
 
         // Start transaction
         $pdo->beginTransaction();
@@ -482,32 +434,10 @@ if(isset($_POST['place_order'])) {
             $client_notes,
             $quote_details_json,
             $design_file,
-            $design_version_id > 0 ? $design_version_id : null
+            null
         ]);
         
         $order_id = $pdo->lastInsertId();
-        
-        // Handle file upload
-        if ($design_version_id <= 0 && isset($_FILES['design_file']) && $_FILES['design_file']['error'] !== UPLOAD_ERR_NO_FILE) {
-            $file = $_FILES['design_file'];
-            $allowed_extensions = array_merge(ALLOWED_IMAGE_TYPES, ALLOWED_DOC_TYPES);
-$upload = save_uploaded_media(
-                $file,
-                $allowed_extensions,
-                MAX_FILE_SIZE,
-                'designs',
-                'design',
-                (string) $order_id
-            );
-            if (!$upload['success']) {
-                throw new RuntimeException($upload['error'] === 'File size exceeds the limit.'
-                    ? 'Design file size exceeds the ' . $max_upload_mb . 'MB limit.'
-                    : 'Design file must be a JPG, PNG, GIF, PDF, DOC, or DOCX file.');
-            }
-
-            $update_stmt = $pdo->prepare("UPDATE orders SET design_file = ? WHERE id = ?");
-            $update_stmt->execute([$upload['filename'], $order_id]);
-        }
         
         // Update shop statistics
         $shop_stmt = $pdo->prepare("UPDATE shops SET total_orders = total_orders + 1 WHERE id = ?");
@@ -767,7 +697,7 @@ $upload = save_uploaded_media(
                 </div>
             </div>
         </form>
-        <form method="POST" enctype="multipart/form-data" id="orderForm">
+         <form method="POST" id="orderForm">
             <?php echo csrf_field(); ?>
             <!-- Step 1: Select Shop -->
             <div class="card mb-4">
@@ -890,21 +820,6 @@ $upload = save_uploaded_media(
                 <h3>Step 3: Quote Preferences</h3>
                 <p class="text-muted">Help the shop prepare a structured quote. Final pricing will be confirmed by the shop.</p>
                 <div class="row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
-                    <div class="form-group">
-                        <label>Complexity Level</label>
-                        <select name="complexity_level" class="form-control" id="complexitySelect">
-                              <option value="Simple">
-                                Simple (x<?php echo number_format((float) ($default_pricing_settings['complexity_multipliers']['Simple'] ?? 1), 2); ?>)
-                            </option>
-                            <option value="Standard" selected>
-                                Standard (x<?php echo number_format((float) ($default_pricing_settings['complexity_multipliers']['Standard'] ?? 1), 2); ?>)
-                            </option>
-                            <option value="Complex">
-                                Complex (x<?php echo number_format((float) ($default_pricing_settings['complexity_multipliers']['Complex'] ?? 1), 2); ?>)
-                            </option>
-                        </select>
-                        <small class="text-muted" id="complexityHint">Select a shop to view multipliers.</small>
-                    </div>
                     <div class="form-group">
                         <label>Rush Service</label>
                         <div class="d-flex align-center" style="gap: 8px;">
@@ -1153,37 +1068,6 @@ $upload = save_uploaded_media(
                         <input type="hidden" name="bag_thread_colors" id="bagThreadColorsInput" value="">
                     </div>
                 </div>
-                <div class="form-group">
-                    <label>Design Description *</label>
-                    <textarea name="design_description" class="form-control" rows="4" required
-                              placeholder="Placement: (e.g., left chest)&#10;Size: (e.g., 3in x 2in)&#10;Colors/Thread: (e.g., navy + white)&#10;Fabric/Item: (e.g., cotton polo)&#10;Notes: (optional)"></textarea>
-                    <small class="text-muted">Provide at least 30 characters with placement, size, and color details for consistent quoting.</small>
-                </div>
-                
-                <div class="form-group">
-                    <label>Saved Design Version (Optional)</label>
-                    <select name="design_version_id" class="form-control" id="designVersionSelect">
-                        <option value="0">Select a saved design version</option>
-                        <?php foreach ($design_versions as $version): ?>
-                            <option value="<?php echo (int) $version['id']; ?>" <?php echo $prefill_design_version_id === (int) $version['id'] ? 'selected' : ''; ?>>
-                                <?php
-                                    $title = $version['project_title'] ? $version['project_title'] : 'Design';
-                                    $version_label = 'v' . (int) $version['version_no'];
-                                    $date_label = date('M d, Y', strtotime($version['created_at']));
-                                    echo htmlspecialchars($title . ' · ' . $version_label . ' · ' . $date_label);
-                                ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <small class="text-muted">Choose a saved design version or upload a new file below.</small>
-                </div>
-                
-                <div class="form-group">
-                    <label>Upload Design File (Optional)</label>
-                    <input type="file" name="design_file" class="form-control" accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx">
-                    <small class="text-muted">Accepted formats: JPG, PNG, GIF, PDF, DOC, DOCX (Max <?php echo $max_upload_mb; ?>MB)</small>
-                </div>
-                
                 <div class="row" style="display: flex; gap: 15px;">
                     <div class="form-group" style="flex: 1;">
                         <label>Quantity *</label>
@@ -1206,7 +1090,7 @@ $upload = save_uploaded_media(
                     <h6><i class="fas fa-info-circle"></i> Important Notes:</h6>
                     <ul class="mb-0">
                         <li>Shop owner will set the estimated price after reviewing your order</li>
-                        <li>The quote will follow the complexity, add-ons, and rush preferences you selected</li>
+                        <li>The quote will follow the add-ons and rush preferences you selected</li>
                         <li>You'll receive a confirmation email</li>
                         <li>Shop owner may contact you for clarifications</li>
                         <li>Payment details will be provided after order acceptance</li>
@@ -1298,8 +1182,7 @@ $upload = save_uploaded_media(
             const addOns = Array.from(document.querySelectorAll('input[name="add_ons[]"]:checked'))
                 .map((input) => input.value);
             const addOnTotal = addOns.reduce((sum, addon) => sum + (pricingState.add_ons[addon] || 0), 0);
-            const complexity = document.getElementById('complexitySelect').value;
-            const complexityMultiplier = pricingState.complexity_multipliers[complexity] ?? 1;
+            const complexityMultiplier = pricingState.complexity_multipliers.Standard ?? 1.15;
             const rushRequested = document.getElementById('rushService').checked;
             const rushMultiplier = rushRequested ? 1 + (pricingState.rush_fee_percent / 100) : 1;
 
@@ -1335,14 +1218,6 @@ $upload = save_uploaded_media(
             });
         }
 
-        function updateComplexityOptions(multipliers) {
-            const complexitySelect = document.getElementById('complexitySelect');
-            Array.from(complexitySelect.options).forEach(option => {
-                const multiplier = multipliers[option.value];
-                option.textContent = multiplier ? `${option.value} (x${Number(multiplier).toFixed(2)})` : option.value;
-            });
-        }
-
         function setPricingState(pricing) {
             pricingState.base_prices = pricing.base_prices || {};
             pricingState.add_ons = pricing.add_ons || {};
@@ -1350,9 +1225,6 @@ $upload = save_uploaded_media(
             pricingState.rush_fee_percent = Number(pricing.rush_fee_percent || 0);
 
             renderAddOns(pricingState.add_ons);
-            updateComplexityOptions(pricingState.complexity_multipliers);
-
-            document.getElementById('complexityHint').textContent = 'Multipliers shown for this shop.';
             document.getElementById('rushHint').textContent = pricingState.rush_fee_percent
                 ? `Rush fee: +${pricingState.rush_fee_percent}%`
                 : 'Rush service is not configured.';
@@ -1454,7 +1326,6 @@ $upload = save_uploaded_media(
                 selectShop(preselectedShopId);
             }
         }
-        document.getElementById('complexitySelect').addEventListener('change', updateQuoteEstimate);
         document.getElementById('rushService').addEventListener('change', updateQuoteEstimate);
         document.querySelector('input[name="quantity"]').addEventListener('input', updateQuoteEstimate);
         toggleDetailSelections();
