@@ -341,12 +341,18 @@ if(isset($_POST['place_order'])) {
         'logo_digitizing' => sanitize($_POST['logo_digitizing'] ?? ''),
     ];
 
-     $cap_fields = [
+    $cap_fields = [
         'cap_type' => sanitize($_POST['cap_type'] ?? ''),
         'cap_embroidery_placement' => sanitize($_POST['cap_embroidery_placement'] ?? ''),
         'cap_embroidery_size' => sanitize($_POST['cap_embroidery_size'] ?? ''),
         'cap_embroidery_style' => sanitize($_POST['cap_embroidery_style'] ?? ''),
         'cap_thread_colors' => sanitize($_POST['cap_thread_colors'] ?? ''),
+    ];
+    $bag_fields = [
+        'bag_embroidery_placement' => sanitize($_POST['bag_embroidery_placement'] ?? ''),
+        'bag_embroidery_size' => sanitize($_POST['bag_embroidery_size'] ?? ''),
+        'bag_embroidery_style' => sanitize($_POST['bag_embroidery_style'] ?? ''),
+        'bag_thread_colors' => sanitize($_POST['bag_thread_colors'] ?? ''),
     ];
     if (!is_array($requested_add_ons)) {
         $requested_add_ons = [];
@@ -443,6 +449,7 @@ if(isset($_POST['place_order'])) {
             'tshirt_details' => $service_type === 'T-shirt Embroidery' ? $tshirt_fields : new stdClass(),
             'logo_details' => $service_type === 'Logo Embroidery' ? $logo_fields : new stdClass(),
             'cap_details' => $service_type === 'Cap Embroidery' ? $cap_fields : new stdClass(),
+            'bag_details' => $service_type === 'Bag Embroidery' ? $bag_fields : new stdClass(),
             'breakdown' => [
                 'base_price' => round($base_price, 2),
                 'add_on_total' => round($add_on_total, 2),
@@ -1093,6 +1100,59 @@ $upload = save_uploaded_media(
                         <input type="hidden" name="cap_thread_colors" id="capThreadColorsInput" value="">
                     </div>
                 </div>
+                <div id="bagDetailSelections" class="form-group" style="display: none; margin-top: 16px;">
+                    <label>Bag Embroidery Preferences</label>
+                    <p class="text-muted small">Choose bag details for clearer embroidery instructions.</p>
+
+                    <div class="selection-group">
+                        <span class="selection-label">Embroidery Placement</span>
+                        <div class="selection-buttons" data-target-input="bagEmbroideryPlacementInput">
+                            <button type="button" class="selection-btn" data-value="Upper Left">Upper Left</button>
+                            <button type="button" class="selection-btn" data-value="Upper Right">Upper Right</button>
+                            <button type="button" class="selection-btn" data-value="Center">Center</button>
+                            <button type="button" class="selection-btn" data-value="Lower Left">Lower Left</button>
+                            <button type="button" class="selection-btn" data-value="Lower Right">Lower Right</button>
+                        </div>
+                        <input type="hidden" name="bag_embroidery_placement" id="bagEmbroideryPlacementInput" value="">
+                    </div>
+
+                    <div class="selection-group">
+                        <span class="selection-label">Embroidery Size</span>
+                        <div class="selection-buttons" data-target-input="bagEmbroiderySizeInput">
+                            <button type="button" class="selection-btn" data-value="5x3 cm">5x3 cm</button>
+                            <button type="button" class="selection-btn" data-value="5x5 cm">5x5 cm</button>
+                            <button type="button" class="selection-btn" data-value="8x3 cm">8x3 cm</button>
+                            <button type="button" class="selection-btn" data-value="8x5 cm">8x5 cm</button>
+                        </div>
+                        <input type="hidden" name="bag_embroidery_size" id="bagEmbroiderySizeInput" value="">
+                    </div>
+
+                    <div class="selection-group">
+                        <span class="selection-label">Embroidery Style</span>
+                        <div class="selection-buttons" data-target-input="bagEmbroideryStyleInput">
+                            <button type="button" class="selection-btn" data-value="Block Stitch">Block Stitch</button>
+                            <button type="button" class="selection-btn" data-value="Script Stitch">Script Stitch</button>
+                            <button type="button" class="selection-btn" data-value="Satin Stitch">Satin Stitch</button>
+                            <button type="button" class="selection-btn" data-value="Cursiv Stitch">Cursiv Stitch</button>
+                            <button type="button" class="selection-btn" data-value="Serif Stitch">Serif Stitch</button>
+                            <button type="button" class="selection-btn" data-value="Gothic Stitch">Gothic Stitch</button>
+                        </div>
+                        <input type="hidden" name="bag_embroidery_style" id="bagEmbroideryStyleInput" value="">
+                    </div>
+
+                    <div class="selection-group mb-0">
+                        <span class="selection-label">Thread Colors</span>
+                        <div class="selection-buttons" data-target-input="bagThreadColorsInput">
+                            <button type="button" class="selection-btn" data-value="Black">Black</button>
+                            <button type="button" class="selection-btn" data-value="White">White</button>
+                            <button type="button" class="selection-btn" data-value="Red">Red</button>
+                            <button type="button" class="selection-btn" data-value="Blue">Blue</button>
+                            <button type="button" class="selection-btn" data-value="Gold">Gold</button>
+                            <button type="button" class="selection-btn" data-value="Custom">Custom</button>
+                        </div>
+                        <input type="hidden" name="bag_thread_colors" id="bagThreadColorsInput" value="">
+                    </div>
+                </div>
                 <div class="form-group">
                     <label>Design Description *</label>
                     <textarea name="design_description" class="form-control" rows="4" required
@@ -1199,14 +1259,17 @@ $upload = save_uploaded_media(
             const tshirtDetails = document.getElementById('tshirtDetailSelections');
             const logoDetails = document.getElementById('logoDetailSelections');
             const capDetails = document.getElementById('capDetailSelections');
+            const bagDetails = document.getElementById('bagDetailSelections');
             const selectedService = getSelectedService();
             const isTshirt = selectedService === 'T-shirt Embroidery';
             const isLogo = selectedService === 'Logo Embroidery';
             const isCap = selectedService === 'Cap Embroidery';
+            const isBag = selectedService === 'Bag Embroidery';
 
             tshirtDetails.style.display = isTshirt ? 'block' : 'none';
             logoDetails.style.display = isLogo ? 'block' : 'none';
             capDetails.style.display = isCap ? 'block' : 'none';
+            bagDetails.style.display = isBag ? 'block' : 'none';
 
             if (!isTshirt) {
                resetSelectionGroup(tshirtDetails);
@@ -1216,6 +1279,9 @@ $upload = save_uploaded_media(
             }
             if (!isCap) {
                 resetSelectionGroup(capDetails);
+            }
+            if (!isBag) {
+                resetSelectionGroup(bagDetails);
             }
         }
 
