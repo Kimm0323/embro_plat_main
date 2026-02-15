@@ -702,7 +702,11 @@ if(isset($_POST['place_order'])) {
             <!-- Step 1: Select Shop -->
             <div class="card mb-4">
                 <h3>Step 1: Select Service Provider</h3>
-                <div class="row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+                 <div class="d-flex justify-content-between align-items-center mb-2" style="gap: 12px; flex-wrap: wrap;">
+                    <small id="selectionSummary" class="text-muted">No shop and order selected yet.</small>
+                    <button type="button" id="changeShopBtn" class="btn btn-sm btn-outline-secondary" style="display: none;">Change shop</button>
+                </div>
+                <div class="row" id="shopGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
                     <?php if (empty($shops)): ?>
                         <div class="text-muted">No shops match the current filters. Try broadening your search.</div>
                     <?php endif; ?>
@@ -1192,6 +1196,46 @@ if(isset($_POST['place_order'])) {
             quoteEstimate.textContent = `${formatCurrency(unitEstimate)} per item • ${formatCurrency(totalEstimate)} total`;
         }
 
+        function updateSelectionSummary() {
+            const selectedShopRadio = document.querySelector('input[name="shop_id"]:checked');
+            const selectedService = getSelectedService();
+            const summary = document.getElementById('selectionSummary');
+
+            if (!selectedShopRadio) {
+                summary.textContent = 'No shop and order selected yet.';
+                return;
+            }
+
+            const selectedCard = selectedShopRadio.closest('.shop-card');
+            const shopNameElement = selectedCard ? selectedCard.querySelector('h5') : null;
+            const shopName = shopNameElement ? shopNameElement.textContent.trim() : 'Selected shop';
+            const orderText = selectedService || document.querySelector('input[name="custom_service"]').value.trim() || 'No order selected yet';
+
+            summary.textContent = `Shop: ${shopName} • Order: ${orderText}`;
+        }
+
+        function showOnlySelectedShop(selectedShopId) {
+            document.querySelectorAll('.shop-card').forEach(card => {
+                const isSelected = card.id === `shop-${selectedShopId}`;
+                card.style.display = isSelected ? '' : 'none';
+            });
+            const changeShopBtn = document.getElementById('changeShopBtn');
+            if (changeShopBtn) {
+                changeShopBtn.style.display = '';
+            }
+        }
+
+        function showAllShops() {
+            document.querySelectorAll('.shop-card').forEach(card => {
+                card.style.display = '';
+            });
+            const changeShopBtn = document.getElementById('changeShopBtn');
+            if (changeShopBtn) {
+                changeShopBtn.style.display = 'none';
+            }
+        }
+
+
         function renderAddOns(addOns) {
             const container = document.getElementById('addOnOptions');
             container.innerHTML = '';
@@ -1277,6 +1321,8 @@ if(isset($_POST['place_order'])) {
                 
             const pricing = JSON.parse(shopCard.dataset.pricing || '{}');
             setPricingState(pricing);
+            showOnlySelectedShop(shopId);
+            updateSelectionSummary();
         }
         
         // Service selection
@@ -1298,8 +1344,14 @@ if(isset($_POST['place_order'])) {
             
             // Update custom service field
             document.querySelector('input[name="custom_service"]').value = service;
-             toggleDetailSelections();
+            toggleDetailSelections();
             updateQuoteEstimate();
+            updateSelectionSummary();
+        }
+
+        const changeShopBtn = document.getElementById('changeShopBtn');
+        if (changeShopBtn) {
+            changeShopBtn.addEventListener('click', showAllShops);
         }
          document.querySelectorAll('.selection-buttons').forEach(group => {
             group.querySelectorAll('.selection-btn').forEach(button => {
@@ -1332,7 +1384,10 @@ if(isset($_POST['place_order'])) {
         document.querySelector('input[name="custom_service"]').addEventListener('input', () => {
             toggleDetailSelections();
             updateQuoteEstimate();
+            updateSelectionSummary();
         });
+
+        updateSelectionSummary();
     </script>
 </body>
 </html>
