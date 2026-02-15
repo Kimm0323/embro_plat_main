@@ -366,7 +366,7 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                 </div>
 
                 <div class="help-grid">
-                    <div class="help-item"><strong>Auto-save:</strong> Versions are stored locally every 45 seconds and whenever you manually save.</div>
+                    <div class="help-item"><strong>Auto-save:</strong> Versions are stored locally every 10 minutes and whenever you manually save.</div>
                     <div class="help-item"><strong>Boundary validation:</strong> The editor flags any elements outside the safe embroidery zone.</div>
                     <div class="help-item"><strong>Supported assets:</strong> PNG, JPG, and SVG logos plus editable text layers.</div>
                 </div>
@@ -1293,7 +1293,7 @@ setInterval(() => {
     }
     renderVersions();
     saveState();
-}, 45000);
+}, 600000);
 
 loadState();
 </script>
