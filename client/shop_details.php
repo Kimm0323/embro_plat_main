@@ -57,17 +57,31 @@ if ($shop_id > 0) {
             margin-top: 1.5rem;
         }
 
+        .portfolio-card {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius);
+            background: #fff;
+            overflow: hidden;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05);
+        }
+
         .portfolio-card img {
             width: 100%;
-            height: 180px;
+            height: 220px;
             object-fit: cover;
-            border-radius: var(--radius);
-            border: 1px solid var(--gray-200);
-            background: var(--gray-50);
+             border-radius: 0;
+            border: 0;
+            background: var(--gray-100);
+        }
+
+        .portfolio-card-body {
+            padding: 1rem;
         }
 
         .portfolio-card h4 {
-            margin: 0.85rem 0 0.35rem;
+            margin: 0 0 0.35rem;
         }
          .info-list {
             display: grid;
@@ -182,7 +196,7 @@ if ($shop_id > 0) {
                 </div>
             </div>
 
-            <div class="card mt-4"></div>
+             <div class="card mt-4">
                 <div class="card-header">
                     <h3><i class="fas fa-info-circle text-primary"></i> Shop Description</h3>
                 </div>
@@ -200,8 +214,10 @@ if ($shop_id > 0) {
                         <?php foreach ($portfolio_items as $item): ?>
                             <div class="portfolio-card">
                                 <img src="../assets/uploads/<?php echo htmlspecialchars($item['image_path']); ?>" alt="<?php echo htmlspecialchars($item['title']); ?>">
-                                <h4><?php echo htmlspecialchars($item['title']); ?></h4>
-                                <p class="text-muted mb-0"><?php echo nl2br(htmlspecialchars($item['description'] ?? '')); ?></p>
+                                 <div class="portfolio-card-body">
+                                    <h4><?php echo htmlspecialchars($item['title']); ?></h4>
+                                    <p class="text-muted mb-0"><?php echo nl2br(htmlspecialchars($item['description'] ?? '')); ?></p>
+                                </div>
                             </div>
                         <?php endforeach; ?>
                     </div>
