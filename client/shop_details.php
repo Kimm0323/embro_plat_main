@@ -31,7 +31,7 @@ if ($shop_id > 0) {
             $formatted_closing_time = $closing_dt->format('g:i A');
         }
         $portfolio_stmt = $pdo->prepare("
-            SELECT title, description, image_path, created_at
+            SELECT title, description, price, image_path, created_at
             FROM shop_portfolio
             WHERE shop_id = ?
             ORDER BY created_at DESC
@@ -228,6 +228,9 @@ if ($shop_id > 0) {
                                 <img src="../assets/uploads/<?php echo htmlspecialchars($item['image_path']); ?>" alt="<?php echo htmlspecialchars($item['title']); ?>">
                                  <div class="portfolio-card-body">
                                     <h4><?php echo htmlspecialchars($item['title']); ?></h4>
+                                     <?php if (isset($item['price'])): ?>
+                                        <p class="mb-1"><strong>Starting at ₱<?php echo number_format((float) $item['price'], 2); ?></strong></p>
+                                    <?php endif; ?>
                                     <p class="text-muted mb-0"><?php echo nl2br(htmlspecialchars($item['description'] ?? '')); ?></p>
                                      <div class="portfolio-actions">
                                         <a href="../assets/uploads/<?php echo htmlspecialchars($item['image_path']); ?>" target="_blank" rel="noopener" class="btn btn-outline btn-sm">

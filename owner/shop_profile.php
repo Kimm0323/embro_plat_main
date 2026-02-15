@@ -100,9 +100,13 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'add_portfolio') {
             $portfolio_title = sanitize($_POST['portfolio_title'] ?? '');
             $portfolio_description = sanitize($_POST['portfolio_description'] ?? '');
+             $portfolio_price = filter_var($_POST['portfolio_price'] ?? null, FILTER_VALIDATE_FLOAT);
 
         if ($portfolio_title === '') {
                 throw new RuntimeException('Portfolio title is required.');
+            }
+            if ($portfolio_price === false || $portfolio_price < 0) {
+                throw new RuntimeException('Please provide a valid portfolio price (0 or greater).');
             }
             if (empty($_FILES['portfolio_image']['name'])) {
                 throw new RuntimeException('Please upload a portfolio image.');
@@ -122,13 +126,14 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
         $insert_stmt = $pdo->prepare("
-               INSERT INTO shop_portfolio (shop_id, title, description, image_path)
-                VALUES (?, ?, ?, ?)
+               INSERT INTO shop_portfolio (shop_id, title, description, price, image_path)
+                VALUES (?, ?, ?, ?, ?)
             ");
             $insert_stmt->execute([
                 $shop['id'],
                 $portfolio_title,
                 $portfolio_description,
+                (float) $portfolio_price,
                 $upload_result['path'],
             ]);
 
@@ -487,6 +492,10 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label>Description</label>
                         <input type="text" name="portfolio_description" class="form-control" maxlength="255">
                     </div>
+                    <div class="form-group" style="flex: 1; min-width: 180px;">
+                        <label>Price *</label>
+                        <input type="number" name="portfolio_price" class="form-control" min="0" step="0.01" placeholder="0.00" required>
+                    </div>
                     <div class="form-group" style="flex: 1; min-width: 220px;">
                         <label>Upload Image *</label>
                         <input type="file" name="portfolio_image" class="form-control" accept=".jpg,.jpeg,.png,.webp" required>
@@ -505,6 +514,9 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="card" style="background: #f8fafc;">
                             <img src="../assets/uploads/<?php echo htmlspecialchars($item['image_path']); ?>" alt="<?php echo htmlspecialchars($item['title']); ?>" style="width: 100%; height: 160px; object-fit: cover; border-radius: 6px;">
                             <h5 class="mt-2 mb-1"><?php echo htmlspecialchars($item['title']); ?></h5>
+                             <?php if (isset($item['price'])): ?>
+                                <p class="mb-1"><strong>₱<?php echo number_format((float) $item['price'], 2); ?></strong></p>
+                            <?php endif; ?>
                             <?php if (!empty($item['description'])): ?>
                                 <p class="text-muted small mb-2"><?php echo htmlspecialchars($item['description']); ?></p>
                             <?php endif; ?>

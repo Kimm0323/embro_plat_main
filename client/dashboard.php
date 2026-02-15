@@ -74,7 +74,7 @@ $shops_stmt = $pdo->query("
 $featured_shops = $shops_stmt->fetchAll();
 
 $posts_stmt = $pdo->query("
-    SELECT sp.title, sp.description, sp.image_path, sp.created_at, s.id as shop_id, s.shop_name
+    SELECT sp.title, sp.description, sp.price, sp.image_path, sp.created_at, s.id as shop_id, s.shop_name
     FROM shop_portfolio sp
     JOIN shops s ON sp.shop_id = s.id
     WHERE s.status = 'active'
@@ -380,6 +380,9 @@ function client_status_badge($status) {
                                 <i class="fas fa-store"></i> <?php echo htmlspecialchars($post['shop_name']); ?>
                                 · <?php echo date('M d, Y', strtotime($post['created_at'])); ?>
                             </small>
+                             <?php if(isset($post['price'])): ?>
+                                <p class="mb-1"><strong>Starting at ₱<?php echo number_format((float) $post['price'], 2); ?></strong></p>
+                            <?php endif; ?>
                             <?php if(!empty($post['description'])): ?>
                                 <p class="text-muted mb-0"><?php echo nl2br(htmlspecialchars($post['description'])); ?></p>
                             <?php endif; ?>

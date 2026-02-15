@@ -903,6 +903,7 @@ CREATE TABLE `shop_portfolio` (
   `shop_id` int(11) NOT NULL,
   `title` varchar(150) NOT NULL,
   `description` varchar(255) DEFAULT NULL,
+  `price` decimal(10,2) NOT NULL DEFAULT 0.00,
   `image_path` varchar(255) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
