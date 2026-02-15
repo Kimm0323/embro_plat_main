@@ -183,6 +183,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <p class="pricing-helper mb-3">These values are used to build estimated quotes in <code>client/place_order.php</code>.</p>
 
                 <form method="POST" action="">
+                    <?php echo csrf_field(); ?>
                     <div class="pricing-card mb-3">
                         <h5>Base Prices (per unit)</h5>
                         <div class="pricing-grid">

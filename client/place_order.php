@@ -1400,8 +1400,8 @@ if(isset($_POST['place_order'])) {
                 radio.checked = true;
             }
             
-            // Update custom service field
-            document.querySelector('input[name="custom_service"]').value = service;
+             // Keep custom service input for true custom requests only
+            document.querySelector('input[name="custom_service"]').value = '';
             toggleDetailSelections();
             updateQuoteEstimate();
             updateSelectionSummary();
