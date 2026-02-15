@@ -100,6 +100,16 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'add_portfolio') {
             $portfolio_title = sanitize($_POST['portfolio_title'] ?? '');
             $portfolio_description = sanitize($_POST['portfolio_description'] ?? '');
+             $portfolio_price_input = trim((string) ($_POST['portfolio_price'] ?? ''));
+            $portfolio_price = null;
+
+            if ($portfolio_price_input !== '') {
+                if (!is_numeric($portfolio_price_input) || (float) $portfolio_price_input < 0) {
+                    throw new RuntimeException('Portfolio price must be a valid non-negative amount.');
+                }
+
+                $portfolio_price = round((float) $portfolio_price_input, 2);
+            }
 
         if ($portfolio_title === '') {
                 throw new RuntimeException('Portfolio title is required.');
@@ -122,14 +132,15 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
         $insert_stmt = $pdo->prepare("
-                INSERT INTO shop_portfolio (shop_id, title, description, image_path)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO shop_portfolio (shop_id, title, description, image_path, price)
+                VALUES (?, ?, ?, ?, ?)
             ");
             $insert_stmt->execute([
                 $shop['id'],
                 $portfolio_title,
                 $portfolio_description,
                 $upload_result['path'],
+                $portfolio_price,
             ]);
 
             $portfolio_stmt->execute([$shop['id']]);

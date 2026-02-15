@@ -317,6 +317,47 @@ function client_status_badge($status) {
          <div class="card">
             <div class="d-flex justify-between align-center">
                 <div>
+                    <h3>Shop List</h3>
+                    <p class="text-muted mb-0">Browse active embroidery shops ready for new orders.</p>
+                </div>
+                <a href="search_discovery.php" class="btn btn-outline-primary">View All Shops</a>
+            </div>
+            <?php if(!empty($featured_shops)): ?>
+                <div class="shop-list">
+                    <?php foreach($featured_shops as $shop): ?>
+                          <div class="shop-card" data-href="shop_details.php?shop_id=<?php echo (int) $shop['id']; ?>">
+                            <h4><?php echo htmlspecialchars($shop['shop_name']); ?></h4>
+                            <div class="shop-rating">
+                                <i class="fas fa-star text-warning"></i>
+                                <?php echo number_format((float) ($shop['rating'] ?? 0), 1); ?>/5
+                            </div>
+                            <?php if(!empty($shop['shop_description'])): ?>
+                                <p class="text-muted mb-0"><?php echo htmlspecialchars($shop['shop_description']); ?></p>
+                            <?php endif; ?>
+                            <div class="shop-meta">
+                                <?php if(!empty($shop['address'])): ?>
+                                    <span><i class="fas fa-location-dot"></i> <?php echo htmlspecialchars($shop['address']); ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <div class="shop-actions">
+                                <a href="shop_details.php?shop_id=<?php echo (int) $shop['id']; ?>" class="btn btn-outline btn-sm">
+                                    <i class="fas fa-store"></i> View
+                                </a>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php else: ?>
+                <div class="text-center p-4">
+                    <i class="fas fa-store fa-3x text-muted mb-3"></i>
+                    <h4>No Active Shops Yet</h4>
+                    <p class="text-muted">Please check back soon for available embroidery providers.</p>
+                </div>
+            <?php endif; ?>
+        </div>
+         <div class="card">
+            <div class="d-flex justify-between align-center">
+                <div>
                     <h3>Latest Shop Posts</h3>
                     <p class="text-muted mb-0">Recent updates and posted works from shop owners.</p>
                 </div>
@@ -355,47 +396,6 @@ function client_status_badge($status) {
                     <i class="fas fa-images fa-3x text-muted mb-3"></i>
                     <h4>No Posts Yet</h4>
                     <p class="text-muted">Shop owners have not posted any updates yet.</p>
-                </div>
-            <?php endif; ?>
-        </div>
-         <div class="card">
-            <div class="d-flex justify-between align-center">
-                <div>
-                    <h3>Shop List</h3>
-                    <p class="text-muted mb-0">Browse active embroidery shops ready for new orders.</p>
-                </div>
-                <a href="search_discovery.php" class="btn btn-outline-primary">View All Shops</a>
-            </div>
-            <?php if(!empty($featured_shops)): ?>
-                <div class="shop-list">
-                    <?php foreach($featured_shops as $shop): ?>
-                          <div class="shop-card" data-href="shop_details.php?shop_id=<?php echo (int) $shop['id']; ?>">
-                            <h4><?php echo htmlspecialchars($shop['shop_name']); ?></h4>
-                            <div class="shop-rating">
-                                <i class="fas fa-star text-warning"></i>
-                                <?php echo number_format((float) ($shop['rating'] ?? 0), 1); ?>/5
-                            </div>
-                            <?php if(!empty($shop['shop_description'])): ?>
-                                <p class="text-muted mb-0"><?php echo htmlspecialchars($shop['shop_description']); ?></p>
-                            <?php endif; ?>
-                            <div class="shop-meta">
-                                <?php if(!empty($shop['address'])): ?>
-                                    <span><i class="fas fa-location-dot"></i> <?php echo htmlspecialchars($shop['address']); ?></span>
-                                <?php endif; ?>
-                            </div>
-                            <div class="shop-actions">
-                                <a href="shop_details.php?shop_id=<?php echo (int) $shop['id']; ?>" class="btn btn-outline btn-sm">
-                                    <i class="fas fa-store"></i> View
-                                </a>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            <?php else: ?>
-                <div class="text-center p-4">
-                    <i class="fas fa-store fa-3x text-muted mb-3"></i>
-                    <h4>No Active Shops Yet</h4>
-                    <p class="text-muted">Please check back soon for available embroidery providers.</p>
                 </div>
             <?php endif; ?>
         </div>
