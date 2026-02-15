@@ -383,17 +383,22 @@ if(isset($_POST['update_complexity'])) {
         }
 
         $complexity_multiplier = (float) ($complexity_multipliers[$selected_complexity] ?? 1);
-        $rush_multiplier = !empty($quote_details['rush']) ? 1 + ($rush_fee_percent / 100) : 1;
-        $estimated_unit_price = ($base_price + $add_on_total) * $complexity_multiplier * $rush_multiplier;
+        $product_price = (float) (($quote_details['breakdown']['product_price'] ?? 0));
+        $service_type_price = $base_price;
+        $subtotal = $product_price + $service_type_price + $add_on_total;
+        $rush_fee_amount = !empty($quote_details['rush']) ? ($subtotal * ($rush_fee_percent / 100)) : 0;
+        $estimated_unit_price = $subtotal + $rush_fee_amount;
         $estimated_total = $estimated_unit_price * (int) $order['quantity'];
         $previous_complexity = $quote_details['complexity'] ?? null;
 
         $quote_details['complexity'] = $selected_complexity;
         $quote_details['breakdown'] = [
-            'base_price' => round($base_price, 2),
+            'product_price' => round($product_price, 2),
+            'service_type_price' => round($service_type_price, 2),
             'add_on_total' => round($add_on_total, 2),
             'complexity_multiplier' => round($complexity_multiplier, 2),
             'rush_fee_percent' => !empty($quote_details['rush']) ? round($rush_fee_percent, 2) : 0,
+            'rush_fee_amount' => round($rush_fee_amount, 2),
         ];
         $quote_details['estimated_unit_price'] = round($estimated_unit_price, 2);
         $quote_details['estimated_total'] = round($estimated_total, 2);

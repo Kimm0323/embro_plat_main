@@ -415,16 +415,18 @@ if(isset($_POST['place_order'])) {
         $complexity_multipliers = $pricing_settings['complexity_multipliers'] ?? [];
         $rush_fee_percent = (float) ($pricing_settings['rush_fee_percent'] ?? 0);
 
-        $base_price = (float) ($base_prices[$service_type] ?? ($base_prices['Custom'] ?? 0));
+        $product_price = (float) ($_POST['product_price'] ?? 0);
+        if ($product_price < 0) {
+            $product_price = 0;
+        }
+        $service_type_price = (float) ($base_prices[$service_type] ?? ($base_prices['Custom'] ?? 0));
         $selected_add_ons = array_values(array_intersect($requested_add_ons, array_keys($add_on_fees)));
         $add_on_total = 0.0;
         foreach ($selected_add_ons as $addon) {
             $add_on_total += (float) ($add_on_fees[$addon] ?? 0);
         }
-        $complexity_multiplier = (float) ($complexity_multipliers[$complexity_level] ?? 1);
-        $rush_multiplier = $rush_requested ? 1 + ($rush_fee_percent / 100) : 1;
-        $estimated_unit_price = ($base_price + $add_on_total) * $complexity_multiplier * $rush_multiplier;
-        $estimated_total = $estimated_unit_price * (int) $quantity;
+        $rush_fee_amount = $rush_requested ? (($product_price + $service_type_price + $add_on_total) * ($rush_fee_percent / 100)) : 0;
+        $estimated_unit_price = $product_price + $service_type_price + $add_on_total + $rush_fee_amount;
         $quote_details = [
             'service_type' => $service_type,
             'complexity' => $complexity_level,
@@ -437,8 +439,9 @@ if(isset($_POST['place_order'])) {
             'breakdown' => [
                 'base_price' => round($base_price, 2),
                 'add_on_total' => round($add_on_total, 2),
-                'complexity_multiplier' => round($complexity_multiplier, 2),
+                'complexity_multiplier' => round((float) ($complexity_multipliers[$complexity_level] ?? 1), 2),
                 'rush_fee_percent' => $rush_requested ? round($rush_fee_percent, 2) : 0,
+                'rush_fee_amount' => round($rush_fee_amount, 2),
             ],
             'estimated_unit_price' => round($estimated_unit_price, 2),
             'estimated_total' => round($estimated_total, 2),
@@ -731,6 +734,7 @@ if(isset($_POST['place_order'])) {
         </form>
          <form method="POST" id="orderForm">
             <?php echo csrf_field(); ?>
+            <input type="hidden" name="product_price" id="productPrice" value="0">
              <input type="hidden" name="selected_portfolio_id" id="selectedPortfolioId" value="<?php echo $preselected_portfolio ? (int) $preselected_portfolio['id'] : 0; ?>">
             <?php if ($preselected_portfolio): ?>
                 <div class="alert alert-info mb-3" id="selectedPostBanner" data-title="<?php echo htmlspecialchars($preselected_portfolio['title']); ?>">
@@ -1236,15 +1240,17 @@ if(isset($_POST['place_order'])) {
                 return;
             }
 
-            const basePrice = pricingState.base_prices[service] ?? pricingState.base_prices.Custom ?? 0;
+            const serviceTypePrice = Number(pricingState.base_prices[service] ?? pricingState.base_prices.Custom ?? 0);
+            const productPriceInput = document.querySelector('input[name="product_price"]');
+            const productPrice = Number(productPriceInput ? productPriceInput.value : 0);
             const addOns = Array.from(document.querySelectorAll('input[name="add_ons[]"]:checked'))
                 .map((input) => input.value);
-            const addOnTotal = addOns.reduce((sum, addon) => sum + (pricingState.add_ons[addon] || 0), 0);
-            const complexityMultiplier = pricingState.complexity_multipliers.Standard ?? 1.15;
+            const addOnTotal = addOns.reduce((sum, addon) => sum + (pricingState.add_ons[addon] || 0), 0);           
             const rushRequested = document.getElementById('rushService').checked;
-            const rushMultiplier = rushRequested ? 1 + (pricingState.rush_fee_percent / 100) : 1;
+            const subtotal = productPrice + serviceTypePrice + Number(addOnTotal);
+            const rushFeeAmount = rushRequested ? subtotal * (pricingState.rush_fee_percent / 100) : 0;
 
-            const unitEstimate = (Number(basePrice) + Number(addOnTotal)) * complexityMultiplier * rushMultiplier;
+            const unitEstimate = subtotal + rushFeeAmount;
             const totalEstimate = unitEstimate * quantity;
 
             quoteEstimate.textContent = `${formatCurrency(unitEstimate)} per item • ${formatCurrency(totalEstimate)} total`;
