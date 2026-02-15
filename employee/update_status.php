@@ -296,7 +296,10 @@ if(isset($_POST['update_status'])) {
         $order_state = $order_info;
         $order_state['id'] = $order_id;
         [$can_transition, $transition_error] = order_workflow_validate_order_status($pdo, $order_state, $status);
-        if(!$can_transition) {
+        $design_approval_blocked = $status === STATUS_IN_PROGRESS
+            && $transition_error === 'Design proof approval is required before production can begin.';
+
+        if(!$can_transition && !$design_approval_blocked) {
             $error = $transition_error ?: "Status transition not allowed from the current state.";
         }
     }
