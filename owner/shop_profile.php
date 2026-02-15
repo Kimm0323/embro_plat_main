@@ -100,16 +100,6 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'add_portfolio') {
             $portfolio_title = sanitize($_POST['portfolio_title'] ?? '');
             $portfolio_description = sanitize($_POST['portfolio_description'] ?? '');
-             $portfolio_price_input = trim((string) ($_POST['portfolio_price'] ?? ''));
-            $portfolio_price = null;
-
-            if ($portfolio_price_input !== '') {
-                if (!is_numeric($portfolio_price_input) || (float) $portfolio_price_input < 0) {
-                    throw new RuntimeException('Portfolio price must be a valid non-negative amount.');
-                }
-
-                $portfolio_price = round((float) $portfolio_price_input, 2);
-            }
 
         if ($portfolio_title === '') {
                 throw new RuntimeException('Portfolio title is required.');
@@ -132,15 +122,14 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
         $insert_stmt = $pdo->prepare("
-                INSERT INTO shop_portfolio (shop_id, title, description, image_path, price)
-                VALUES (?, ?, ?, ?, ?)
+               INSERT INTO shop_portfolio (shop_id, title, description, image_path)
+                VALUES (?, ?, ?, ?)
             ");
             $insert_stmt->execute([
                 $shop['id'],
                 $portfolio_title,
                 $portfolio_description,
                 $upload_result['path'],
-                $portfolio_price,
             ]);
 
             $portfolio_stmt->execute([$shop['id']]);
@@ -493,10 +482,6 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="form-group" style="flex: 1; min-width: 220px;">
                         <label>Title *</label>
                         <input type="text" name="portfolio_title" class="form-control" required>
-                    </div>
-                     <div class="form-group" style="flex: 1; min-width: 180px;">
-                        <label>Price</label>
-                        <input type="number" name="portfolio_price" class="form-control" min="0" step="0.01" placeholder="0.00">
                     </div>
                     <div class="form-group" style="flex: 2; min-width: 240px;">
                         <label>Description</label>
