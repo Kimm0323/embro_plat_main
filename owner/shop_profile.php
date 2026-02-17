@@ -274,6 +274,38 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Shop Profile - <?php echo htmlspecialchars($shop['shop_name']); ?></title>
     <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+     <style>
+        .profile-tabs {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .profile-tab-btn {
+            border: 1px solid var(--gray-300);
+            background: var(--gray-100);
+            color: var(--gray-700);
+            padding: 0.6rem 1rem;
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .profile-tab-btn.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .profile-tab-panel {
+            display: none;
+        }
+
+        .profile-tab-panel.active {
+            display: block;
+        }
+    </style>
 </head>
 <body>
     <nav class="navbar navbar--compact">
@@ -329,40 +361,51 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             <form method="POST">
                 <?php echo csrf_field(); ?>
                 <input type="hidden" name="action" value="update_profile">
-                <div class="form-group">
-                    <label>Shop Name *</label>
-                    <input type="text" name="shop_name" class="form-control" required
-                           value="<?php echo htmlspecialchars($shop['shop_name']); ?>">
+
+                 <div class="profile-tabs" role="tablist" aria-label="Shop profile sections">
+                    <button type="button" class="profile-tab-btn active" data-tab-target="shop-information">Shop Information</button>
+                    <button type="button" class="profile-tab-btn" data-tab-target="business-information">Business Information</button>
                 </div>
 
-                <div class="form-group">
-                    <label>Shop Description *</label>
-                    <textarea name="shop_description" class="form-control" rows="4" required><?php echo htmlspecialchars($shop['shop_description']); ?></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>Business Address *</label>
-                    <textarea name="address" class="form-control" rows="3" required><?php echo htmlspecialchars($shop['address']); ?></textarea>
-                </div>
-
-                <div class="row" style="display: flex; gap: 15px;">
-                    <div class="form-group" style="flex: 1;">
-                        <label>Contact Phone *</label>
-                        <input type="tel" name="phone" class="form-control" required
-                               value="<?php echo htmlspecialchars($shop['phone']); ?>">
+                <div id="shop-information" class="profile-tab-panel active">
+                    <div class="form-group">
+                        <label>Shop Name *</label>
+                        <input type="text" name="shop_name" class="form-control" required
+                               value="<?php echo htmlspecialchars($shop['shop_name']); ?>">
                     </div>
 
-                    <div class="form-group" style="flex: 1;">
-                        <label>Contact Email</label>
-                        <input type="email" name="email" class="form-control"
-                               value="<?php echo htmlspecialchars($shop['email']); ?>">
+                 <div class="form-group">
+                        <label>Shop Description *</label>
+                        <textarea name="shop_description" class="form-control" rows="4" required><?php echo htmlspecialchars($shop['shop_description']); ?></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Business Address *</label>
+                        <textarea name="address" class="form-control" rows="3" required><?php echo htmlspecialchars($shop['address']); ?></textarea>
+                    </div>
+
+                    <div class="row" style="display: flex; gap: 15px;">
+                        <div class="form-group" style="flex: 1;">
+                            <label>Contact Phone *</label>
+                            <input type="tel" name="phone" class="form-control" required
+                                   value="<?php echo htmlspecialchars($shop['phone']); ?>">
+                        </div>
+
+                        <div class="form-group" style="flex: 1;">
+                            <label>Contact Email</label>
+                            <input type="email" name="email" class="form-control"
+                                   value="<?php echo htmlspecialchars($shop['email']); ?>">
+                        </div>
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label>Business Permit Number</label>
-                    <input type="text" name="business_permit" class="form-control"
-                           value="<?php echo htmlspecialchars($shop['business_permit']); ?>">
+                <div id="business-information" class="profile-tab-panel">
+                    <p class="text-muted">Maintain all legal and permit details required for your shop to operate.</p>
+                    <div class="form-group">
+                        <label>Business Permit Number</label>
+                        <input type="text" name="business_permit" class="form-control"
+                               value="<?php echo htmlspecialchars($shop['business_permit']); ?>">
+                    </div>
                 </div>
 
                 <div class="card" style="background: #f8fafc;">
@@ -535,5 +578,19 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
         </div>
     </div>
+    <script>
+        document.querySelectorAll('.profile-tab-btn').forEach((button) => {
+            button.addEventListener('click', () => {
+                const target = button.getAttribute('data-tab-target');
+                document.querySelectorAll('.profile-tab-btn').forEach((btn) => btn.classList.remove('active'));
+                document.querySelectorAll('.profile-tab-panel').forEach((panel) => panel.classList.remove('active'));
+                button.classList.add('active');
+                const panel = document.getElementById(target);
+                if (panel) {
+                    panel.classList.add('active');
+                }
+            });
+        });
+    </script>
 </body>
 </html>

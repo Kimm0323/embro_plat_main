@@ -47,21 +47,31 @@ $kpis = [
     ],
 ];
 
-$dashboards = [
+$analytics_sections = [
     [
-        'title' => 'Sales momentum',
-        'detail' => 'Daily bookings, average order value, and quote conversion.',
+       'title' => 'Sales Overview (Top Section – Quick Summary)',
+        'detail' => 'Monitor gross revenue, completed orders, average order value, and fulfillment rate in one snapshot.',
+        'icon' => 'fas fa-gauge-high',
+    ],
+    [
+        'title' => 'Product Performance',
+        'detail' => 'Track best-selling embroidery services, average turnaround time, and repeat requests per product line.',
+        'icon' => 'fas fa-box-open',
+    ],
+    [
+      'title' => 'Customer Insights',
+        'detail' => 'Understand client ratings, repeat order behavior, top customer segments, and response performance.',
+        'icon' => 'fas fa-users',
+    ],
+    [
+        'title' => 'Sales Trends & Charts',
+        'detail' => 'Visualize weekly and monthly demand, order status movement, and seasonality through interactive chart views.',
         'icon' => 'fas fa-chart-line',
     ],
     [
-        'title' => 'Production velocity',
-        'detail' => 'Machine utilization, output per shift, and backlog aging.',
-        'icon' => 'fas fa-industry',
-    ],
-    [
-        'title' => 'Customer experience',
-        'detail' => 'Ratings, response time, and repeat order insights.',
-        'icon' => 'fas fa-star',
+         'title' => 'Marketing Performance',
+        'detail' => 'Measure campaign-driven inquiries, conversion from quote to paid order, and channel-level ROI.',
+        'icon' => 'fas fa-bullhorn',
     ],
 ];
 
@@ -132,13 +142,13 @@ $performance_alerts = [
             grid-column: span 12;
         }
 
-        .dashboard-card,
+        .analytics-card,
         .reports-card,
         .alerts-card {
             grid-column: span 4;
         }
 
-        .dashboard-tile,
+        .analytics-tile,
         .report-item,
         .alert-item {
             border: 1px solid var(--gray-200);
@@ -147,7 +157,7 @@ $performance_alerts = [
             background: white;
         }
 
-        .dashboard-tile + .dashboard-tile,
+        .analytics-tile + .analytics-tile,
         .report-item + .report-item,
         .alert-item + .alert-item {
             margin-top: 1rem;
@@ -229,12 +239,12 @@ $performance_alerts = [
                 </p>
             </div>
 
-            <div class="card dashboard-card">
-                <h2>Insight dashboards</h2>
-                <?php foreach ($dashboards as $dashboard): ?>
-                    <div class="dashboard-tile">
-                        <h3 class="mb-1"><i class="<?php echo $dashboard['icon']; ?> text-primary"></i> <?php echo $dashboard['title']; ?></h3>
-                        <p class="text-muted mb-0"><?php echo $dashboard['detail']; ?></p>
+           <div class="card analytics-card">
+                <h2>Analytics coverage</h2>
+                <?php foreach ($analytics_sections as $section): ?>
+                    <div class="analytics-tile">
+                        <h3 class="mb-1"><i class="<?php echo $section['icon']; ?> text-primary"></i> <?php echo $section['title']; ?></h3>
+                        <p class="text-muted mb-0"><?php echo $section['detail']; ?></p>
                     </div>
                 <?php endforeach; ?>
             </div>
