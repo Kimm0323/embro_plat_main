@@ -23,6 +23,18 @@ $fulfillment_types = [
     'pickup' => 'Pickup',
 ];
 
+$courier_options = [
+    '' => 'Select courier',
+    'LBC Express' => 'LBC Express',
+    'J&T Express' => 'J&T Express',
+    'JRS Express' => 'JRS Express',
+    'Ninja Van' => 'Ninja Van',
+    'Grab Express' => 'Grab Express',
+    'Lalamove' => 'Lalamove',
+    'Shop Rider' => 'Shop Rider',
+    'Other' => 'Other (set in notes)',
+];
+
 $fulfillment_statuses = [
     FULFILLMENT_PENDING => 'Pending',
     FULFILLMENT_READY_FOR_PICKUP => 'Ready for Pickup',
@@ -164,6 +176,7 @@ $orders_stmt = $pdo->prepare("
     SELECT o.id,
            o.order_number,
            o.completed_at,
+           o.status AS order_status,
            o.payment_status,
            u.fullname AS client_name,
            f.id AS fulfillment_id,
@@ -180,7 +193,11 @@ $orders_stmt = $pdo->prepare("
     FROM orders o
     JOIN users u ON o.client_id = u.id
     LEFT JOIN order_fulfillments f ON f.order_id = o.id
-    WHERE o.shop_id = ? AND o.status = 'completed'
+     WHERE o.shop_id = ?
+      AND (
+          o.status = 'completed'
+          OR o.payment_status IN ('refund_pending', 'refunded')
+      )
     ORDER BY o.completed_at DESC, o.created_at DESC
 ");
 $orders_stmt->execute([$shop_id]);
@@ -333,7 +350,7 @@ function fulfillment_pill(?string $status): string {
         <div class="module-header">
             <div>
                 <h2>Delivery & Pickup Management</h2>
-                <p class="text-muted">Manage handoff details for completed orders, including pickup readiness and delivery confirmations.</p>
+               <p class="text-muted">Manage handoff details for completed orders and returned products, including pickup readiness, courier assignment, and delivery confirmations.</p>
             </div>
             <span class="badge badge-primary"><i class="fas fa-truck-fast"></i> Module 16</span>
         </div>
@@ -368,6 +385,9 @@ function fulfillment_pill(?string $status): string {
                         <div>
                             <h4 class="mb-1">Order #<?php echo htmlspecialchars($order['order_number']); ?></h4>
                             <div class="text-muted">Client: <?php echo htmlspecialchars($order['client_name']); ?></div>
+                            <?php if (($order['order_status'] ?? '') !== 'completed'): ?>
+                                <div class="text-muted"><strong>Return flow:</strong> <?php echo htmlspecialchars(str_replace('_', ' ', $order['payment_status'] ?? '')); ?></div>
+                            <?php endif; ?>
                         </div>
                         <div>
                             <?php echo fulfillment_pill($order['status'] ?? null); ?>
@@ -414,7 +434,19 @@ function fulfillment_pill(?string $status): string {
                         </div>
                         <div>
                             <label>Courier</label>
-                            <input type="text" name="courier" class="form-control" value="<?php echo htmlspecialchars($order['courier'] ?? ''); ?>" placeholder="e.g. LBC Express">
+                             <?php $selected_courier = $order['courier'] ?? ''; ?>
+                            <select name="courier" class="form-control">
+                                <?php foreach($courier_options as $value => $label): ?>
+                                    <option value="<?php echo htmlspecialchars($value); ?>" <?php echo $selected_courier === $value ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($label); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                                <?php if($selected_courier !== '' && !isset($courier_options[$selected_courier])): ?>
+                                    <option value="<?php echo htmlspecialchars($selected_courier); ?>" selected>
+                                        <?php echo htmlspecialchars($selected_courier); ?>
+                                    </option>
+                                <?php endif; ?>
+                            </select>
                         </div>
                         <div>
                             <label>Tracking number</label>
