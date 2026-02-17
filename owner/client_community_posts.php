@@ -19,15 +19,11 @@ if (!$shop) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accept_request'])) {
     $post_id = (int) ($_POST['post_id'] ?? 0);
-    $price_input = trim($_POST['quoted_price'] ?? '');
-    $quoted_price = filter_var($price_input, FILTER_VALIDATE_FLOAT);
 
     if ($post_id <= 0) {
         $form_error = 'Unable to process the selected request.';
-    } elseif ($quoted_price === false || $quoted_price <= 0) {
-        $form_error = 'Please enter a valid price greater than zero before accepting.';
     } else {
-        $post_stmt = $pdo->prepare("SELECT id, client_id, title, category, description, desired_quantity, status FROM client_community_posts WHERE id = ? LIMIT 1");
+        $post_stmt = $pdo->prepare("SELECT id, client_id, title, category, description, preferred_price, desired_quantity, status FROM client_community_posts WHERE id = ? LIMIT 1");
         $post_stmt->execute([$post_id]);
         $selected_post = $post_stmt->fetch();
 
@@ -35,6 +31,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accept_request'])) {
             $form_error = 'The selected community request no longer exists.';
         } elseif (($selected_post['status'] ?? '') !== 'open') {
             $form_error = 'This request has already been handled by another shop.';
+             } elseif (!isset($selected_post['preferred_price']) || (float) $selected_post['preferred_price'] <= 0) {
+            $form_error = 'This request has no valid client price set.';
         } else {
             try {
                 $pdo->beginTransaction();
@@ -67,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accept_request'])) {
                     !empty($selected_post['category']) ? $selected_post['category'] : 'Community Request',
                     $selected_post['description'] ?? null,
                     !empty($selected_post['desired_quantity']) ? (int) $selected_post['desired_quantity'] : 1,
-                    (float) $quoted_price,
+                    (float) $selected_post['preferred_price'],
                     'Converted from community post: ' . ($selected_post['title'] ?? 'Untitled request')
                 ]);
 
@@ -84,15 +82,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accept_request'])) {
                      $order_id,
                     'community_post_accepted',
                     sprintf(
-                        '%s accepted your request "%s" with a quote of ₱%s. Order #%s is now in your orders list for review.',
+                        '%s accepted your request "%s" at your posted budget of ₱%s. Order #%s is now in your orders list for review.',
                         $shop['shop_name'],
                         $selected_post['title'],
-                         number_format((float) $quoted_price, 2),
+                          number_format((float) $selected_post['preferred_price'], 2),
                         $order_number
                     )
                 );
 
-                $form_success = 'Request accepted, quote sent, and order created for the client.';
+                 $form_success = 'Request accepted and converted to a new order using the client posted price and quantity.';
             } catch (Throwable $e) {
                 if ($pdo->inTransaction()) {
                     $pdo->rollBack();
@@ -110,6 +108,7 @@ $posts_stmt = $pdo->query("
            ccp.title,
            ccp.category,
            ccp.description,
+           ccp.preferred_price,
            ccp.desired_quantity,
            ccp.target_date,
            ccp.image_path,
@@ -237,6 +236,9 @@ $community_posts = $posts_stmt->fetchAll();
                         <div class="community-meta">
                             <span><i class="fas fa-user"></i> <?php echo htmlspecialchars($post['client_name']); ?></span>
                             <span><i class="fas fa-calendar"></i> <?php echo date('M d, Y', strtotime($post['created_at'])); ?></span>
+                             <?php if (!empty($post['preferred_price'])): ?>
+                                <span><i class="fas fa-peso-sign"></i> Price ₱<?php echo number_format((float) $post['preferred_price'], 2); ?></span>
+                            <?php endif; ?>
                             <?php if (!empty($post['desired_quantity'])): ?>
                                 <span><i class="fas fa-box"></i> Qty <?php echo htmlspecialchars($post['desired_quantity']); ?></span>
                             <?php endif; ?>
@@ -247,18 +249,8 @@ $community_posts = $posts_stmt->fetchAll();
                          <form method="POST" class="mt-3 d-flex" style="gap: 0.75rem; flex-wrap: wrap; align-items: center;">
                             <?php echo csrf_field(); ?>
                             <input type="hidden" name="post_id" value="<?php echo (int) $post['id']; ?>">
-                            <input
-                                type="number"
-                                class="form-control"
-                                name="quoted_price"
-                                min="0.01"
-                                step="0.01"
-                                placeholder="Set quote price"
-                                required
-                                style="max-width: 180px;"
-                            >
                             <button type="submit" name="accept_request" class="btn btn-primary btn-sm">
-                                <i class="fas fa-check"></i> Accept Request
+                                <i class="fas fa-check"></i> Accept Request as new order
                             </button>
                         </form>
                     </div>

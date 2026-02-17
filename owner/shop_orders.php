@@ -85,6 +85,106 @@ if(isset($_POST['set_price'])) {
     }
 }
 
+if(isset($_POST['send_quote_update'])) {
+    $order_id = (int) ($_POST['order_id'] ?? 0);
+    $approval_status = sanitize($_POST['approval_status'] ?? 'pending');
+    $quote_amount_input = trim($_POST['quote_amount'] ?? '');
+    $timeline_days_input = trim($_POST['timeline_days'] ?? '');
+    $downpayment_input = trim($_POST['downpayment_percent'] ?? '');
+    $scope_summary = sanitize($_POST['scope_summary'] ?? '');
+    $owner_message = sanitize($_POST['owner_message'] ?? '');
+
+    $allowed_approval_statuses = ['pending', 'approved_for_production', 'needs_revision'];
+    $quote_amount = $quote_amount_input !== '' ? filter_var($quote_amount_input, FILTER_VALIDATE_FLOAT) : false;
+    $timeline_days = $timeline_days_input !== '' ? filter_var($timeline_days_input, FILTER_VALIDATE_INT) : false;
+    $downpayment_percent = $downpayment_input !== '' ? filter_var($downpayment_input, FILTER_VALIDATE_FLOAT) : false;
+
+    $order_stmt = $pdo->prepare("SELECT id, status, client_id, order_number, price, payment_status, quote_details FROM orders WHERE id = ? AND shop_id = ?");
+    $order_stmt->execute([$order_id, $shop_id]);
+    $order = $order_stmt->fetch();
+
+    if(!$order) {
+        $error = 'Order not found for this shop.';
+    } elseif(!in_array($approval_status, $allowed_approval_statuses, true)) {
+        $error = 'Please select a valid design approval status.';
+    } elseif($quote_amount === false || (float) $quote_amount <= 0) {
+        $error = 'Please provide a valid quotation amount greater than zero.';
+    } elseif($timeline_days === false || (int) $timeline_days <= 0) {
+        $error = 'Please enter a valid timeline in days.';
+    } elseif($downpayment_percent === false || (float) $downpayment_percent < 0 || (float) $downpayment_percent > 100) {
+        $error = 'Downpayment percentage must be between 0 and 100.';
+    } elseif(mb_strlen(trim($owner_message)) < 10) {
+        $error = 'Please provide a short owner message (at least 10 characters).';
+    } else {
+        $existing_quote_details = !empty($order['quote_details']) ? json_decode($order['quote_details'], true) : [];
+        if(!is_array($existing_quote_details)) {
+            $existing_quote_details = [];
+        }
+
+        $owner_quote_update = [
+            'approval_status' => $approval_status,
+            'quoted_price' => (float) $quote_amount,
+            'timeline_days' => (int) $timeline_days,
+            'downpayment_percent' => round((float) $downpayment_percent, 2),
+            'scope_summary' => $scope_summary,
+            'owner_message' => $owner_message,
+            'updated_by' => $_SESSION['user']['fullname'] ?? 'Shop owner',
+            'updated_at' => date('c'),
+        ];
+
+        $conversation_log = $existing_quote_details['owner_quote_conversation'] ?? [];
+        if(!is_array($conversation_log)) {
+            $conversation_log = [];
+        }
+        $conversation_log[] = [
+            'sender' => 'owner',
+            'message' => $owner_message,
+            'approval_status' => $approval_status,
+            'quoted_price' => (float) $quote_amount,
+            'timestamp' => date('c'),
+        ];
+
+        $existing_quote_details['owner_quote_update'] = $owner_quote_update;
+        $existing_quote_details['owner_quote_conversation'] = array_slice($conversation_log, -8);
+
+        $update_stmt = $pdo->prepare("UPDATE orders SET price = ?, quote_details = ?, updated_at = NOW() WHERE id = ? AND shop_id = ?");
+        $update_stmt->execute([
+            (float) $quote_amount,
+            json_encode($existing_quote_details),
+            $order_id,
+            $shop_id,
+        ]);
+
+        $invoice_status = determine_invoice_status($order['status'], $order['payment_status'] ?? 'unpaid');
+        ensure_order_invoice($pdo, $order_id, $order['order_number'], (float) $quote_amount, $invoice_status);
+
+        $status_labels = [
+            'pending' => 'Pending review',
+            'approved_for_production' => 'Approved for production',
+            'needs_revision' => 'Needs revision',
+        ];
+        $status_label = $status_labels[$approval_status] ?? ucfirst(str_replace('_', ' ', $approval_status));
+
+        create_notification(
+            $pdo,
+            (int) $order['client_id'],
+            $order_id,
+            'info',
+            sprintf(
+                'Quote update for order #%s: %s | Quote: ₱%s | Downpayment: %s%% | Timeline: %s day(s). Message: %s',
+                $order['order_number'],
+                $status_label,
+                number_format((float) $quote_amount, 2),
+                number_format((float) $downpayment_percent, 2),
+                (int) $timeline_days,
+                $owner_message
+            )
+        );
+
+        $success = 'Design proofing and quotation update sent to the client.';
+    }
+}
+
 if(isset($_POST['assign_order'])) {
     $order_id = (int) $_POST['order_id'];
     $staff_id = (int) $_POST['staff_id'];
@@ -192,6 +292,14 @@ function format_quote_details(?array $quote_details): array {
 
     return ['summary' => $summary, 'estimate' => $estimated_total];
 }
+
+function owner_quote_snapshot(?array $quote_details): ?array {
+    if(!$quote_details || !isset($quote_details['owner_quote_update']) || !is_array($quote_details['owner_quote_update'])) {
+        return null;
+    }
+
+    return $quote_details['owner_quote_update'];
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -248,6 +356,23 @@ function format_quote_details(?array $quote_details): array {
         }
         .assignment-form select {
             min-width: 160px;
+        }
+         .quote-panel {
+            margin-top: 10px;
+            border: 1px solid var(--gray-200);
+            border-radius: 10px;
+            padding: 10px;
+            background: #f8fafc;
+        }
+
+        .quote-grid {
+            display: grid;
+            gap: 8px;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        }
+
+        .quote-grid .form-control {
+            min-width: 0;
         }
     
     </style>
@@ -393,6 +518,41 @@ function format_quote_details(?array $quote_details): array {
                                     <a href="view_order.php?id=<?php echo $order['id']; ?>" class="btn btn-sm btn-outline-primary mb-2">
                                         View
                                     </a>
+                                    <?php
+                                        $owner_quote = owner_quote_snapshot($quote_details);
+                                        $owner_quote_status = $owner_quote['approval_status'] ?? 'pending';
+                                    ?>
+                                    <div class="quote-panel">
+                                        <div class="text-muted small mb-1"><strong>Design proofing &amp; quotation format</strong></div>
+                                        <?php if($owner_quote): ?>
+                                            <div class="text-muted small mb-2">
+                                                Last update: <?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $owner_quote_status))); ?>
+                                                <?php if(!empty($owner_quote['updated_at'])): ?>
+                                                    • <?php echo date('M d, Y h:i A', strtotime($owner_quote['updated_at'])); ?>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php endif; ?>
+
+                                        <form method="POST">
+                                            <?php echo csrf_field(); ?>
+                                            <input type="hidden" name="order_id" value="<?php echo (int) $order['id']; ?>">
+                                            <div class="quote-grid">
+                                                <select name="approval_status" class="form-control" required>
+                                                    <option value="pending" <?php echo $owner_quote_status === 'pending' ? 'selected' : ''; ?>>Pending review</option>
+                                                    <option value="approved_for_production" <?php echo $owner_quote_status === 'approved_for_production' ? 'selected' : ''; ?>>Approved for production</option>
+                                                    <option value="needs_revision" <?php echo $owner_quote_status === 'needs_revision' ? 'selected' : ''; ?>>Needs revision</option>
+                                                </select>
+                                                <input type="number" name="quote_amount" class="form-control" min="0.01" step="0.01" placeholder="Quote (₱)" value="<?php echo htmlspecialchars((string) ($owner_quote['quoted_price'] ?? ($order['price'] ?? ''))); ?>" required>
+                                                <input type="number" name="downpayment_percent" class="form-control" min="0" max="100" step="0.01" placeholder="Downpayment %" value="<?php echo htmlspecialchars((string) ($owner_quote['downpayment_percent'] ?? '50')); ?>" required>
+                                                <input type="number" name="timeline_days" class="form-control" min="1" step="1" placeholder="Timeline days" value="<?php echo htmlspecialchars((string) ($owner_quote['timeline_days'] ?? '7')); ?>" required>
+                                            </div>
+                                            <input type="text" name="scope_summary" class="form-control mt-2" maxlength="180" placeholder="Scope summary (e.g., 2 logo placements, 3 thread colors)" value="<?php echo htmlspecialchars((string) ($owner_quote['scope_summary'] ?? '')); ?>">
+                                            <textarea name="owner_message" class="form-control mt-2" rows="2" maxlength="500" placeholder="Owner message to client (approval notes / quotation terms)" required><?php echo htmlspecialchars((string) ($owner_quote['owner_message'] ?? '')); ?></textarea>
+                                            <button type="submit" name="send_quote_update" class="btn btn-sm btn-primary mt-2">
+                                                <i class="fas fa-paper-plane"></i> Send Format
+                                            </button>
+                                        </form>
+                                    </div>
                                     <?php if(!in_array($order['status'], ['completed', 'cancelled'], true)): ?>
                                         <form method="POST" class="assignment-form">
                                             <?php echo csrf_field(); ?>
