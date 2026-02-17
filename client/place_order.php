@@ -1165,16 +1165,6 @@ if(isset($_POST['place_order'])) {
                         <div id="priceBreakdownQuantity">Quantity: 0</div>
                     </div>
                 </div>
-                <div class="alert alert-info mt-3">
-                    <h6><i class="fas fa-info-circle"></i> Important Notes:   </h6>
-                    <ul class="mb-0">
-                        <li>Shop owner will set the estimated price after reviewing your order</li>
-                        <li>The quote will follow the add-ons and rush preferences you selected</li>
-                        <li>You'll receive a confirmation email</li>
-                        <li>Shop owner may contact you for clarifications</li>
-                        <li>Payment details will be provided after order acceptance</li>
-                    </ul>
-                </div>
             
 
             <div class="text-center">

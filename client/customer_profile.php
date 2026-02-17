@@ -10,29 +10,6 @@ $profile_stmt = $pdo->prepare("SELECT fullname, email, phone, created_at, last_l
 $profile_stmt->execute([$client_id]);
 $profile = $profile_stmt->fetch() ?: [];
 
-$delivery_stmt = $pdo->prepare(" 
-    SELECT o.order_number, s.shop_name, f.fulfillment_type, f.status, f.notes, f.updated_at
-    FROM orders o
-    LEFT JOIN shops s ON s.id = o.shop_id
-    LEFT JOIN order_fulfillments f ON f.order_id = o.id
-    WHERE o.client_id = ?
-    ORDER BY COALESCE(f.updated_at, o.updated_at) DESC
-    LIMIT 5
-");
-$delivery_stmt->execute([$client_id]);
-$delivery_entries = $delivery_stmt->fetchAll();
-
-$payment_stmt = $pdo->prepare(" 
-    SELECT p.amount, p.status, p.created_at, o.order_number, s.shop_name
-    FROM payments p
-    JOIN orders o ON o.id = p.order_id
-    LEFT JOIN shops s ON s.id = p.shop_id
-    WHERE p.client_id = ?
-    ORDER BY p.created_at DESC
-    LIMIT 5
-");
-$payment_stmt->execute([$client_id]);
-$payment_entries = $payment_stmt->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -49,7 +26,7 @@ $payment_entries = $payment_stmt->fetchAll();
     <div class="container">
         <div class="dashboard-header">
             <h2>Customer Profile</h2>
-            <p class="text-muted">Review your personal information, delivery details, and payment methods used in recent orders.</p>
+             <p class="text-muted">Review your personal information, delivery address, and payment methods for your future orders.</p>
         </div>
 
         <div class="card mb-3">
@@ -78,70 +55,64 @@ $payment_entries = $payment_stmt->fetchAll();
 
         <div class="card mb-3">
             <div class="card-header">
-                <h3><i class="fas fa-truck text-primary"></i> Delivery Activity</h3>
+               <h3><i class="fas fa-truck text-primary"></i> Delivery Address</h3>
             </div>
-            <?php if (!empty($delivery_entries)): ?>
-                <div class="table-responsive">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Order</th>
-                                <th>Shop</th>
-                                <th>Fulfillment</th>
-                                <th>Status</th>
-                                <th>Delivery Notes / Address</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($delivery_entries as $entry): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($entry['order_number'] ?? '-'); ?></td>
-                                    <td><?php echo htmlspecialchars($entry['shop_name'] ?? '-'); ?></td>
-                                    <td><?php echo htmlspecialchars(ucfirst($entry['fulfillment_type'] ?? 'N/A')); ?></td>
-                                    <td><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $entry['status'] ?? 'N/A'))); ?></td>
-                                    <td><?php echo htmlspecialchars($entry['notes'] ?? 'No delivery address notes yet.'); ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+             <p class="text-muted">Set your recipient address so shops can deliver your orders accurately.</p>
+            <div class="form-grid">
+                <div>
+                    <label for="country">Country</label>
+                    <input id="country" class="form-control" type="text" placeholder="e.g. Philippines">
                 </div>
-            <?php else: ?>
-                <p class="text-muted mb-0">No delivery records yet. Place an order to add delivery details.</p>
-            <?php endif; ?>
+                <div>
+                    <label for="province">Province</label>
+                    <input id="province" class="form-control" type="text" placeholder="e.g. Cavite">
+                </div>
+                <div>
+                    <label for="city">City / Municipality</label>
+                    <input id="city" class="form-control" type="text" placeholder="e.g. Dasmariñas City">
+                </div>
+                <div>
+                    <label for="barangay">Barangay</label>
+                    <input id="barangay" class="form-control" type="text" placeholder="e.g. Salawag">
+                </div>
+           <div>
+                    <label for="house_number">House Number / Street</label>
+                    <input id="house_number" class="form-control" type="text" placeholder="e.g. Blk 5 Lot 12 Mabini St.">
+                </div>
+                <div>
+                    <label for="other_info">Other House Information</label>
+                    <input id="other_info" class="form-control" type="text" placeholder="e.g. Near chapel, blue gate">
+                </div>
+            </div>
         </div>
 
         <div class="card">
             <div class="card-header">
-                <h3><i class="fas fa-credit-card text-primary"></i> Payment Methods Used</h3>
+                <h3><i class="fas fa-credit-card text-primary"></i> Payment Methods</h3>
             </div>
-            <?php if (!empty($payment_entries)): ?>
-                <div class="table-responsive">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Order</th>
-                                <th>Shop</th>
-                                <th>Amount</th>
-                                <th>Payment Status</th>
-                                <th>Date</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($payment_entries as $payment): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($payment['order_number']); ?></td>
-                                    <td><?php echo htmlspecialchars($payment['shop_name'] ?? '-'); ?></td>
-                                    <td>₱<?php echo number_format((float) ($payment['amount'] ?? 0), 2); ?></td>
-                                    <td><?php echo htmlspecialchars(ucfirst($payment['status'])); ?></td>
-                                    <td><?php echo date('M d, Y h:i A', strtotime($payment['created_at'])); ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+            <p class="text-muted">Choose how you want to pay your orders.</p>
+            <div class="form-grid">
+                <div>
+                    <label><strong>GCash</strong></label>
+                    <input class="form-control mb-2" type="text" maxlength="11" placeholder="GCash number (11 digits)">
+                    <button class="btn btn-primary btn-sm" type="button">Verify GCash Number</button>
+                    <input class="form-control mt-2" type="text" placeholder="Enter OTP">
                 </div>
-            <?php else: ?>
-                <p class="text-muted mb-0">No payments yet. Your payment records will appear here after checkout.</p>
-            <?php endif; ?>
+                <div>
+                    <label><strong>Cards (Visa / Mastercard)</strong></label>
+                    <input class="form-control mb-2" type="text" maxlength="16" placeholder="ATM Card Number (16 digits)">
+                    <input class="form-control mb-2" type="email" placeholder="Gmail account for verification">
+                    <button class="btn btn-primary btn-sm" type="button">Verify Card via Gmail</button>
+                </div>
+            <div>
+                    <label><strong>Cash on Delivery (COD)</strong></label>
+                    <div class="form-control bg-light">Pay cash upon delivery.</div>
+                </div>
+                <div>
+                    <label><strong>Pick Up Pay</strong></label>
+                    <div class="form-control bg-light">Pay at the counter when picking up your order.</div>
+                </div>
+            </div>
         </div>
     </div>
 </body>
