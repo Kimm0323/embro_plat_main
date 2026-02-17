@@ -47,75 +47,6 @@ $kpis = [
     ],
 ];
 
-$analytics_sections = [
-    [
-       'title' => 'Sales Overview (Top Section – Quick Summary)',
-        'detail' => 'Monitor gross revenue, completed orders, average order value, and fulfillment rate in one snapshot.',
-        'icon' => 'fas fa-gauge-high',
-    ],
-    [
-        'title' => 'Product Performance',
-        'detail' => 'Track best-selling embroidery services, average turnaround time, and repeat requests per product line.',
-        'icon' => 'fas fa-box-open',
-    ],
-    [
-      'title' => 'Customer Insights',
-        'detail' => 'Understand client ratings, repeat order behavior, top customer segments, and response performance.',
-        'icon' => 'fas fa-users',
-    ],
-    [
-        'title' => 'Sales Trends & Charts',
-        'detail' => 'Visualize weekly and monthly demand, order status movement, and seasonality through interactive chart views.',
-        'icon' => 'fas fa-chart-line',
-    ],
-    [
-         'title' => 'Marketing Performance',
-        'detail' => 'Measure campaign-driven inquiries, conversion from quote to paid order, and channel-level ROI.',
-        'icon' => 'fas fa-bullhorn',
-    ],
-];
-
-$scheduled_reports = [
-    [
-        'name' => 'Weekly shop health report',
-        'cadence' => 'Every Monday, 8:00 AM',
-        'recipients' => 'Owner leadership team',
-        'status' => 'Scheduled',
-    ],
-    [
-        'name' => 'Monthly profitability review',
-        'cadence' => 'End of month',
-        'recipients' => 'Owner + Finance',
-        'status' => 'Scheduled',
-    ],
-    [
-        'name' => 'Quarterly customer insights',
-        'cadence' => 'Quarter close',
-        'recipients' => 'Owner + Marketing',
-        'status' => 'Drafting',
-    ],
-];
-
-$performance_alerts = [
-    [
-        'title' => 'Late-stage order risk',
-        'detail' => '4 orders are within 24 hours of SLA breach.',
-        'tone' => 'danger',
-        'time' => 'Triggered today',
-    ],
-    [
-        'title' => 'Low inventory signal',
-        'detail' => 'Thread colors below safety stock levels.',
-        'tone' => 'warning',
-        'time' => 'Triggered 3h ago',
-    ],
-    [
-        'title' => 'Client response delay',
-        'detail' => '2 quotes awaiting reply for more than 48 hours.',
-        'tone' => 'primary',
-        'time' => 'Triggered yesterday',
-    ],
-];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -137,37 +68,8 @@ $performance_alerts = [
             grid-column: span 3;
         }
 
-        .purpose-card,
-        .automation-card {
+        .empty-state-card {
             grid-column: span 12;
-        }
-
-        .analytics-card,
-        .reports-card,
-        .alerts-card {
-            grid-column: span 4;
-        }
-
-        .analytics-tile,
-        .report-item,
-        .alert-item {
-            border: 1px solid var(--gray-200);
-            border-radius: var(--radius);
-            padding: 1rem;
-            background: white;
-        }
-
-        .analytics-tile + .analytics-tile,
-        .report-item + .report-item,
-        .alert-item + .alert-item {
-            margin-top: 1rem;
-        }
-
-        .report-item .meta {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem 1rem;
-            font-size: 0.9rem;
         }
     </style>
 </head>
@@ -231,81 +133,10 @@ $performance_alerts = [
                 </div>
             <?php endforeach; ?>
 
-            <div class="card purpose-card">
-                <h2>Purpose</h2>
+            <div class="card empty-state-card">
+                <h2>Reporting panels</h2>
                 <p class="text-muted mb-0">
-                    Provides dashboards and insights to help owners steer production, revenue, and customer satisfaction
-                    with confidence.
-                </p>
-            </div>
-
-           <div class="card analytics-card">
-                <h2>Analytics coverage</h2>
-                <?php foreach ($analytics_sections as $section): ?>
-                    <div class="analytics-tile">
-                        <h3 class="mb-1"><i class="<?php echo $section['icon']; ?> text-primary"></i> <?php echo $section['title']; ?></h3>
-                        <p class="text-muted mb-0"><?php echo $section['detail']; ?></p>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-
-            <div class="card reports-card">
-                <h2>Scheduled reports</h2>
-                <?php foreach ($scheduled_reports as $report): ?>
-                    <div class="report-item">
-                        <h3 class="mb-1"><?php echo $report['name']; ?></h3>
-                        <div class="meta text-muted">
-                            <span><i class="fas fa-calendar"></i> <?php echo $report['cadence']; ?></span>
-                            <span><i class="fas fa-user-group"></i> <?php echo $report['recipients']; ?></span>
-                            <span class="badge badge-outline"><?php echo $report['status']; ?></span>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-
-            <div class="card alerts-card">
-                <h2>Performance alerts</h2>
-                <?php foreach ($performance_alerts as $alert): ?>
-                    <div class="alert-item">
-                        <div class="d-flex justify-between align-center">
-                            <h3 class="mb-1"><?php echo $alert['title']; ?></h3>
-                            <span class="badge badge-<?php echo $alert['tone']; ?>"><?php echo $alert['time']; ?></span>
-                        </div>
-                        <p class="text-muted mb-0"><?php echo $alert['detail']; ?></p>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-
-            <div class="card automation-card">
-                <h2>Automation coverage</h2>
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Automation</th>
-                                <th>Trigger</th>
-                                <th>Outcome</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>Scheduled report delivery</td>
-                                <td>Weekly and monthly cadences</td>
-                                <td>Shares curated insights with owners and leaders</td>
-                            </tr>
-                            <tr>
-                                <td>Performance alerting</td>
-                                <td>Order, inventory, or SLA thresholds</td>
-                                <td>Flags risk items for immediate follow-up</td>
-                            </tr>
-                            <tr>
-                                <td>Insight refresh</td>
-                                <td>Hourly data sync</td>
-                                <td>Updates dashboards with the latest metrics</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                    PANELLLLLSSSS
             </div>
         </section>
     </main>
