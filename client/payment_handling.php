@@ -6,166 +6,256 @@ require_role('client');
 $client_id = $_SESSION['user']['id'];
 $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
 
-$coreFlow = [
-    [
-        'title' => 'Client payment recorded',
-        'detail' => 'Payment proof or confirmation logs the transaction against the order.',
-    ],
-    [
-        'title' => 'Hold status applied',
-        'detail' => 'Funds remain on hold while the shop completes production milestones.',
-    ],
-    [
-        'title' => 'Completion confirmation',
-        'detail' => 'Client verifies delivery readiness or approves completed work.',
-    ],
-    [
-        'title' => 'Release trigger',
-        'detail' => 'Release conditions notify the shop that payout can proceed.',
-    ],
-];
+$payments_stmt = $pdo->prepare("
+    SELECT
+        p.id,
+        p.order_id,
+        p.amount,
+        p.status,
+        p.created_at,
+        o.order_number,
+        o.payment_status,
+        s.shop_name
+    FROM payments p
+    INNER JOIN orders o ON o.id = p.order_id
+    LEFT JOIN shops s ON s.id = o.shop_id
+    WHERE p.client_id = ?
+    ORDER BY p.created_at DESC
+");
+$payments_stmt->execute([$client_id]);
+$payments = $payments_stmt->fetchAll();
 
-$automation = [
-    [
-        'title' => 'Release condition checks',
-        'detail' => 'Status rules verify completion, approval, and dispute windows before release.',
-        'icon' => 'fas fa-shield-check',
-    ],
-    [
-        'title' => 'Refund rule enforcement',
-        'detail' => 'Eligibility windows and proof requirements are validated before refunds.',
-        'icon' => 'fas fa-rotate-left',
-    ],
-];
+$summary_stmt = $pdo->prepare("
+    SELECT
+        SUM(CASE WHEN o.payment_status = 'paid' THEN 1 ELSE 0 END) AS paid_orders,
+        SUM(CASE WHEN o.payment_status = 'pending' THEN 1 ELSE 0 END) AS pending_orders,
+        SUM(CASE WHEN o.payment_status IN ('unpaid', 'rejected') THEN 1 ELSE 0 END) AS action_needed,
+        SUM(CASE WHEN o.payment_status = 'paid' THEN o.price ELSE 0 END) AS paid_total
+    FROM orders o
+    WHERE o.client_id = ?
+");
+$summary_stmt->execute([$client_id]);
+$summary = $summary_stmt->fetch() ?: [];
+
+$unpaid_orders_stmt = $pdo->prepare("
+    SELECT
+        o.id,
+        o.order_number,
+        o.price,
+        o.payment_status,
+        o.created_at,
+        s.shop_name
+    FROM orders o
+    LEFT JOIN shops s ON s.id = o.shop_id
+    WHERE o.client_id = ?
+      AND o.payment_status IN ('unpaid', 'rejected')
+    ORDER BY o.created_at DESC
+    LIMIT 8
+");
+$unpaid_orders_stmt->execute([$client_id]);
+$unpaid_orders = $unpaid_orders_stmt->fetchAll();
+
+function payment_badge_class($status)
+{
+    return match ($status) {
+        'paid', 'verified' => 'badge-success',
+        'pending' => 'badge-warning',
+        'rejected' => 'badge-danger',
+        default => 'badge-secondary',
+    };
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Payment Handling &amp; Release Control Module - Client</title>
+     <title>Payment Methods - Client</title>
     <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .payment-grid {
             display: grid;
             grid-template-columns: repeat(12, 1fr);
-            gap: 1.5rem;
-            margin: 2rem 0;
+            gap: 1.25rem;
+            margin: 1.5rem 0;
         }
 
-        .overview-card {
+         .payment-grid .card {
             grid-column: span 12;
         }
 
-        .process-card {
-            grid-column: span 7;
-        }
-
-        .automation-card {
-            grid-column: span 5;
-        }
-
-        .flow-step {
-            display: flex;
-            gap: 1rem;
-            align-items: flex-start;
-            padding: 1rem;
-            border-radius: var(--radius);
-            border: 1px solid var(--gray-200);
-            background: var(--bg-primary);
-        }
-
-        .flow-step .badge {
-            width: 2rem;
-            height: 2rem;
-            border-radius: var(--radius-full);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 700;
-            background: var(--primary-100);
-            color: var(--primary-700);
-        }
-
-        .flow-list {
+        .stat-grid {
             display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 1rem;
         }
 
-        .automation-item {
+       .stat-item {
             border: 1px solid var(--gray-200);
             border-radius: var(--radius);
             padding: 1rem;
             background: white;
         }
 
-        .automation-item i {
-            color: var(--primary-600);
+        .stat-item h4 {
+            font-size: 1.4rem;
+            margin: 0.25rem 0 0;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--gray-200);
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .action-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
         }
     </style>
 </head>
 <body>
      <?php require_once __DIR__ . '/includes/customer_navbar.php'; ?>
-     
-    <div class="container">
-        <div class="dashboard-header fade-in">
-            <div class="d-flex justify-between align-center">
-                <div>
-                    <h2>Payment Handling &amp; Release Control</h2>
-                    <p class="text-muted">Track escrow-like holds and confirm release conditions after delivery.</p>
-                </div>
-                <span class="badge badge-primary"><i class="fas fa-hand-holding-dollar"></i> Module 12</span>
+
+<div class="container">
+    <div class="dashboard-header fade-in">
+        <div class="d-flex justify-between align-center">
+            <div>
+                <h2>Customer Payments</h2>
+                <p class="text-muted">View your payment records and complete payments for orders that still need action.</p>
             </div>
+            <a href="track_order.php" class="btn btn-primary"><i class="fas fa-box"></i> Go to My Orders</a>
+        </div>
         </div>
 
-        <div class="payment-grid">
-            <div class="card overview-card">
-                <div class="card-header">
-                    <h3><i class="fas fa-bullseye text-primary"></i> Purpose</h3>
-                </div>
-                <p class="text-muted mb-0">
-                    Controls payment state and release conditions without acting as a financial institution,
-                    ensuring funds are only released once delivery and approval criteria are satisfied.
-                </p>
+          <div class="payment-grid">
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-chart-line text-primary"></i> Payment Overview</h3>
             </div>
 
-            <div class="card process-card">
-                <div class="card-header">
-                    <h3><i class="fas fa-route text-primary"></i> Core Process</h3>
-                    <p class="text-muted">Client payment to release trigger.</p>
+            <div class="stat-grid">
+                <div class="stat-item">
+                    <small class="text-muted">Paid Orders</small>
+                    <h4><?php echo (int) ($summary['paid_orders'] ?? 0); ?></h4>
                 </div>
-                <div class="flow-list">
-                    <?php foreach ($coreFlow as $index => $step): ?>
-                        <div class="flow-step">
-                            <span class="badge"><?php echo $index + 1; ?></span>
-                            <div>
-                                <strong><?php echo $step['title']; ?></strong>
-                                <p class="text-muted mb-0"><?php echo $step['detail']; ?></p>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
+                <div class="stat-item">
+                    <small class="text-muted">Pending Verification</small>
+                    <h4><?php echo (int) ($summary['pending_orders'] ?? 0); ?></h4>
                 </div>
+                <div class="stat-item">
+                    <small class="text-muted">Needs Payment Action</small>
+                    <h4><?php echo (int) ($summary['action_needed'] ?? 0); ?></h4>
+                </div>
+                <div class="stat-item">
+                    <small class="text-muted">Total Paid</small>
+                    <h4>₱<?php echo number_format((float) ($summary['paid_total'] ?? 0), 2); ?></h4>
+                </div>
+            </div>
             </div>
 
-            <div class="card automation-card">
-                <div class="card-header">
-                    <h3><i class="fas fa-robot text-primary"></i> Automation</h3>
-                    <p class="text-muted">Safeguards for release and refund actions.</p>
-                </div>
-                <div class="d-flex flex-column gap-3">
-                    <?php foreach ($automation as $rule): ?>
-                        <div class="automation-item">
-                            <h4 class="d-flex align-center gap-2">
-                                <i class="<?php echo $rule['icon']; ?>"></i>
-                                <?php echo $rule['title']; ?>
-                            </h4>
-                            <p class="text-muted mb-0"><?php echo $rule['detail']; ?></p>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
+           <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-credit-card text-primary"></i> Recent Payment Submissions</h3>
             </div>
+            <?php if (!empty($payments)): ?>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Order #</th>
+                            <th>Shop</th>
+                            <th>Amount</th>
+                            <th>Payment Status</th>
+                            <th>Submitted</th>
+                            <th>Action</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <?php foreach ($payments as $payment): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($payment['order_number']); ?></td>
+                                <td><?php echo htmlspecialchars($payment['shop_name'] ?? '-'); ?></td>
+                                <td>₱<?php echo number_format((float) ($payment['amount'] ?? 0), 2); ?></td>
+                                <td>
+                                    <span class="badge <?php echo payment_badge_class($payment['status'] ?? 'pending'); ?>">
+                                        <?php echo htmlspecialchars(ucfirst($payment['status'] ?? 'pending')); ?>
+                                    </span>
+                                </td>
+                                <td><?php echo date('M d, Y h:i A', strtotime($payment['created_at'])); ?></td>
+                                <td>
+                                    <div class="action-row">
+                                        <a class="btn btn-sm btn-outline" href="track_order.php?order_id=<?php echo (int) $payment['order_id']; ?>">View Order</a>
+                                        <?php if (($payment['status'] ?? '') === 'verified'): ?>
+                                            <a class="btn btn-sm btn-primary" href="view_receipt.php?order_id=<?php echo (int) $payment['order_id']; ?>">Receipt</a>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else: ?>
+                <p class="text-muted mb-0">No payment submissions yet. Select an order to upload your payment proof.</p>
+            <?php endif; ?>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-exclamation-circle text-primary"></i> Orders Needing Payment</h3>
+            </div>
+            <?php if (!empty($unpaid_orders)): ?>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Order #</th>
+                            <th>Shop</th>
+                            <th>Amount Due</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <?php foreach ($unpaid_orders as $order): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars($order['order_number']); ?></td>
+                                <td><?php echo htmlspecialchars($order['shop_name'] ?? '-'); ?></td>
+                                <td>₱<?php echo number_format((float) ($order['price'] ?? 0), 2); ?></td>
+                                <td>
+                                    <span class="badge <?php echo payment_badge_class($order['payment_status']); ?>">
+                                        <?php echo htmlspecialchars(ucfirst($order['payment_status'])); ?>
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="track_order.php?order_id=<?php echo (int) $order['id']; ?>" class="btn btn-sm btn-primary">
+                                        Submit Payment
+                                    </a>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else: ?>
+                <p class="text-muted mb-0">All current orders are paid or waiting for verification.</p>
+            <?php endif; ?>
         </div>
     </div>
+</div>
 </body>
 </html>

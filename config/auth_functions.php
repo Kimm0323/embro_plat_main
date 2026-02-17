@@ -90,7 +90,7 @@ function redirect_based_on_role($role, $base_path = '..') {
             header("Location: {$base_path}/employee/dashboard.php");
             break;
         case 'client':
-            header("Location: {$base_path}/client/search_discovery.php");
+            header("Location: {$base_path}/client/dashboard.php");
             break;
         default:
             header("Location: {$base_path}/index.php");
