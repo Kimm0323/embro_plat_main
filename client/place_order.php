@@ -873,20 +873,6 @@ if(isset($_POST['place_order'])) {
                     <div id="addOnOptions" class="row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;"></div>
                     <small class="text-muted" id="addOnHint">Select a shop to see available add-ons and fees.</small>
                 </div>
-
-                <div class="alert alert-info mt-3">
-                    <strong>Estimated quote:</strong>
-                    <span id="quoteEstimate">Select a shop and service to see estimates.</span>
-                    <div class="text-muted small mt-2" id="selectedPortfolioPrice">Selected portfolio price: <?php echo $preselected_portfolio ? '₱' . number_format((float) ($preselected_portfolio['price'] ?? 0), 2) : '₱0.00'; ?></div>
-                    <div class="mt-2 small" id="priceBreakdown" style="display: none;">
-                        <div><strong>Price breakdown</strong></div>
-                        <div id="priceBreakdownBase">Base service: ₱0.00</div>
-                        <div id="priceBreakdownPortfolio">Portfolio product price: ₱0.00</div>
-                        <div id="priceBreakdownAddOns">Add-ons: ₱0.00</div>
-                        <div id="priceBreakdownRush">Rush fee: ₱0.00</div>
-                        <div id="priceBreakdownQuantity">Quantity: 0</div>
-                    </div>
-                </div>
             </div>
 
             <!-- Step 4: Design Details -->
@@ -1166,9 +1152,21 @@ if(isset($_POST['place_order'])) {
             <!-- Step 5: Submit -->
             <div class="card mb-4">
                 <h3>Step 5: Submit</h3>
-                
                 <div class="alert alert-info mt-3">
-                    <h6><i class="fas fa-info-circle"></i> Important Notes:</h6>
+                    <strong>Estimated quote:</strong>
+                    <span id="quoteEstimate">Select a shop and service to see estimates.</span>
+                    <div class="text-muted small mt-2" id="selectedPortfolioPrice">Selected portfolio price: <?php echo $preselected_portfolio ? '₱' . number_format((float) ($preselected_portfolio['price'] ?? 0), 2) : '₱0.00'; ?></div>
+                    <div class="mt-2 small" id="priceBreakdown" style="display: none;">
+                        <div><strong>Price breakdown</strong></div>
+                        <div id="priceBreakdownBase">Base service: ₱0.00</div>
+                        <div id="priceBreakdownPortfolio">Portfolio product price: ₱0.00</div>
+                        <div id="priceBreakdownAddOns">Add-ons: ₱0.00</div>
+                        <div id="priceBreakdownRush">Rush fee: ₱0.00</div>
+                        <div id="priceBreakdownQuantity">Quantity: 0</div>
+                    </div>
+                </div>
+                <div class="alert alert-info mt-3">
+                    <h6><i class="fas fa-info-circle"></i> Important Notes:   </h6>
                     <ul class="mb-0">
                         <li>Shop owner will set the estimated price after reviewing your order</li>
                         <li>The quote will follow the add-ons and rush preferences you selected</li>
@@ -1177,7 +1175,7 @@ if(isset($_POST['place_order'])) {
                         <li>Payment details will be provided after order acceptance</li>
                     </ul>
                 </div>
-            </div>
+            
 
             <div class="text-center">
                 <button type="submit" name="place_order" class="btn btn-primary btn-lg">
@@ -1186,6 +1184,7 @@ if(isset($_POST['place_order'])) {
                 <a href="dashboard.php" class="btn btn-secondary btn-lg">Cancel</a>
             </div>
         </form>
+        </div>
         <?php endif; ?>
     </div>
 
