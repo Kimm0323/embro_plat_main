@@ -181,7 +181,7 @@ function rating_status_badge_class(string $status): string {
     <div class="container">
         <div class="dashboard-header">
             <h2>Ratings & Reviews</h2>
-            <p class="text-muted">Moderate feedback and respond to client reviews. Approved ratings contribute to your shop score.</p>
+            <p class="text-muted">See all customer product reviews, moderate feedback, and track the overall shop rating from approved submissions.</p>
         </div>
 
         <div class="card mb-3">

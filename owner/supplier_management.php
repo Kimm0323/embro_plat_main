@@ -495,7 +495,7 @@ $review_checkpoints = [
             <div class="d-flex justify-between align-center">
                 <div>
                     <h2>Supplier Management</h2>
-                    <p class="text-muted">Coordinate purchasing, monitor supplier health, and keep replenishment on schedule.</p>
+                     <p class="text-muted">Owners can add, edit, archive, or remove supplier records, review material inventory demand, and approve incoming stock requests.</p>
                 </div>
                 <span class="badge badge-primary"><i class="fas fa-handshake"></i> Module 23</span>
             </div>
@@ -514,8 +514,7 @@ $review_checkpoints = [
                     <h3><i class="fas fa-bullseye text-primary"></i> Purpose</h3>
                 </div>
                 <p class="text-muted mb-0">
-                    Handles purchasing and supplier evaluation to ensure embroidery materials arrive on time, at the right quality,
-                    and within budget.
+                    Handles supplier lifecycle management and stock replenishment planning so HR or staff requests for new materials can be reviewed and approved by the owner.
                 </p>
             </div>
 

@@ -373,7 +373,7 @@ $automation_rules = [
             <div class="d-flex justify-between align-center">
                 <div>
                     <h2>Storage &amp; Warehouse Management</h2>
-                    <p class="text-muted">Track storage locations, stock placements, and material movements across the shop.</p>
+                   <p class="text-muted">Owners manage stock locations here, while supplier records and full material inventory stay visible for replenishment decisions.</p>
                 </div>
                 <span class="badge badge-primary"><i class="fas fa-boxes-stacked"></i> Module 24</span>
             </div>
@@ -392,8 +392,7 @@ $automation_rules = [
                     <h3><i class="fas fa-bullseye text-primary"></i> Purpose</h3>
                 </div>
                 <p class="text-muted mb-0">
-                    Manages physical storage locations to keep embroidery materials and finished goods organized, traceable,
-                    and ready for picking.
+                    Owners can oversee storage flow, monitor all material inventory placements, and coordinate with HR/staff stock requests before approving new supply purchases.
                 </p>
             </div>
 

@@ -137,7 +137,7 @@ $staffs = $staffs_stmt->fetchAll();
     <div class="container">
         <div class="dashboard-header">
             <h2>Manage Staff</h2>
-            <p class="text-muted">View staff and HR members for your shop.</p>
+             <p class="text-muted">Create HR accounts, set staff positions, and oversee team approvals for new hires requested by HR.</p>
             <a class="btn btn-primary" href="create_hr.php">
                 <i class="fas fa-user-plus"></i> Create HR
             </a>
