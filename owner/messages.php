@@ -8,17 +8,41 @@ $error = '';
 $success = '';
 
 $clients_stmt = $pdo->prepare("
-    SELECT DISTINCT u.id AS client_id,
+    SELECT
+        u.id AS client_id,
         u.fullname AS client_name,
-        s.shop_name,
-        s.id AS shop_id
+         MAX(s.shop_name) AS shop_name,
+        MAX(s.id) AS shop_id,
+        MAX(ch.created_at) AS last_message_at,
+        (
+            SELECT c2.message
+            FROM chats c2
+            WHERE (c2.sender_id = u.id AND c2.receiver_id = :owner_id)
+               OR (c2.sender_id = :owner_id AND c2.receiver_id = u.id)
+            ORDER BY c2.created_at DESC
+            LIMIT 1
+        ) AS last_message,
+        (
+            SELECT COUNT(*)
+            FROM chats c3
+            WHERE c3.sender_id = u.id
+              AND c3.receiver_id = :owner_id
+              AND c3.read_status = 0
+        ) AS unread_count
     FROM orders o
     JOIN shops s ON o.shop_id = s.id
     JOIN users u ON o.client_id = u.id
-    WHERE s.owner_id = ?
-    ORDER BY u.fullname
+    LEFT JOIN chats ch
+      ON (ch.sender_id = u.id AND ch.receiver_id = :owner_id)
+      OR (ch.sender_id = :owner_id AND ch.receiver_id = u.id)
+    WHERE s.owner_id = :owner_id
+    GROUP BY u.id, u.fullname
+    ORDER BY
+        (MAX(ch.created_at) IS NULL) ASC,
+        MAX(ch.created_at) DESC,
+        u.fullname ASC
 ");
-$clients_stmt->execute([$owner_id]);
+$clients_stmt->execute(['owner_id' => $owner_id]);
 $clients = $clients_stmt->fetchAll();
 
 $selected_client_id = isset($_GET['client_id']) ? (int) $_GET['client_id'] : 0;
@@ -111,6 +135,33 @@ if ($active_client) {
             background: #f8fafc;
             border-left: 4px solid #0ea5e9;
         }
+         .conversation-item .preview {
+            margin-top: 6px;
+            color: #64748b;
+            font-size: 13px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .conversation-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .unread-badge {
+            background: #0ea5e9;
+            color: #fff;
+            min-width: 22px;
+            height: 22px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+        }
         .chat-window {
             border: 1px solid #e2e8f0;
             border-radius: 12px;
@@ -196,8 +247,8 @@ if ($active_client) {
 
     <div class="container">
         <div class="dashboard-header">
-            <h2>Client Messages</h2>
-            <p class="text-muted">Respond to client questions and confirm order details.</p>
+            <h2>Inbox</h2>
+            <p class="text-muted">Customers who placed orders in your shop appear here. Open a conversation and reply directly.</p>
         </div>
 
         <?php if ($error): ?>
@@ -209,8 +260,8 @@ if ($active_client) {
         <div class="messages-layout">
             <div>
                 <div class="card">
-                    <strong>Conversations</strong>
-                    <p class="text-muted small">Clients with active orders in your shop.</p>
+                    <strong>Customer Inbox</strong>
+                    <p class="text-muted small">Customers who ordered from your shop.</p>
                 </div>
                 <div class="conversation-list">
                     <?php if (!empty($clients)): ?>
@@ -219,6 +270,17 @@ if ($active_client) {
                             <a class="conversation-item <?php echo $is_active ? 'active' : ''; ?>" href="messages.php?client_id=<?php echo (int) $client['client_id']; ?>">
                                 <strong><?php echo htmlspecialchars($client['client_name']); ?></strong>
                                 <div class="text-muted small">Shop: <?php echo htmlspecialchars($client['shop_name']); ?></div>
+                                 <div class="preview">
+                                    <?php echo !empty($client['last_message']) ? htmlspecialchars($client['last_message']) : 'No messages yet.'; ?>
+                                </div>
+                                <div class="conversation-meta">
+                                    <span class="text-muted small">
+                                        <?php echo !empty($client['last_message_at']) ? date('M d, h:i A', strtotime($client['last_message_at'])) : 'Ordered customer'; ?>
+                                    </span>
+                                    <?php if ((int) $client['unread_count'] > 0): ?>
+                                        <span class="unread-badge"><?php echo (int) $client['unread_count']; ?></span>
+                                    <?php endif; ?>
+                                </div>
                             </a>
                         <?php endforeach; ?>
                     <?php else: ?>

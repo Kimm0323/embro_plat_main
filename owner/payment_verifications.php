@@ -268,8 +268,8 @@ function payment_badge($status) {
 
     <div class="container">
         <div class="dashboard-header">
-            <h2>Payment Verifications</h2>
-            <p class="text-muted">Review client payment proofs and confirm receipts.</p>
+           <h2>Finance - Shop Payments</h2>
+            <p class="text-muted">All payments sent to your shop are listed here, including pending, verified, rejected, and refunded records.</p>
         </div>
 
         <?php if($error): ?>
@@ -288,7 +288,7 @@ function payment_badge($status) {
         </div>
 
         <div class="card">
-            <h3>Payments (<?php echo count($payments); ?>)</h3>
+            <h3>All Shop Payments (<?php echo count($payments); ?>)</h3>
             <?php if(!empty($payments)): ?>
                 <table class="table">
                     <thead>
