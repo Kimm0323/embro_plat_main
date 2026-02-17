@@ -91,7 +91,7 @@ $error = '';
 $success = '';
 $max_cancel_progress = 20;
 $max_revision_count = 2;
-$allowed_filters = ['pending', 'accepted', 'in_progress', 'completed', 'cancelled'];
+$allowed_filters = ['to_pay', 'to_process', 'to_ship', 'to_receive', 'to_review', 'returns', 'cancellation'];
 $filter = $_GET['filter'] ?? 'all';
 
 $action = $_POST['action'] ?? '';
@@ -296,16 +296,11 @@ $query = "
 ";
 $params = [$client_id];
 
-if(in_array($filter, $allowed_filters, true)) {
-    $query .= " AND o.status = ?";
-    $params[] = $filter;
-}
-
 $query .= " ORDER BY o.created_at DESC";
 
 $orders_stmt = $pdo->prepare($query);
 $orders_stmt->execute($params);
-$orders = $orders_stmt->fetchAll();
+$all_orders = $orders_stmt->fetchAll();
 
 $order_photos = [];
 $payment_by_order = [];
@@ -316,8 +311,8 @@ $fulfillment_by_order = [];
 $fulfillment_history_by_id = [];
 $status_history_by_order = [];
 $claimed_fulfillment_by_order = [];
-if(!empty($orders)) {
-    $order_ids = array_column($orders, 'id');
+if(!empty($all_orders)) {
+    $order_ids = array_column($all_orders, 'id');
     $placeholders = implode(',', array_fill(0, count($order_ids), '?'));
     $photos_stmt = $pdo->prepare("
         SELECT * FROM order_photos
@@ -432,6 +427,75 @@ if(!empty($orders)) {
     }
 }
 
+function is_order_for_review(array $order, array $claimed_fulfillment_by_order): bool {
+    return $order['status'] === STATUS_COMPLETED
+        && (empty($order['rating']) || (int) $order['rating'] === 0)
+        && !empty($claimed_fulfillment_by_order[$order['id']]);
+}
+
+function matches_order_filter(
+    string $filter,
+    array $order,
+    array $fulfillment_by_order,
+    array $claimed_fulfillment_by_order
+): bool {
+    $payment_status = $order['payment_status'] ?? 'unpaid';
+    $fulfillment_status = $fulfillment_by_order[$order['id']]['status'] ?? null;
+
+    if($filter === 'to_pay') {
+        return in_array($order['status'], [STATUS_ACCEPTED, STATUS_IN_PROGRESS, STATUS_COMPLETED], true)
+            && in_array($payment_status, ['unpaid', 'rejected'], true);
+    }
+
+    if($filter === 'to_process') {
+        return in_array($order['status'], [STATUS_PENDING, STATUS_ACCEPTED, STATUS_IN_PROGRESS], true);
+    }
+
+    if($filter === 'to_ship') {
+        return in_array($fulfillment_status, [FULFILLMENT_PENDING, FULFILLMENT_READY_FOR_PICKUP, FULFILLMENT_OUT_FOR_DELIVERY], true)
+            && $order['status'] !== STATUS_CANCELLED;
+    }
+
+    if($filter === 'to_receive') {
+        return $fulfillment_status === FULFILLMENT_DELIVERED && $order['status'] !== STATUS_CANCELLED;
+    }
+
+    if($filter === 'to_review') {
+        return is_order_for_review($order, $claimed_fulfillment_by_order);
+    }
+
+    if($filter === 'returns') {
+        return in_array($payment_status, ['refund_pending', 'refunded'], true);
+    }
+
+    if($filter === 'cancellation') {
+        return $order['status'] === STATUS_CANCELLED;
+    }
+
+    return true;
+}
+
+$orders = $all_orders;
+if(in_array($filter, $allowed_filters, true)) {
+    $orders = array_values(array_filter(
+        $all_orders,
+        static function ($order) use ($filter, $payment_by_order, $fulfillment_by_order, $claimed_fulfillment_by_order) {
+            return matches_order_filter($filter, $order, $fulfillment_by_order, $claimed_fulfillment_by_order);
+        }
+    ));
+}
+
+$filter_counts = [];
+foreach($allowed_filters as $order_filter) {
+    $filter_counts[$order_filter] = 0;
+}
+foreach($all_orders as $order) {
+    foreach($allowed_filters as $order_filter) {
+        if(matches_order_filter($order_filter, $order, $fulfillment_by_order, $claimed_fulfillment_by_order)) {
+            $filter_counts[$order_filter]++;
+        }
+    }
+}
 function status_pill($status) {
     $map = [
         'pending' => 'status-pending',
@@ -647,12 +711,14 @@ function fulfillment_status_pill(?string $status): string {
         </div>
 
         <div class="filter-tabs">
-            <a href="track_order.php" class="<?php echo $filter === 'all' ? 'active' : ''; ?>">All</a>
-            <a href="track_order.php?filter=pending" class="<?php echo $filter === 'pending' ? 'active' : ''; ?>">Pending</a>
-            <a href="track_order.php?filter=accepted" class="<?php echo $filter === 'accepted' ? 'active' : ''; ?>">Accepted</a>
-            <a href="track_order.php?filter=in_progress" class="<?php echo $filter === 'in_progress' ? 'active' : ''; ?>">In Progress</a>
-            <a href="track_order.php?filter=completed" class="<?php echo $filter === 'completed' ? 'active' : ''; ?>">Completed</a>
-            <a href="track_order.php?filter=cancelled" class="<?php echo $filter === 'cancelled' ? 'active' : ''; ?>">Cancelled</a>
+           <a href="track_order.php" class="<?php echo $filter === 'all' ? 'active' : ''; ?>">All (<?php echo count($all_orders); ?>)</a>
+            <a href="track_order.php?filter=to_pay" class="<?php echo $filter === 'to_pay' ? 'active' : ''; ?>">To Pay (<?php echo $filter_counts['to_pay']; ?>)</a>
+            <a href="track_order.php?filter=to_process" class="<?php echo $filter === 'to_process' ? 'active' : ''; ?>">To Process (<?php echo $filter_counts['to_process']; ?>)</a>
+            <a href="track_order.php?filter=to_ship" class="<?php echo $filter === 'to_ship' ? 'active' : ''; ?>">To Ship (<?php echo $filter_counts['to_ship']; ?>)</a>
+            <a href="track_order.php?filter=to_receive" class="<?php echo $filter === 'to_receive' ? 'active' : ''; ?>">To Receive (<?php echo $filter_counts['to_receive']; ?>)</a>
+            <a href="track_order.php?filter=to_review" class="<?php echo $filter === 'to_review' ? 'active' : ''; ?>">To Review (<?php echo $filter_counts['to_review']; ?>)</a>
+            <a href="track_order.php?filter=returns" class="<?php echo $filter === 'returns' ? 'active' : ''; ?>">Returns (<?php echo $filter_counts['returns']; ?>)</a>
+            <a href="track_order.php?filter=cancellation" class="<?php echo $filter === 'cancellation' ? 'active' : ''; ?>">Cancellation (<?php echo $filter_counts['cancellation']; ?>)</a>
         </div>
 
         <?php if(!empty($orders)): ?>
@@ -731,11 +797,7 @@ function fulfillment_status_pill(?string $status): string {
                             <?php endif; ?>
                         </div>
                     </div>
-                    <?php
-                        $needs_rating = $order['status'] === 'completed'
-                            && (empty($order['rating']) || (int) $order['rating'] === 0)
-                            && !empty($claimed_fulfillment_by_order[$order['id']]);
-                    ?>
+                    <?php $needs_rating = is_order_for_review($order, $claimed_fulfillment_by_order); ?>
                     <?php if($needs_rating): ?>
                         <div class="rating-reminder">
                             <strong><i class="fas fa-star text-warning"></i> Rate this completed order</strong>
