@@ -682,68 +682,6 @@ $payment_hold = payment_hold_status($order['status'] ?? STATUS_PENDING, $payment
                 <?php endif; ?>
             <?php endif; ?>
         </div>
-        
-        <div class="card">
-            <h3>Schedule & Capacity</h3>
-            <?php if($schedule_entry): ?>
-                <div class="schedule-summary mb-3">
-                    <span><strong>Assigned staff:</strong> <?php echo htmlspecialchars($schedule_entry['staff_name']); ?></span>
-                    <span><strong>Date:</strong> <?php echo date('M d, Y', strtotime($schedule_entry['scheduled_date'])); ?></span>
-                    <span>
-                        <strong>Time:</strong>
-                        <?php echo $schedule_entry['scheduled_time'] ? date('h:i A', strtotime($schedule_entry['scheduled_time'])) : 'TBD'; ?>
-                    </span>
-                    <?php if($schedule_capacity && $schedule_capacity['limit'] > 0): ?>
-                        <span><strong>Capacity:</strong> <?php echo $schedule_capacity['count']; ?> / <?php echo $schedule_capacity['limit']; ?> jobs</span>
-                    <?php endif; ?>
-                </div>
-                <?php if(!empty($schedule_entry['task_description'])): ?>
-                    <p class="text-muted mb-3"><?php echo nl2br(htmlspecialchars($schedule_entry['task_description'])); ?></p>
-                <?php endif; ?>
-            <?php else: ?>
-                <p class="text-muted">No schedule has been set for this order yet.</p>
-            <?php endif; ?>
-
-            <form method="POST" class="schedule-form">
-                <?php echo csrf_field(); ?>
-                <input type="hidden" name="order_id" value="<?php echo (int) $order['id']; ?>">
-                <div class="schedule-grid">
-                    <div class="form-group">
-                        <label for="staff_id">Assign staff</label>
-                        <select name="staff_id" id="staff_id" class="form-control" required>
-                            <option value="">Select staff</option>
-                            <?php foreach($active_staff as $staff_member): ?>
-                                <option value="<?php echo (int) $staff_member['user_id']; ?>"
-                                    <?php
-                                        $selected_staff = $schedule_entry['staff_id'] ?? $order['assigned_to'] ?? null;
-                                        echo ((int) $staff_member['user_id'] === (int) $selected_staff) ? 'selected' : '';
-                                    ?>
-                                >
-                                    <?php echo htmlspecialchars($staff_member['fullname']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="scheduled_date">Scheduled date</label>
-                        <input type="date" class="form-control" id="scheduled_date" name="scheduled_date" required
-                            value="<?php echo htmlspecialchars($schedule_entry['scheduled_date'] ?? $order['scheduled_date'] ?? ''); ?>">
-                    </div>
-                    <div class="form-group">
-                        <label for="scheduled_time">Scheduled time</label>
-                        <input type="time" class="form-control" id="scheduled_time" name="scheduled_time"
-                            value="<?php echo htmlspecialchars($schedule_entry['scheduled_time'] ?? ''); ?>">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="task_description">Task description</label>
-                    <textarea class="form-control" id="task_description" name="task_description" rows="3"><?php echo htmlspecialchars($schedule_entry['task_description'] ?? ''); ?></textarea>
-                </div>
-                <button type="submit" name="schedule_job" class="btn btn-primary">
-                    <i class="fas fa-calendar-check"></i> Save Schedule
-                </button>
-            </form>
-        </div>
     </div>
 </body>
 </html>
