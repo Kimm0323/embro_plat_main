@@ -17,8 +17,8 @@ $clients_stmt = $pdo->prepare("
         (
             SELECT c2.message
             FROM chats c2
-            WHERE (c2.sender_id = u.id AND c2.receiver_id = :owner_id)
-               OR (c2.sender_id = :owner_id AND c2.receiver_id = u.id)
+            WHERE (c2.sender_id = u.id AND c2.receiver_id = :owner_id_last_message_in)
+               OR (c2.sender_id = :owner_id_last_message_out AND c2.receiver_id = u.id)
             ORDER BY c2.created_at DESC
             LIMIT 1
         ) AS last_message,
@@ -26,23 +26,30 @@ $clients_stmt = $pdo->prepare("
             SELECT COUNT(*)
             FROM chats c3
             WHERE c3.sender_id = u.id
-              AND c3.receiver_id = :owner_id
+               AND c3.receiver_id = :owner_id_unread
               AND c3.read_status = 0
         ) AS unread_count
     FROM orders o
     JOIN shops s ON o.shop_id = s.id
     JOIN users u ON o.client_id = u.id
     LEFT JOIN chats ch
-      ON (ch.sender_id = u.id AND ch.receiver_id = :owner_id)
-      OR (ch.sender_id = :owner_id AND ch.receiver_id = u.id)
-    WHERE s.owner_id = :owner_id
+     ON (ch.sender_id = u.id AND ch.receiver_id = :owner_id_join_in)
+      OR (ch.sender_id = :owner_id_join_out AND ch.receiver_id = u.id)
+    WHERE s.owner_id = :owner_id_where
     GROUP BY u.id, u.fullname
     ORDER BY
         (MAX(ch.created_at) IS NULL) ASC,
         MAX(ch.created_at) DESC,
         u.fullname ASC
 ");
-$clients_stmt->execute(['owner_id' => $owner_id]);
+$clients_stmt->execute([
+    'owner_id_last_message_in' => $owner_id,
+    'owner_id_last_message_out' => $owner_id,
+    'owner_id_unread' => $owner_id,
+    'owner_id_join_in' => $owner_id,
+    'owner_id_join_out' => $owner_id,
+    'owner_id_where' => $owner_id,
+]);
 $clients = $clients_stmt->fetchAll();
 
 $selected_client_id = isset($_GET['client_id']) ? (int) $_GET['client_id'] : 0;
