@@ -878,6 +878,14 @@ if(isset($_POST['place_order'])) {
                     <strong>Estimated quote:</strong>
                     <span id="quoteEstimate">Select a shop and service to see estimates.</span>
                     <div class="text-muted small mt-2" id="selectedPortfolioPrice">Selected portfolio price: <?php echo $preselected_portfolio ? '₱' . number_format((float) ($preselected_portfolio['price'] ?? 0), 2) : '₱0.00'; ?></div>
+                    <div class="mt-2 small" id="priceBreakdown" style="display: none;">
+                        <div><strong>Price breakdown</strong></div>
+                        <div id="priceBreakdownBase">Base service: ₱0.00</div>
+                        <div id="priceBreakdownPortfolio">Portfolio product price: ₱0.00</div>
+                        <div id="priceBreakdownAddOns">Add-ons: ₱0.00</div>
+                        <div id="priceBreakdownRush">Rush fee: ₱0.00</div>
+                        <div id="priceBreakdownQuantity">Quantity: 0</div>
+                    </div>
                 </div>
             </div>
 
@@ -1245,6 +1253,7 @@ if(isset($_POST['place_order'])) {
         function updateQuoteEstimate() {
             const quoteEstimate = document.getElementById('quoteEstimate');
             const selectedPortfolioPrice = document.getElementById('selectedPortfolioPrice');
+             const priceBreakdown = document.getElementById('priceBreakdown');
             const service = getSelectedService();
             const quantity = parseInt(document.querySelector('input[name="quantity"]').value || '0', 10);
             const productPriceInput = document.querySelector('input[name="product_price"]');
@@ -1252,6 +1261,7 @@ if(isset($_POST['place_order'])) {
             selectedPortfolioPrice.textContent = `Selected portfolio price: ${formatCurrency(productPrice)}`;
             if (!service || Object.keys(pricingState.base_prices).length === 0 || quantity <= 0) {
                 quoteEstimate.textContent = 'Select a shop and service to see estimates.';
+                 priceBreakdown.style.display = 'none';
                 return;
             }
 
@@ -1267,6 +1277,12 @@ if(isset($_POST['place_order'])) {
             const totalEstimate = unitEstimate * quantity;
 
             quoteEstimate.textContent = `${formatCurrency(unitEstimate)} per item • ${formatCurrency(totalEstimate)} total`;
+            priceBreakdown.style.display = 'block';
+            document.getElementById('priceBreakdownBase').textContent = `Base service: ${formatCurrency(serviceTypePrice)}`;
+            document.getElementById('priceBreakdownPortfolio').textContent = `Portfolio product price: ${formatCurrency(productPrice)}`;
+            document.getElementById('priceBreakdownAddOns').textContent = `Add-ons: ${formatCurrency(addOnTotal)}`;
+            document.getElementById('priceBreakdownRush').textContent = `Rush fee: ${formatCurrency(rushFeeAmount)}`;
+            document.getElementById('priceBreakdownQuantity').textContent = `Quantity: ${quantity}`;
         }
 
         function updateSelectionSummary() {
