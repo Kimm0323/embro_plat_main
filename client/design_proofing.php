@@ -164,11 +164,14 @@ if(isset($_POST['approve_proof'])) {
     $order_id = (int) ($_POST['order_id'] ?? 0);
     $approval_stmt = $pdo->prepare("
         SELECT o.id, o.order_number, o.shop_id, o.client_id, s.owner_id, s.shop_name,
-               da.id as approval_id, da.design_file, da.status as approval_status
+               da.id as approval_id,
+               COALESCE(da.design_file, o.design_file) as proof_file,
+               da.status as approval_status
         FROM orders o
         JOIN shops s ON o.shop_id = s.id
-        JOIN design_approvals da ON da.order_id = o.id
+        LEFT JOIN design_approvals da ON da.order_id = o.id
         WHERE o.id = ? AND o.client_id = ?
+        ORDER BY da.updated_at DESC, da.id DESC
         LIMIT 1
     ");
     $approval_stmt->execute([$order_id, $client_id]);
@@ -176,17 +179,19 @@ if(isset($_POST['approve_proof'])) {
 
     if(!$approval) {
         $error = 'Unable to locate the proof for approval.';
-    } elseif(empty($approval['design_file'])) {
+    } elseif(empty($approval['proof_file'])) {
         $error = 'There is no proof file to approve yet.';
     } elseif($approval['approval_status'] === 'approved') {
         $error = 'This proof has already been approved.';
     } else {
-        $update_stmt = $pdo->prepare("
+         if(!empty($approval['approval_id'])) {
+            $update_stmt = $pdo->prepare("
             UPDATE design_approvals
             SET status = 'approved', approved_at = NOW(), updated_at = NOW()
             WHERE id = ?
         ");
         $update_stmt->execute([$approval['approval_id']]);
+        }
 
         $order_update = $pdo->prepare("UPDATE orders SET design_approved = 1, updated_at = NOW() WHERE id = ?");
         $order_update->execute([$order_id]);
@@ -208,11 +213,14 @@ if(isset($_POST['request_revision'])) {
 
     $approval_stmt = $pdo->prepare("
         SELECT o.id, o.order_number, o.shop_id, o.client_id, s.owner_id, s.shop_name,
-               da.id as approval_id, da.design_file, da.status as approval_status
+                da.id as approval_id,
+               COALESCE(da.design_file, o.design_file) as proof_file,
+               da.status as approval_status
         FROM orders o
         JOIN shops s ON o.shop_id = s.id
-        JOIN design_approvals da ON da.order_id = o.id
+        LEFT JOIN design_approvals da ON da.order_id = o.id
         WHERE o.id = ? AND o.client_id = ?
+        ORDER BY da.updated_at DESC, da.id DESC
         LIMIT 1
     ");
     $approval_stmt->execute([$order_id, $client_id]);
@@ -222,15 +230,17 @@ if(isset($_POST['request_revision'])) {
         $error = 'Unable to locate the proof for revision.';
     } elseif($revision_notes === '') {
         $error = 'Please add revision notes for the shop.';
-    } elseif(empty($approval['design_file'])) {
+     } elseif(empty($approval['proof_file'])) {
         $error = 'There is no proof file to revise yet.';
     } else {
-        $update_stmt = $pdo->prepare("
+        if(!empty($approval['approval_id'])) {
+            $update_stmt = $pdo->prepare("
             UPDATE design_approvals
             SET status = 'revision', revision_count = revision_count + 1, customer_notes = ?, updated_at = NOW()
             WHERE id = ?
         ");
         $update_stmt->execute([$revision_notes, $approval['approval_id']]);
+        }
 
         $order_update = $pdo->prepare("
             UPDATE orders
@@ -258,7 +268,17 @@ if(isset($_POST['reject_proof'])) {
     $order_id = (int) ($_POST['order_id'] ?? 0);
     $rejection_notes = sanitize($_POST['rejection_notes'] ?? '');
 
-    $approval_stmt = $pdo->prepare("\n        SELECT o.id, o.order_number, o.shop_id, o.client_id, s.owner_id, s.shop_name,\n               da.id as approval_id, da.design_file, da.status as approval_status\n        FROM orders o\n        JOIN shops s ON o.shop_id = s.id\n        JOIN design_approvals da ON da.order_id = o.id\n        WHERE o.id = ? AND o.client_id = ?\n        LIMIT 1\n    ");
+     $approval_stmt = $pdo->prepare("\n        SELECT o.id, o.order_number, o.shop_id, o.client_id, s.owner_id, s.shop_name,
+               da.id as approval_id,
+               COALESCE(da.design_file, o.design_file) as proof_file,
+               da.status as approval_status
+        FROM orders o
+        JOIN shops s ON o.shop_id = s.id
+        LEFT JOIN design_approvals da ON da.order_id = o.id
+        WHERE o.id = ? AND o.client_id = ?
+        ORDER BY da.updated_at DESC, da.id DESC
+        LIMIT 1
+    ");
     $approval_stmt->execute([$order_id, $client_id]);
     $approval = $approval_stmt->fetch();
 
@@ -266,13 +286,15 @@ if(isset($_POST['reject_proof'])) {
         $error = 'Unable to locate the proof to reject.';
     } elseif($rejection_notes === '') {
         $error = 'Please provide rejection notes for the shop.';
-    } elseif(empty($approval['design_file'])) {
+    } elseif(empty($approval['proof_file'])) {
         $error = 'There is no proof file to reject yet.';
     } elseif($approval['approval_status'] === 'approved') {
         $error = 'This proof is already approved and cannot be rejected.';
     } else {
-        $update_stmt = $pdo->prepare("\n            UPDATE design_approvals\n            SET status = 'rejected', customer_notes = ?, updated_at = NOW()\n            WHERE id = ?\n        ");
-        $update_stmt->execute([$rejection_notes, $approval['approval_id']]);
+       if(!empty($approval['approval_id'])) {
+            $update_stmt = $pdo->prepare("\n            UPDATE design_approvals\n            SET status = 'rejected', customer_notes = ?, updated_at = NOW()\n            WHERE id = ?\n        ");
+            $update_stmt->execute([$rejection_notes, $approval['approval_id']]);
+        }
 
         $order_update = $pdo->prepare("\n            UPDATE orders\n            SET design_approved = 0,\n                revision_notes = ?,\n                revision_requested_at = NOW(),\n                updated_at = NOW()\n            WHERE id = ?\n        ");
         $order_update->execute([$rejection_notes, $order_id]);

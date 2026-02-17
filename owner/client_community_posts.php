@@ -7,6 +7,7 @@ $owner_id = $_SESSION['user']['id'];
 $unread_notifications = fetch_unread_notification_count($pdo, $owner_id);
 $form_error = '';
 $form_success = '';
+$selected_view_post = null;
 
 $shop_stmt = $pdo->prepare("SELECT id, shop_name FROM shops WHERE owner_id = ?");
 $shop_stmt->execute([$owner_id]);
@@ -103,6 +104,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accept_request'])) {
     }
 }
 
+$view_post_id = (int) ($_GET['view_post'] ?? 0);
+if ($view_post_id > 0) {
+    $view_post_stmt = $pdo->prepare("
+        SELECT ccp.id,
+               ccp.title,
+               ccp.category,
+               ccp.description,
+               ccp.preferred_price,
+               ccp.desired_quantity,
+               ccp.target_date,
+               ccp.image_path,
+               ccp.status,
+               ccp.created_at,
+               u.fullname AS client_name
+        FROM client_community_posts ccp
+        JOIN users u ON ccp.client_id = u.id
+        WHERE ccp.id = ?
+        LIMIT 1
+    ");
+    $view_post_stmt->execute([$view_post_id]);
+    $selected_view_post = $view_post_stmt->fetch();
+}
+
+
 $posts_stmt = $pdo->query("
      SELECT ccp.id,
            ccp.title,
@@ -166,6 +191,17 @@ $community_posts = $posts_stmt->fetchAll();
             color: var(--gray-500);
             margin-top: 0.75rem;
         }
+         .post-actions {
+            margin-top: 1rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        .post-actions form {
+            margin: 0;
+        }
     </style>
 </head>
 <body>
@@ -219,6 +255,38 @@ $community_posts = $posts_stmt->fetchAll();
             <div class="alert alert-success mb-3"><?php echo htmlspecialchars($form_success); ?></div>
         <?php endif; ?>
 
+         <?php if ($selected_view_post): ?>
+            <div class="card mb-3" id="post-details">
+                <div class="card-header d-flex justify-between align-center">
+                    <h3 class="mb-0"><i class="fas fa-eye text-primary"></i> Viewing post details</h3>
+                    <a href="client_community_posts.php" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-times"></i> Close
+                    </a>
+                </div>
+                <div class="card-content">
+                    <span class="badge badge-primary"><?php echo htmlspecialchars($selected_view_post['category']); ?></span>
+                    <h4 class="mt-2"><?php echo htmlspecialchars($selected_view_post['title']); ?></h4>
+                    <?php if (!empty($selected_view_post['image_path'])): ?>
+                        <img src="../assets/uploads/<?php echo htmlspecialchars($selected_view_post['image_path']); ?>" alt="Post reference image">
+                    <?php endif; ?>
+                    <p class="text-muted mb-2"><?php echo nl2br(htmlspecialchars($selected_view_post['description'])); ?></p>
+                    <div class="community-meta">
+                        <span><i class="fas fa-user"></i> <?php echo htmlspecialchars($selected_view_post['client_name']); ?></span>
+                        <span><i class="fas fa-calendar"></i> <?php echo date('M d, Y', strtotime($selected_view_post['created_at'])); ?></span>
+                        <?php if (!empty($selected_view_post['preferred_price'])): ?>
+                            <span><i class="fas fa-peso-sign"></i> Price ₱<?php echo number_format((float) $selected_view_post['preferred_price'], 2); ?></span>
+                        <?php endif; ?>
+                        <?php if (!empty($selected_view_post['desired_quantity'])): ?>
+                            <span><i class="fas fa-box"></i> Qty <?php echo htmlspecialchars($selected_view_post['desired_quantity']); ?></span>
+                        <?php endif; ?>
+                        <?php if (!empty($selected_view_post['target_date'])): ?>
+                            <span><i class="fas fa-clock"></i> Target <?php echo date('M d, Y', strtotime($selected_view_post['target_date'])); ?></span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+
         <?php if (empty($community_posts)): ?>
             <div class="card">
                 <p class="text-muted mb-0">No client community posts are available right now. Check back soon.</p>
@@ -246,13 +314,18 @@ $community_posts = $posts_stmt->fetchAll();
                                 <span><i class="fas fa-clock"></i> Target <?php echo date('M d, Y', strtotime($post['target_date'])); ?></span>
                             <?php endif; ?>
                         </div>
-                         <form method="POST" class="mt-3 d-flex" style="gap: 0.75rem; flex-wrap: wrap; align-items: center;">
-                            <?php echo csrf_field(); ?>
-                            <input type="hidden" name="post_id" value="<?php echo (int) $post['id']; ?>">
-                            <button type="submit" name="accept_request" class="btn btn-primary btn-sm">
-                                <i class="fas fa-check"></i> Accept Request as new order
-                            </button>
-                        </form>
+                          <div class="post-actions">
+                            <a href="client_community_posts.php?view_post=<?php echo (int) $post['id']; ?>#post-details" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-eye"></i> View post
+                            </a>
+                            <form method="POST" class="d-flex" style="gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+                                <?php echo csrf_field(); ?>
+                                <input type="hidden" name="post_id" value="<?php echo (int) $post['id']; ?>">
+                                <button type="submit" name="accept_request" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-check"></i> Accept Request as new order
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 <?php endforeach; ?>
             </div>
