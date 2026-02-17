@@ -27,9 +27,11 @@ $stats_stmt = $pdo->prepare("
         (SELECT COUNT(*) FROM orders WHERE shop_id = ? AND status = 'in_progress') as active_orders,
         (SELECT COUNT(*) FROM orders WHERE shop_id = ? AND status = 'completed') as completed_orders,
         (SELECT SUM(price) FROM orders WHERE shop_id = ? AND status = 'completed') as total_earnings,
-        (SELECT COUNT(*) FROM shop_staffs WHERE shop_id = ? AND status = 'active') as total_staff
+        ((SELECT COUNT(*) FROM shop_staffs WHERE shop_id = ? AND status = 'active') as total_staff,
+        (SELECT COUNT(*) FROM orders WHERE shop_id = ? AND status = 'accepted') as accepted_orders,
+        (SELECT COUNT(*) FROM orders WHERE shop_id = ? AND status = 'cancelled') as cancelled_orders
 ");
-$stats_stmt->execute([$shop_id, $shop_id, $shop_id, $shop_id, $shop_id, $shop_id]);
+$stats_stmt->execute([$shop_id, $shop_id, $shop_id, $shop_id, $shop_id, $shop_id, $shop_id, $shop_id]);
 $stats = $stats_stmt->fetch();
 
 // Recent orders
@@ -44,36 +46,9 @@ $orders_stmt = $pdo->prepare("
 $orders_stmt->execute([$shop_id]);
 $recent_orders = $orders_stmt->fetchAll();
 
-// Recent staffs
-$staffs_stmt = $pdo->prepare("
-    SELECT se.*, u.fullname, u.email 
-    FROM shop_staffs se 
-    JOIN users u ON se.user_id = u.id 
-    WHERE se.shop_id = ? 
-    ORDER BY se.created_at DESC 
-    LIMIT 3
-");
-$staffs_stmt->execute([$shop_id]);
-$recent_staffs = $staffs_stmt->fetchAll();
-
-$staff_workload_stmt = $pdo->prepare("
-    SELECT u.fullname,
-           se.position,
-           se.max_active_orders,
-           COUNT(o.id) AS active_orders
-    FROM shop_staffs se
-    JOIN users u ON se.user_id = u.id
-    LEFT JOIN orders o
-        ON o.assigned_to = se.user_id
-        AND o.shop_id = se.shop_id
-        AND o.status IN ('pending', 'accepted', 'in_progress')
-    WHERE se.shop_id = ? AND se.status = 'active'
-    GROUP BY se.user_id
-    ORDER BY active_orders DESC, u.fullname ASC
-    LIMIT 6
-");
-$staff_workload_stmt->execute([$shop_id]);
-$staff_workloads = $staff_workload_stmt->fetchAll();
+$completion_rate = $stats['total_orders'] > 0
+    ? ($stats['completed_orders'] / $stats['total_orders'] * 100)
+    : 0;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -103,6 +78,15 @@ $staff_workloads = $staff_workload_stmt->fetchAll();
             gap: 20px;
             margin: 25px 0;
         }
+        .content-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+        }
         .stat-card {
             background: white;
             padding: 20px;
@@ -125,6 +109,27 @@ $staff_workloads = $staff_workload_stmt->fetchAll();
         .accepted { background: #17a2b8; }
         .in_progress { background: #007bff; }
         .completed { background: #28a745; }
+        @media (max-width: 768px) {
+            .shop-header .d-flex {
+                flex-direction: column;
+                align-items: flex-start !important;
+                gap: 16px;
+            }
+            .shop-header .text-right {
+                text-align: left;
+            }
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+                gap: 12px;
+            }
+            .stat-card {
+                padding: 14px;
+            }
+            .stat-number {
+                font-size: 1.2rem;
+                word-break: break-word;
+            }
+        }
     </style>
 </head>
 <body>
@@ -256,12 +261,11 @@ $staff_workloads = $staff_workload_stmt->fetchAll();
             </div>
         </div>
 
-        <div class="row" style="display: flex; gap: 20px;">
-            <!-- Recent Orders -->
-            <div style="flex: 2;">
-                <div class="card">
-                    <h3>Recent Orders</h3>
-                    <?php if(!empty($recent_orders)): ?>
+         <div class="content-stack">
+            <div class="card">
+                <h3>Recent Orders in Your Shop</h3>
+                <?php if(!empty($recent_orders)): ?>
+                    <div class="table-responsive">
                         <table class="table">
                             <thead>
                                 <tr>
@@ -296,119 +300,57 @@ $staff_workloads = $staff_workload_stmt->fetchAll();
                                     <td>
                                         <?php if($order['status'] == 'pending'): ?>
                                             <div class="d-flex" style="gap: 5px;">
-                                                <a href="view_order.php?id=<?php echo $order['id']; ?>" 
-                                                   class="btn btn-sm btn-outline-primary">View</a>
-                                                    <a href="accept_order.php?id=<?php echo $order['id']; ?>"
-                                                   class="btn btn-sm btn-success"
-                                                   onclick="return confirm('Accept this order and use the estimated price as the official price?');">Accept</a>
-                                                <a href="reject_order.php?id=<?php echo $order['id']; ?>" 
-                                                   class="btn btn-sm btn-danger">Reject</a>
+                                                 <a href="view_order.php?id=<?php echo $order['id']; ?>" class="btn btn-sm btn-outline-primary">View</a>
+                                                <a href="accept_order.php?id=<?php echo $order['id']; ?>" class="btn btn-sm btn-success" onclick="return confirm('Accept this order and use the estimated price as the official price?');">Accept</a>
+                                                <a href="reject_order.php?id=<?php echo $order['id']; ?>" class="btn btn-sm btn-danger">Reject</a>
                                             </div>
                                         <?php else: ?>
-                                            <a href="view_order.php?id=<?php echo $order['id']; ?>" 
-                                               class="btn btn-sm btn-outline-primary">View</a>
+                                           <a href="view_order.php?id=<?php echo $order['id']; ?>" class="btn btn-sm btn-outline-primary">View</a>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
-                    <?php else: ?>
-                        <div class="text-center p-4">
-                            <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                            <h4>No Orders Yet</h4>
-                            <p class="text-muted">Orders will appear here once customers place them.</p>
-                        </div>
-                    <?php endif; ?>
-                </div>
+                    <</div>
+                <?php else: ?>
+                    <div class="text-center p-4">
+                        <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                        <h4>No Orders Yet</h4>
+                        <p class="text-muted">Orders will appear here once customers place them.</p>
+                    </div>
+                <?php endif; ?>
             </div>
 
-            <div style="flex: 1; display: flex; flex-direction: column; gap: 20px;">
-                <div class="card">
-                    <h3>Staff Workload</h3>
-                    <?php if(!empty($staff_workloads)): ?>
-                        <?php foreach($staff_workloads as $staff): ?>
-                            <?php
-                                $max_orders = (int) ($staff['max_active_orders'] ?? 0);
-                                $active_orders = (int) ($staff['active_orders'] ?? 0);
-                                $capacity_label = $max_orders > 0 ? $active_orders . '/' . $max_orders . ' active' : $active_orders . ' active';
-                            ?>
-                            <div class="d-flex justify-between align-center mb-3" style="border-bottom: 1px solid #eee; padding-bottom: 10px;">
-                                <div>
-                                    <strong><?php echo htmlspecialchars($staff['fullname']); ?></strong>
-                                    <?php if(!empty($staff['position'])): ?>
-                                        <br><small class="text-muted"><?php echo htmlspecialchars($staff['position']); ?></small>
-                                    <?php endif; ?>
-                                </div>
-                                <span class="badge badge-info"><?php echo htmlspecialchars($capacity_label); ?></span>
-                            </div>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <p class="text-muted mb-0">No active staff workload to display.</p>
-                    <?php endif; ?>
-                </div>
-
-                <div class="card">
-                    <h3>Recent Staff</h3>
-                    <?php if(!empty($recent_staffs)): ?>
-                        <?php foreach($recent_staffs as $staff): ?>
-                            <div class="d-flex justify-between align-center mb-3" style="border-bottom: 1px solid #eee; padding-bottom: 10px;">
-                                <div>
-                                    <strong><?php echo htmlspecialchars($staff['fullname']); ?></strong>
-                                    <br>
-                                    <small class="text-muted"><?php echo htmlspecialchars($staff['email']); ?></small>
-                                </div>
-                                <div>
-                                    <a href="manage_staff.php" class="btn btn-sm btn-outline-primary">View</a>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <div class="text-center p-3">
-                            <i class="fas fa-users fa-2x text-muted mb-2"></i>
-                            <p class="text-muted">No staff members yet</p>
-                            <a href="create_hr.php" class="btn btn-sm btn-primary">Create HR</a>
-                        </div>
-                    <?php endif; ?>
-                </div>
-
-                <!-- Shop Performance -->
-                <div class="card">
-                    <h3>Shop Performance</h3>
-                    <div class="mb-3">
-                        <div class="d-flex justify-between">
-                            <span>Completion Rate:</span>
-                            <strong>
-                                <?php 
-                                $completion_rate = $stats['total_orders'] > 0 
-                                    ? ($stats['completed_orders'] / $stats['total_orders'] * 100) 
-                                    : 0;
-                                echo round($completion_rate, 1);
-                                ?>%
-                            </strong>
-                        </div>
-                        <div class="progress" style="height: 8px;">
+            <div class="card">
+                <h3>Shop Performance & Ratings</h3>
+                <div class="stats-grid" style="margin-top: 0;">
+                    <div class="stat-card">
+                        <div class="stat-label">Completion Rate</div>
+                        <div class="stat-number"><?php echo round($completion_rate, 1); ?>%</div>
+                        <div class="progress" style="height: 8px; margin-top: 8px;">
                             <div class="progress-bar bg-success" style="width: <?php echo $completion_rate; ?>%"></div>
                         </div>
                     </div>
                     
-                    <div class="mb-3">
-                        <div class="d-flex justify-between">
-                            <span>Average Rating:</span>
-                            <strong><?php echo number_format((float) $shop['rating'], 1); ?>/5</strong>
-                        </div>
-                        <div class="text-warning">
+                    <div class="stat-card">
+                        <div class="stat-label">Average Rating</div>
+                        <div class="stat-number"><?php echo number_format((float) $shop['rating'], 1); ?>/5</div>
+                        <div class="text-warning mt-2">
                             <?php for($i = 1; $i <= 5; $i++): ?>
-                                <<i class="fas fa-star<?php echo $i <= (float) $shop['rating'] ? '' : '-o'; ?>"></i>
+                                <i class="fas fa-star<?php echo $i <= (float) $shop['rating'] ? '' : '-o'; ?>"></i>
                             <?php endfor; ?>
                         </div>
+                         <small class="text-muted"><?php echo (int) ($shop['rating_count'] ?? 0); ?> reviews</small>
                     </div>
                     
-                    <div>
-                        <div class="d-flex justify-between">
-                            <span>Active Staff:</span>
-                            <strong><?php echo $stats['total_staff']; ?></strong>
-                        </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Accepted Orders</div>
+                        <div class="stat-number"><?php echo (int) $stats['accepted_orders']; ?></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Cancelled Orders</div>
+                        <div class="stat-number"><?php echo (int) $stats['cancelled_orders']; ?></div>
                     </div>
                 </div>
             </div>
