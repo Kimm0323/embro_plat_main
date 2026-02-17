@@ -118,30 +118,7 @@ if ($shop_id > 0) {
     </style>
 </head>
 <body>
-    <nav class="navbar navbar--compact">
-        <div class="container d-flex justify-between align-center">
-            <a href="dashboard.php" class="navbar-brand">
-                <i class="fas fa-user"></i> Client Portal
-            </a>
-            <ul class="navbar-nav">
-                <li><a href="dashboard.php#shop-discovery" class="nav-link">Shop Discovery</a></li>
-                <li><a href="messages.php" class="nav-link">Messages</a></li>
-                <li><a href="notifications.php" class="nav-link">Notifications
-                    <?php if ($unread_notifications > 0): ?>
-                        <span class="badge badge-danger"><?php echo $unread_notifications; ?></span>
-                    <?php endif; ?>
-                </a></li>
-                <li class="dropdown">
-                    <a href="#" class="nav-link dropdown-toggle">
-                        <i class="fas fa-user-circle"></i> <?php echo htmlspecialchars($_SESSION['user']['fullname']); ?>
-                    </a>
-                    <div class="dropdown-menu">
-                        <a href="../auth/logout.php" class="dropdown-item"><i class="fas fa-sign-out-alt"></i> Logout</a>
-                    </div>
-                </li>
-            </ul>
-        </div>
-    </nav>
+     <?php require_once __DIR__ . '/includes/customer_navbar.php'; ?>
 
     <div class="container">
         <?php if (!$shop): ?>

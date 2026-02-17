@@ -64,19 +64,7 @@ if ($order['price'] !== null) {
     </style>
 </head>
 <body>
-    <nav class="navbar navbar--compact">
-        <div class="container d-flex justify-between align-center">
-            <a href="dashboard.php" class="navbar-brand">
-               <i class="fas fa-user"></i> Client Portal
-            </a>
-            <ul class="navbar-nav">
-                <li><a href="dashboard.php" class="nav-link">Dashboard</a></li>
-                <li><a href="track_order.php" class="nav-link">Track Orders</a></li>
-                <li><a href="messages.php" class="nav-link">Messages</a></li>
-                <li><a href="../auth/logout.php" class="nav-link">Logout</a></li>
-            </ul>
-        </div>
-    </nav>
+    <?php require_once __DIR__ . '/includes/customer_navbar.php'; ?>
 
     <div class="container">
         <div class="card document-card">

@@ -153,51 +153,7 @@ $rated_orders = $rated_stmt->fetchAll();
     </style>
 </head>
 <body>
-    <nav class="navbar navbar--compact">
-        <div class="container d-flex justify-between align-center">
-            <a href="dashboard.php" class="navbar-brand">
-                <i class="fas fa-user"></i> Client Portal
-
-            </a>
-            <ul class="navbar-nav">
-                <li><a href="dashboard.php" class="nav-link">Dashboard</a></li>
-                <li class="dropdown">
-                    <a href="#" class="nav-link dropdown-toggle">
-                        <i class="fas fa-clipboard-list"></i> Orders
-                    </a>
-                    <div class="dropdown-menu">
-                        <a href="track_order.php" class="dropdown-item"><i class="fas fa-route"></i> Track Orders</a>
-                    </div>
-                </li>
-                <li class="dropdown">
-                    <a href="#" class="nav-link dropdown-toggle active">
-                        <i class="fas fa-layer-group"></i> Services
-                    </a>
-                    <div class="dropdown-menu">
-                        <a href="customize_design.php" class="dropdown-item"><i class="fas fa-paint-brush"></i> Customize Design</a>
-                        <a href="rate_provider.php" class="dropdown-item active"><i class="fas fa-star"></i> Rate Provider</a>
-                        <a href="order_management.php" class="dropdown-item"><i class="fas fa-clipboard-list"></i> Order Management</a>
-                        <a href="payment_handling.php" class="dropdown-item"><i class="fas fa-hand-holding-dollar"></i> Payment Handling &amp; Release</a>
-                        <a href="client_posting_community.php" class="dropdown-item"><i class="fas fa-comments"></i> Client Posting &amp; Community</a>
-                    </div>
-                </li>
-                <li><a href="messages.php" class="nav-link">Messages</a></li>
-                <li><a href="notifications.php" class="nav-link">Notifications
-                    <?php if($unread_notifications > 0): ?>
-                        <span class="badge badge-danger"><?php echo $unread_notifications; ?></span>
-                    <?php endif; ?>
-                </a></li>
-                <li class="dropdown">
-                    <a href="#" class="nav-link dropdown-toggle">
-                        <i class="fas fa-user-circle"></i> <?php echo htmlspecialchars($_SESSION['user']['fullname']); ?>
-                    </a>
-                    <div class="dropdown-menu">
-                        <a href="../auth/logout.php" class="dropdown-item"><i class="fas fa-sign-out-alt"></i> Logout</a>
-                    </div>
-                </li>
-            </ul>
-        </div>
-    </nav>
+     <?php require_once __DIR__ . '/includes/customer_navbar.php'; ?>
 
     <div class="container">
         <div class="dashboard-header">
