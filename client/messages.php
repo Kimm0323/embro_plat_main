@@ -31,6 +31,10 @@ foreach ($shops as $shop) {
     }
 }
 
+if ($selected_shop_id > 0 && !$active_shop) {
+    $error = 'You can only message shop owners for orders you already placed.';
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_message'])) {
     $message = sanitize($_POST['message'] ?? '');
     $receiver_id = (int) ($_POST['receiver_id'] ?? 0);
@@ -165,7 +169,7 @@ if ($active_shop) {
     <div class="container">
         <div class="dashboard-header">
             <h2>Messages & Clarifications</h2>
-            <p class="text-muted">Talk directly with shop owners about orders, revisions, and requirements.</p>
+             <p class="text-muted">Your message list only includes shop owners you ordered from, and owners can reply here directly.</p>
         </div>
 
         <?php if ($error): ?>

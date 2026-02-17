@@ -263,6 +263,7 @@ CREATE TABLE `client_community_posts` (
   `title` varchar(150) NOT NULL,
   `category` varchar(50) NOT NULL,
   `description` text NOT NULL,
+  `preferred_price` decimal(10,2) DEFAULT NULL,
   `desired_quantity` int(11) DEFAULT NULL,
   `target_date` date DEFAULT NULL,
    `image_path` varchar(255) DEFAULT NULL,

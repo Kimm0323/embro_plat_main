@@ -10,23 +10,31 @@ $form_error = '';
 $form_success = '';
 $client_posts = [];
 $community_table_exists = table_exists($pdo, 'client_community_posts');
+$community_price_exists = $community_table_exists && column_exists($pdo, 'client_community_posts', 'preferred_price');
 
 if (!$community_table_exists) {
     $form_error = 'Community posts are unavailable because the database schema is missing the client_community_posts table. Please import the latest embroidery_platform.sql.';
+    } elseif (!$community_price_exists) {
+    $form_error = 'Community posts need the preferred_price column so customers can set a project budget. Please import the latest embroidery_platform.sql.';
 }
 
-if ($community_table_exists && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_post'])) {
+if ($community_table_exists && $community_price_exists && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_post'])) {
     $title = sanitize($_POST['title'] ?? '');
     $category = sanitize($_POST['category'] ?? '');
     $description = sanitize($_POST['description'] ?? '');
+    $preferred_price = trim($_POST['preferred_price'] ?? '');
     $desired_quantity = trim($_POST['desired_quantity'] ?? '');
     $target_date = trim($_POST['target_date'] ?? '');
     $image_path = null;
 
 
-    if ($title === '' || $category === '' || $description === '') {
+     if ($title === '' || $category === '' || $description === '' || $preferred_price === '') {
         $form_error = 'Please complete the required fields to publish your post.';
      }
+
+     if ($form_error === '' && (!is_numeric($preferred_price) || (float) $preferred_price <= 0)) {
+        $form_error = 'Please enter a valid target budget greater than zero.';
+    }
 
     if ($form_error === '' && isset($_FILES['reference_image']) && $_FILES['reference_image']['error'] !== UPLOAD_ERR_NO_FILE) {
         $upload = save_uploaded_media(
@@ -47,15 +55,16 @@ if ($community_table_exists && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_
     if ($form_error === '') {
         $insert_stmt = $pdo->prepare("
             INSERT INTO client_community_posts
-                  (client_id, title, category, description, desired_quantity, target_date, image_path, status, created_at)
+                 (client_id, title, category, description, preferred_price, desired_quantity, target_date, image_path, status, created_at)
             VALUES
-                (?, ?, ?, ?, ?, ?, ?, 'open', NOW())
+               (?, ?, ?, ?, ?, ?, ?, ?, 'open', NOW())
         ");
         $insert_stmt->execute([
             $client_id,
             $title,
             $category,
             $description,
+            (float) $preferred_price,
             $desired_quantity !== '' ? $desired_quantity : null,
             $target_date !== '' ? $target_date : null,
             $image_path,
@@ -64,9 +73,9 @@ if ($community_table_exists && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_
     }
 }
 
-if ($community_table_exists) {
+if ($community_table_exists && $community_price_exists) {
     $client_posts_stmt = $pdo->prepare("
-        SELECT title, category, description, desired_quantity, target_date, image_path, status, created_at
+        SELECT title, category, description, preferred_price, desired_quantity, target_date, image_path, status, created_at
         FROM client_community_posts
         WHERE client_id = ?
         ORDER BY created_at DESC
@@ -401,6 +410,10 @@ $insight_cards = [
                     </div>
                     <div class="form-grid">
                         <div>
+                            <label for="preferred_price">Target budget (₱)</label>
+                            <input type="number" id="preferred_price" name="preferred_price" class="form-control" min="1" step="0.01" placeholder="e.g., 7500" required>
+                        </div>
+                        <div>
                             <label for="desired_quantity">Estimated quantity (optional)</label>
                             <input type="number" id="desired_quantity" name="desired_quantity" class="form-control" min="1" placeholder="e.g., 150">
                         </div>
@@ -441,6 +454,7 @@ $insight_cards = [
                                 <p class="text-muted mb-2"><?php echo nl2br(htmlspecialchars($post['description'])); ?></p>
                                 <div class="post-meta">
                                     <span><i class="fas fa-calendar"></i> Posted <?php echo date('M d, Y', strtotime($post['created_at'])); ?></span>
+                                     <span><i class="fas fa-peso-sign"></i> Budget ₱<?php echo number_format((float) ($post['preferred_price'] ?? 0), 2); ?></span>
                                     <?php if (!empty($post['desired_quantity'])): ?>
                                         <span><i class="fas fa-box"></i> Qty <?php echo htmlspecialchars($post['desired_quantity']); ?></span>
                                     <?php endif; ?>
@@ -474,6 +488,7 @@ $insight_cards = [
         const titleField = document.getElementById('title');
         const categoryField = document.getElementById('category');
         const descriptionField = document.getElementById('description');
+        const priceField = document.getElementById('preferred_price');
 
         if (titleField && draft.title) {
             titleField.value = draft.title;
@@ -483,6 +498,9 @@ $insight_cards = [
         }
         if (descriptionField && draft.description) {
             descriptionField.value = draft.description;
+        }
+        if (priceField && draft.preferred_price) {
+            priceField.value = draft.preferred_price;
         }
 
         localStorage.removeItem('embroider_community_post_draft');

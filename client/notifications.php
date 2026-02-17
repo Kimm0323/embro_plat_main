@@ -32,7 +32,10 @@ function notification_badge($type) {
         'info' => 'badge-info',
         'success' => 'badge-success',
         'warning' => 'badge-warning',
-        'danger' => 'badge-danger'
+        'danger' => 'badge-danger',
+        'system' => 'badge-info',
+        'system_update' => 'badge-info',
+        'battery_warning' => 'badge-warning'
     ];
     $class = $map[$type] ?? 'badge-secondary';
     return '<span class="badge ' . $class . '">' . ucfirst($type) . '</span>';
@@ -72,7 +75,7 @@ function notification_badge($type) {
     <div class="container">
         <div class="dashboard-header">
             <h2>Updates & Alerts</h2>
-            <p class="text-muted">Stay informed about order acceptance, status changes, and completions.</p>
+            <p class="text-muted">See customer activity notifications and system alerts like updates and battery warnings.</p>
         </div>
 
         <?php if($success): ?>

@@ -7,6 +7,7 @@ $isOrdersActive = in_array($currentPage, ['track_order.php', 'rate_provider.php'
 $isServicesActive = in_array($currentPage, ['customize_design.php', 'design_proofing.php', 'pricing_quotation.php', 'client_posting_community.php'], true);
 $isMessageActive = $currentPage === 'messages.php';
 $isNotificationActive = in_array($currentPage, ['notifications.php', 'notification_preferences.php'], true);
+$isCustomerProfileActive = $currentPage === 'customer_profile.php';
 ?>
 <nav class="navbar navbar--compact">
     <div class="container d-flex justify-between align-center">
@@ -30,7 +31,7 @@ $isNotificationActive = in_array($currentPage, ['notifications.php', 'notificati
                     <i class="fas fa-layer-group"></i> Services
                 </a>
                 <div class="dropdown-menu">
-                    <a href="customize_design.php" class="dropdown-item"><i class="fas fa-paint-brush"></i> Customize Design</a>
+                    <a href="design_editor.php" class="dropdown-item"><i class="fas fa-paint-brush"></i> Customize Design</a>
                     <a href="design_proofing.php" class="dropdown-item"><i class="fas fa-ruler-combined"></i> Design Proofing and Price Quotation</a>
                     <a href="client_posting_community.php" class="dropdown-item"><i class="fas fa-comments"></i> Client Posting Community</a>
                 </div>
@@ -42,11 +43,11 @@ $isNotificationActive = in_array($currentPage, ['notifications.php', 'notificati
                 <?php endif; ?>
             </a></li>
             <li class="dropdown">
-                <a href="#" class="nav-link dropdown-toggle">
+                 <a href="#" class="nav-link dropdown-toggle<?php echo $isCustomerProfileActive ? ' active' : ''; ?>">
                     <i class="fas fa-user-circle"></i> Customer
                 </a>
                 <div class="dropdown-menu">
-                    <a href="dashboard.php" class="dropdown-item"><i class="fas fa-id-card"></i> Customer Profile</a>
+                    <a href="customer_profile.php" class="dropdown-item"><i class="fas fa-id-card"></i> Customer Profile</a>
                     <a href="../auth/logout.php" class="dropdown-item"><i class="fas fa-sign-out-alt"></i> Log Out</a>
                 </div>
             </li>
