@@ -112,11 +112,19 @@ if(isset($_POST['update_design'])) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .design-card {
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
+             border: 1px solid #dbeafe;
+            border-radius: 14px;
             padding: 20px;
-            background: #fff;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
             margin-bottom: 18px;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+        }
+        .page-intro {
+            border: 1px solid #c7d2fe;
+            background: #eef2ff;
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 1rem;
         }
         .design-meta {
             display: grid;
@@ -133,7 +141,16 @@ if(isset($_POST['update_design'])) {
     <div class="container">
         <div class="dashboard-header">
             <h2>Customize Your Design</h2>
-            <p class="text-muted">Update design details or upload revised files for active orders.</p>
+            <p class="text-muted">Customize embroidery details based on your preferred style, then continue to proofing and quotation.</p>
+        </div>
+
+        <div class="page-intro">
+            <strong><i class="fas fa-circle-info"></i> Service flow:</strong> After customizing, proceed to <em>Design Proofing and Price Quotation</em> so your selected shop can prepare a proof and cost estimate.
+        </div>
+
+        <div class="dashboard-header" style="padding-top:0;">
+            <a href="design_proofing.php" class="btn btn-outline-primary"><i class="fas fa-arrow-right"></i> Go to Design Proofing</a>
+            <a href="pricing_quotation.php" class="btn btn-primary"><i class="fas fa-file-invoice-dollar"></i> Go to Price Quotation Request</a>
         </div>
 
         <?php if($error): ?>
@@ -190,7 +207,10 @@ if(isset($_POST['update_design'])) {
                             <textarea name="client_notes" class="form-control" rows="2" placeholder="Share extra instructions or updates..."></textarea>
                         </div>
 
-                        <div class="text-right">
+                         <div class="d-flex justify-between align-center">
+                            <a href="pricing_quotation.php?order_id=<?php echo (int) $order['id']; ?>" class="btn btn-outline-primary">
+                                <i class="fas fa-share"></i> Continue to Proofing &amp; Quotation
+                            </a>
                             <button type="submit" name="update_design" class="btn btn-primary">
                                 <i class="fas fa-save"></i> Save Updates
                             </button>
