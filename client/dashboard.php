@@ -53,16 +53,6 @@ $pending_ratings_stmt = $pdo->prepare("
 $pending_ratings_stmt->execute([$client_id]);
 $pending_ratings = $pending_ratings_stmt->fetchAll();
 
-$orders_stmt = $pdo->prepare("
-    SELECT o.*, s.shop_name, s.logo
-    FROM orders o
-    JOIN shops s ON o.shop_id = s.id
-    WHERE o.client_id = ?
-    ORDER BY o.created_at DESC
-    LIMIT 5
-");
-$orders_stmt->execute([$client_id]);
-$recent_orders = $orders_stmt->fetchAll();
 
 $shops_stmt = $pdo->query("
     SELECT id, shop_name, shop_description, rating, address, logo
@@ -82,18 +72,6 @@ $posts_stmt = $pdo->query("
     LIMIT 6
 ");
 $latest_posts = $posts_stmt->fetchAll();
-
-function client_status_badge($status) {
-    $map = [
-        'pending' => 'badge-warning',
-        'accepted' => 'badge-info',
-        'in_progress' => 'badge-primary',
-        'completed' => 'badge-success',
-        'cancelled' => 'badge-danger'
-    ];
-    $class = $map[$status] ?? 'badge-secondary';
-    return '<span class="badge ' . $class . '">' . ucfirst(str_replace('_', ' ', $status)) . '</span>';
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -209,6 +187,23 @@ function client_status_badge($status) {
         .post-actions {
             margin-top: auto;
         }
+        .stats-grid {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+        }
+        @media (max-width: 640px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            .stat-number {
+                font-size: 2rem;
+            }
+        }
+        @media (max-width: 420px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
 
     </style>
 </head>
@@ -268,7 +263,7 @@ function client_status_badge($status) {
                 <?php endif; ?>
             </div>
         <?php endif; ?>
-         <div class="card">
+         <div class="card" id="shop-discovery">
             <div class="d-flex justify-between align-center">
                 <div>
                     <h3>Shop List</h3>
@@ -353,43 +348,6 @@ function client_status_badge($status) {
                     <i class="fas fa-images fa-3x text-muted mb-3"></i>
                     <h4>No Posts Yet</h4>
                     <p class="text-muted">Shop owners have not posted any updates yet.</p>
-                </div>
-            <?php endif; ?>
-        </div>
-        <div class="card">
-            <h3>Recent Orders</h3>
-            <?php if(!empty($recent_orders)): ?>
-                <div class="order-list">
-                    <?php foreach($recent_orders as $order): ?>
-                        <div class="order-card">
-                            <div class="d-flex justify-between align-center">
-                                <div>
-                                    <h4 class="mb-1"><?php echo htmlspecialchars($order['service_type']); ?></h4>
-                                    <p class="text-muted mb-0">
-                                        <i class="fas fa-store"></i> <?php echo htmlspecialchars($order['shop_name']); ?>
-                                    </p>
-                                </div>
-                                <div class="text-right">
-                                    <?php echo client_status_badge($order['status']); ?>
-                                    <div class="text-muted mt-2">#<?php echo htmlspecialchars($order['order_number']); ?></div>
-                                </div>
-                            </div>
-                            <div class="order-meta">
-                                <div><i class="fas fa-calendar"></i> <?php echo date('M d, Y', strtotime($order['created_at'])); ?></div>
-                                <div><i class="fas fa-box"></i> Qty: <?php echo htmlspecialchars($order['quantity']); ?></div>
-                                <div><i class="fas fa-peso-sign"></i> ₱<?php echo number_format($order['price'] ?? 0, 2); ?></div>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-                <div class="text-right mt-3">
-                    <a href="track_order.php" class="btn btn-primary">View All Orders</a>
-                </div>
-            <?php else: ?>
-                <div class="text-center p-4">
-                    <i class="fas fa-receipt fa-3x text-muted mb-3"></i>
-                    <h4>No Orders Yet</h4>
-                    <p class="text-muted">Start by placing your first embroidery order.</p>
                 </div>
             <?php endif; ?>
         </div>

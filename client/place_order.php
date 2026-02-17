@@ -314,6 +314,10 @@ if(isset($_POST['place_order'])) {
     $design_description = '';
     $quantity = (int) ($_POST['quantity'] ?? 0);
     $client_notes = sanitize($_POST['client_notes'] ?? '');
+    $product_font = sanitize($_POST['product_font'] ?? '');
+    $product_size = sanitize($_POST['product_size'] ?? '');
+    $product_front_text = sanitize($_POST['product_front_text'] ?? '');
+    $product_back_text = sanitize($_POST['product_back_text'] ?? '');
     $complexity_level = 'Standard';
     $requested_add_ons = $_POST['add_ons'] ?? [];
      $tshirt_fields = [
@@ -400,6 +404,23 @@ if(isset($_POST['place_order'])) {
         if (!$is_custom_allowed && !in_array($service_type, $enabled_services, true)) {
             throw new RuntimeException('Selected service is not available for this shop.');
         }
+
+        if ($selected_portfolio_id > 0) {
+            if ($product_font === '') {
+                throw new RuntimeException('Please choose a font option for the selected product.');
+            }
+            if ($product_size === '') {
+                throw new RuntimeException('Please choose a size option for the selected product.');
+            }
+            if ($product_front_text === '' || mb_strlen($product_front_text) > 80) {
+                throw new RuntimeException('Front text is required and must be 80 characters or less.');
+            }
+            if (mb_strlen($product_back_text) > 80) {
+                throw new RuntimeException('Back text must be 80 characters or less.');
+            }
+            $design_description = trim($design_description . ' | Font: ' . $product_font . ' | Size: ' . $product_size . ' | Front Text: ' . $product_front_text . ($product_back_text !== '' ? ' | Back Text: ' . $product_back_text : ''));
+        }
+
 
         if ($quantity <= 0 || $quantity > 1000) {
             throw new RuntimeException('Quantity must be between 1 and 1000.');
@@ -1083,6 +1104,41 @@ if(isset($_POST['place_order'])) {
                             <button type="button" class="selection-btn" data-value="Custom">Custom</button>
                         </div>
                         <input type="hidden" name="bag_thread_colors" id="bagThreadColorsInput" value="">
+                    </div>
+                </div>
+                 <div class="card" style="background: #f8fafc; border: 1px dashed #cbd5e1; margin-top: 1rem;">
+                    <h4 class="mb-2"><i class="fas fa-sliders-h"></i> Available Product Design Setup</h4>
+                    <p class="text-muted small mb-3">For posted products, select the set design options and provide front/back text.</p>
+                    <div class="row" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">
+                        <div class="form-group mb-0">
+                            <label>Font *</label>
+                            <select name="product_font" class="form-control">
+                                <option value="">Select font</option>
+                                <option value="Block">Block</option>
+                                <option value="Script">Script</option>
+                                <option value="Serif">Serif</option>
+                                <option value="Sans Serif">Sans Serif</option>
+                            </select>
+                        </div>
+                        <div class="form-group mb-0">
+                            <label>Size *</label>
+                            <select name="product_size" class="form-control">
+                                <option value="">Select size</option>
+                                <option value="Small (5x3 cm)">Small (5x3 cm)</option>
+                                <option value="Medium (5x5 cm)">Medium (5x5 cm)</option>
+                                <option value="Large (8x3 cm)">Large (8x3 cm)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mt-2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">
+                        <div class="form-group mb-0">
+                            <label>Front text *</label>
+                            <input type="text" name="product_front_text" maxlength="80" class="form-control" placeholder="Text for front of canvas">
+                        </div>
+                        <div class="form-group mb-0">
+                            <label>Back text (optional)</label>
+                            <input type="text" name="product_back_text" maxlength="80" class="form-control" placeholder="Text for back of canvas">
+                        </div>
                     </div>
                 </div>
                 <div class="row" style="display: flex; gap: 15px;">
