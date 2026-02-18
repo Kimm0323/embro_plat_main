@@ -8,7 +8,7 @@ require_role('client');
 $client_id = $_SESSION['user']['id'];
 $success = null;
 $error = null;
-
+$downpayment_rate = 0.20;
 
 if(isset($_POST['submit_payment'])) {
     $order_id = (int) ($_POST['order_id'] ?? 0);
@@ -56,6 +56,8 @@ if(isset($_POST['submit_payment'])) {
                     ? 'Payment proof files must be smaller than 5MB.'
                     : 'Payment proofs must be JPG, PNG, or PDF files.';
             } else {
+                $downpayment_amount = round((float) $order['price'] * $downpayment_rate, 2);
+
                 $payment_stmt = $pdo->prepare("
                     INSERT INTO payments (order_id, client_id, shop_id, amount, proof_file, status)
                     VALUES (?, ?, ?, ?, ?, 'pending')
@@ -64,7 +66,7 @@ if(isset($_POST['submit_payment'])) {
                     $order_id,
                     $client_id,
                     $order['shop_id'],
-                    $order['price'],
+                    $downpayment_amount,
                     $upload['filename']
                 ]);
 
@@ -74,13 +76,13 @@ if(isset($_POST['submit_payment'])) {
                 $order_update_stmt->execute([$order_id, $client_id]);
 
                 $message = sprintf(
-                    'New payment proof submitted for order #%s (%s).',
+                    'New downpayment proof submitted for order #%s (%s).',
                     $order['order_number'],
                     $order['shop_name']
                 );
                 create_notification($pdo, (int) $order['owner_id'], $order_id, 'payment', $message);
 
-                $success = 'Payment proof submitted successfully. Awaiting verification.';
+                 $success = 'Downpayment proof submitted successfully. Awaiting verification.';
                 cleanup_media($pdo);
             }
         }
@@ -454,15 +456,15 @@ function get_order_overview_bucket(
         return 'to_review';
     }
 
-   if($fulfillment_status === FULFILLMENT_DELIVERED) {
+   if($fulfillment_status === FULFILLMENT_OUT_FOR_DELIVERY) {
         return 'to_receive';
     }
 
-    if(in_array($fulfillment_status, [FULFILLMENT_PENDING, FULFILLMENT_READY_FOR_PICKUP, FULFILLMENT_OUT_FOR_DELIVERY], true)) {
+    if(in_array($fulfillment_status, [FULFILLMENT_PENDING, FULFILLMENT_READY_FOR_PICKUP], true)) {
         return 'to_ship';
     }
 
-     if(in_array($order['status'], [STATUS_ACCEPTED, STATUS_IN_PROGRESS, STATUS_COMPLETED], true)
+    if(in_array($order['status'], [STATUS_ACCEPTED, STATUS_IN_PROGRESS], true)
         && in_array($payment_status, ['unpaid', 'rejected'], true)) {
         return 'to_pay';
     }
@@ -548,6 +550,21 @@ function format_money_or_pending($value): string {
     }
 
     return '₱' . number_format((float) $value, 2);
+}
+
+function order_filter_description(string $filter): string {
+    $descriptions = [
+        'to_pay' => 'Need to pay the 20% downpayment first before the order continues.',
+        'to_process' => 'Orders waiting to be processed or currently in the process of making.',
+        'to_ship' => 'Orders finished and ready for courier handling or ready for customer pick up.',
+        'to_receive' => 'Orders currently on the way with courier and out for delivery.',
+        'to_review' => 'Orders already received/delivered and now ready for review, rating, or return request.',
+        'returns' => 'Returned items requested by customers after receiving the order.',
+        'cancellation' => 'Cancelled orders.',
+        'all' => 'Track your orders by payment, production, shipping, receiving, review, returns, or cancellation status.',
+    ];
+
+    return $descriptions[$filter] ?? $descriptions['all'];
 }
 ?>
 <!DOCTYPE html>
@@ -759,6 +776,8 @@ function format_money_or_pending($value): string {
             <a href="track_order.php?filter=cancellation" class="<?php echo $filter === 'cancellation' ? 'active' : ''; ?>">Cancellation (<?php echo $filter_counts['cancellation']; ?>)</a>
         </div>
 
+        <p class="text-muted mb-3"><?php echo htmlspecialchars(order_filter_description($filter)); ?></p>
+
         <?php if(!empty($orders)): ?>
             <?php foreach($orders as $order): ?>
                 <?php $quote_details = !empty($order['quote_details']) ? json_decode($order['quote_details'], true) : null; ?>
@@ -796,13 +815,16 @@ function format_money_or_pending($value): string {
                         $refund = $refund_by_order[$order['id']] ?? null;
                         $receipt = $payment ? ($receipt_by_payment[$payment['id']] ?? null) : null;
                         $payment_hold = payment_hold_status($order['status'] ?? STATUS_PENDING, $payment_status);
-                        $can_submit_payment = in_array($order['status'], ['accepted', 'in_progress', 'completed'], true)
+                        $can_submit_payment = in_array($order['status'], ['accepted', 'in_progress'], true)
                             && $payment_status !== 'paid'
                             && $payment_status !== 'refund_pending'
                             && $payment_status !== 'refunded'
                             && $latest_payment_status !== 'pending';
                         $amount_total = $order['price'] !== null ? (float) $order['price'] : null;
-                        $amount_paid = ($payment_status === 'paid' || ($payment && ($payment['status'] ?? null) === 'verified')) ? $amount_total : 0.0;
+                         $required_downpayment = $amount_total !== null ? round($amount_total * $downpayment_rate, 2) : null;
+                        $amount_paid = ($payment_status === 'paid' || ($payment && ($payment['status'] ?? null) === 'verified'))
+                            ? ($required_downpayment ?? 0.0)
+                            : 0.0;
                         $balance_due = $amount_total !== null ? max(0, $amount_total - (float) $amount_paid) : null;
                         $payment_method = $payment ? 'Uploaded proof of payment' : 'Not provided';
                         $fulfillment = $fulfillment_by_order[$order['id']] ?? null;
@@ -848,6 +870,7 @@ function format_money_or_pending($value): string {
                         <div class="detail-grid">
                             <div><strong>Payment Method:</strong> <?php echo htmlspecialchars($payment_method); ?></div>
                             <div><strong>Total Amount:</strong> <?php echo $amount_total !== null ? '₱' . number_format($amount_total, 2) : 'Awaiting quote'; ?></div>
+                             <div><strong>Required Downpayment (20%):</strong> <?php echo $required_downpayment !== null ? '₱' . number_format($required_downpayment, 2) : 'Awaiting quote'; ?></div>
                             <div><strong>Amount Paid:</strong> <?php echo $amount_total !== null ? '₱' . number_format((float) $amount_paid, 2) : '₱0.00'; ?></div>
                             <div><strong>Balance Due:</strong> <?php echo $balance_due !== null ? '₱' . number_format($balance_due, 2) : 'Awaiting quote'; ?></div>
                         </div>
@@ -946,7 +969,7 @@ function format_money_or_pending($value): string {
                         <?php elseif($payment_status === 'refunded'): ?>
                             <div class="text-muted small mt-2">Refund completed.</div>
                         <?php else: ?>
-                            <div class="text-muted small mt-2">No payment proof submitted yet.</div>
+                            <div class="text-muted small mt-2">No downpayment proof submitted yet.</div>
                         <?php endif; ?>
                     </div>
 
@@ -996,15 +1019,15 @@ function format_money_or_pending($value): string {
                             <?php echo csrf_field(); ?>
                             <input type="hidden" name="order_id" value="<?php echo $order['id']; ?>">
                             <div class="form-group">
-                                <label>Upload Payment Proof (JPG, PNG, PDF)</label>
+                                <label>Upload Downpayment Proof (JPG, PNG, PDF)</label>
                                 <input type="file" name="payment_proof" class="form-control" required>
                             </div>
-                             <div class="action-row">
+                             <div class="text-muted small mb-2">
+                                Submit proof of your required 20% downpayment.
+                            </div>
+                            <div class="action-row">
                                 <button type="submit" name="submit_payment" class="btn btn-primary btn-sm">
-                                    <i class="fas fa-credit-card"></i> Pay Now
-                                </button>
-                                <button type="submit" name="submit_payment" class="btn btn-success btn-sm">
-                                    <i class="fas fa-check-circle"></i> Complete Payment
+                                    <i class="fas fa-credit-card"></i> Submit 20% Downpayment
                                 </button>
                             </div>
                         </form>
