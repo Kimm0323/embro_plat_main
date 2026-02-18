@@ -120,7 +120,9 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && $action !== '') {
         $error = 'Unable to locate the order for this action.';
     } elseif($action === 'cancel_order') {
         $reason = sanitize($_POST['cancellation_reason'] ?? '');
-        if(!can_transition_order_status($order['status'], STATUS_CANCELLED) || (int) $order['progress'] > $max_cancel_progress) {
+       if($reason === '') {
+            $error = 'Please provide a reason before submitting a cancellation request.';
+        } elseif(!can_transition_order_status($order['status'], STATUS_CANCELLED) || (int) $order['progress'] > $max_cancel_progress) {
             $error = 'This order can no longer be cancelled.';
         } else {
             $cancel_stmt = $pdo->prepare("
@@ -539,6 +541,14 @@ function fulfillment_status_pill(?string $status): string {
     $class = $map[$status] ?? 'fulfillment-pending';
     return '<span class="status-pill ' . $class . '">' . $label . '</span>';
 }
+
+function format_money_or_pending($value): string {
+    if($value === null || $value === '') {
+        return 'Awaiting quote';
+    }
+
+    return '₱' . number_format((float) $value, 2);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -678,6 +688,29 @@ function fulfillment_status_pill(?string $status): string {
         .rating-reminder .btn {
             margin-top: 10px;
         }
+         .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px 18px;
+            margin-top: 8px;
+            color: #475569;
+            font-size: 0.9rem;
+        }
+        .detail-section {
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid #e2e8f0;
+        }
+        .detail-section h5 {
+            margin: 0;
+            font-size: 0.98rem;
+        }
+        .action-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -755,19 +788,75 @@ function fulfillment_status_pill(?string $status): string {
                         </div>
                     <?php endif; ?>
                     
-                    <div class="order-meta">
-                        <div><i class="fas fa-calendar"></i> Created: <?php echo date('M d, Y', strtotime($order['created_at'])); ?></div>
-                        <div><i class="fas fa-box"></i> Quantity: <?php echo htmlspecialchars($order['quantity']); ?></div>
-                        <?php if($order['price'] === null): ?>
-                            <div><i class="fas fa-peso-sign"></i> Price: Awaiting quote</div>
-                        <?php else: ?>
-                            <div><i class="fas fa-peso-sign"></i> ₱<?php echo number_format($order['price'], 2); ?></div>
-                        <?php endif; ?>
+                    <?php
+                        $payment = $payment_by_order[$order['id']] ?? null;
+                        $payment_status = $order['payment_status'] ?? 'unpaid';
+                        $latest_payment_status = $payment['status'] ?? null;
+                        $invoice = $invoice_by_order[$order['id']] ?? null;
+                        $refund = $refund_by_order[$order['id']] ?? null;
+                        $receipt = $payment ? ($receipt_by_payment[$payment['id']] ?? null) : null;
+                        $payment_hold = payment_hold_status($order['status'] ?? STATUS_PENDING, $payment_status);
+                        $can_submit_payment = in_array($order['status'], ['accepted', 'in_progress', 'completed'], true)
+                            && $payment_status !== 'paid'
+                            && $payment_status !== 'refund_pending'
+                            && $payment_status !== 'refunded'
+                            && $latest_payment_status !== 'pending';
+                        $amount_total = $order['price'] !== null ? (float) $order['price'] : null;
+                        $amount_paid = ($payment_status === 'paid' || ($payment && ($payment['status'] ?? null) === 'verified')) ? $amount_total : 0.0;
+                        $balance_due = $amount_total !== null ? max(0, $amount_total - (float) $amount_paid) : null;
+                        $payment_method = $payment ? 'Uploaded proof of payment' : 'Not provided';
+                        $fulfillment = $fulfillment_by_order[$order['id']] ?? null;
+                        $history = $fulfillment ? ($fulfillment_history_by_id[$fulfillment['id']] ?? []) : [];
+                    ?>
+
+                    <div class="detail-section">
+                        <h5>Order Overview</h5>
+                        <div class="detail-grid">
+                            <div><strong>Order Number:</strong> #<?php echo htmlspecialchars($order['order_number']); ?></div>
+                            <div><strong>Order Date:</strong> <?php echo date('M d, Y', strtotime($order['created_at'])); ?></div>
+                            <div><strong>Order Status:</strong> <?php echo status_pill($order['status']); ?></div>
+                        </div>
+                    </div>
+
+                    <div class="detail-section">
+                        <h5>Shipping Information</h5>
+                        <div class="detail-grid">
+                            <div><strong>Recipient Name:</strong> <?php echo htmlspecialchars($_SESSION['user']['fullname'] ?? 'Not provided'); ?></div>
+                            <div><strong>Shipping Address:</strong> <?php echo htmlspecialchars($fulfillment['pickup_location'] ?? 'Not provided'); ?></div>
+                            <div><strong>Phone Number:</strong> <?php echo htmlspecialchars($_SESSION['user']['phone'] ?? 'Not provided'); ?></div>
+                            <div><strong>Shipping Method:</strong> <?php echo !empty($fulfillment['fulfillment_type']) ? htmlspecialchars($fulfillment['fulfillment_type'] === 'pickup' ? 'Pick up' : 'Courier') : 'Not scheduled'; ?></div>
+                            <div><strong>Tracking Number:</strong> <?php echo htmlspecialchars($fulfillment['tracking_number'] ?? 'Not provided'); ?></div>
+                        </div>
+                    </div>
+
+                    <div class="detail-section">
+                        <h5>Order Items</h5>
+                        <div class="detail-grid">
+                            <div><strong>Product Name:</strong> <?php echo htmlspecialchars($order['service_type']); ?></div>
+                            <div><strong>Quantity:</strong> <?php echo htmlspecialchars($order['quantity']); ?></div>
+                            <div><strong>Price:</strong> <?php echo format_money_or_pending($order['price']); ?></div>
+                        </div>
                         <?php if(!empty($order['design_file'])): ?>
-                            <div><i class="fas fa-paperclip"></i>
+                             <div class="mt-2"><i class="fas fa-paperclip"></i>
                                 <a href="../assets/uploads/designs/<?php echo htmlspecialchars($order['design_file']); ?>" target="_blank">View design file</a>
                             </div>
                         <?php endif; ?>
+                    </div>
+
+                     <div class="detail-section">
+                        <h5>Payment Information</h5>
+                        <div class="detail-grid">
+                            <div><strong>Payment Method:</strong> <?php echo htmlspecialchars($payment_method); ?></div>
+                            <div><strong>Total Amount:</strong> <?php echo $amount_total !== null ? '₱' . number_format($amount_total, 2) : 'Awaiting quote'; ?></div>
+                            <div><strong>Amount Paid:</strong> <?php echo $amount_total !== null ? '₱' . number_format((float) $amount_paid, 2) : '₱0.00'; ?></div>
+                            <div><strong>Balance Due:</strong> <?php echo $balance_due !== null ? '₱' . number_format($balance_due, 2) : 'Awaiting quote'; ?></div>
+                        </div>
+                        <div class="mt-2">
+                            <?php echo payment_status_pill($payment_status); ?>
+                            <span class="hold-pill <?php echo htmlspecialchars($payment_hold['class']); ?>">
+                                Hold: <?php echo htmlspecialchars($payment_hold['label']); ?>
+                            </span>
+                        </div>
                     </div>
                     <?php if($order['status'] === 'cancelled' && !empty($order['cancellation_reason'])): ?>
                         <div class="mt-2 text-muted">
@@ -845,26 +934,7 @@ function fulfillment_status_pill(?string $status): string {
                         </div>
                     <?php endif; ?>
 
-                    <?php
-                        $payment = $payment_by_order[$order['id']] ?? null;
-                        $payment_status = $order['payment_status'] ?? 'unpaid';
-                        $latest_payment_status = $payment['status'] ?? null;
-                        $invoice = $invoice_by_order[$order['id']] ?? null;
-                        $refund = $refund_by_order[$order['id']] ?? null;
-                        $receipt = $payment ? ($receipt_by_payment[$payment['id']] ?? null) : null;
-                        $payment_hold = payment_hold_status($order['status'] ?? STATUS_PENDING, $payment_status);
-                        $can_submit_payment = in_array($order['status'], ['accepted', 'in_progress', 'completed'], true)
-                            && $payment_status !== 'paid'
-                            && $payment_status !== 'refund_pending'
-                            && $payment_status !== 'refunded'
-                            && $latest_payment_status !== 'pending';
-                    ?>
                     <div class="mt-3">
-                        <strong>Payment:</strong>
-                        <?php echo payment_status_pill($payment_status); ?>
-                        <span class="hold-pill <?php echo htmlspecialchars($payment_hold['class']); ?>">
-                            Hold: <?php echo htmlspecialchars($payment_hold['label']); ?>
-                        </span>
                         <?php if($latest_payment_status === 'pending'): ?>
                             <div class="text-muted small mt-2">Payment proof is pending verification.</div>
                         <?php elseif($latest_payment_status === 'rejected'): ?>
@@ -898,10 +968,6 @@ function fulfillment_status_pill(?string $status): string {
                         <?php endif; ?>
                     </div>
 
-                    <?php
-                        $fulfillment = $fulfillment_by_order[$order['id']] ?? null;
-                        $history = $fulfillment ? ($fulfillment_history_by_id[$fulfillment['id']] ?? []) : [];
-                    ?>
                     <div class="mt-3">
                         <strong>Delivery / Pickup:</strong>
                         <?php echo fulfillment_status_pill($fulfillment['status'] ?? null); ?>
@@ -933,9 +999,14 @@ function fulfillment_status_pill(?string $status): string {
                                 <label>Upload Payment Proof (JPG, PNG, PDF)</label>
                                 <input type="file" name="payment_proof" class="form-control" required>
                             </div>
-                            <button type="submit" name="submit_payment" class="btn btn-primary btn-sm">
-                                <i class="fas fa-upload"></i> Submit Proof
-                            </button>
+                             <div class="action-row">
+                                <button type="submit" name="submit_payment" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-credit-card"></i> Pay Now
+                                </button>
+                                <button type="submit" name="submit_payment" class="btn btn-success btn-sm">
+                                    <i class="fas fa-check-circle"></i> Complete Payment
+                                </button>
+                            </div>
                         </form>
                     <?php endif; ?>
 
@@ -1004,11 +1075,11 @@ function fulfillment_status_pill(?string $status): string {
                                 <input type="hidden" name="action" value="cancel_order">
                                 <input type="hidden" name="order_id" value="<?php echo $order['id']; ?>">
                                 <div class="form-group">
-                                    <label class="text-muted">Cancellation reason (optional)</label>
-                                    <textarea name="cancellation_reason" class="form-control" rows="2" placeholder="Let the shop know why you are cancelling..."></textarea>
+                                    <label class="text-muted">Cancellation reason</label>
+                                    <textarea name="cancellation_reason" class="form-control" rows="2" placeholder="Let the shop know why you are cancelling..." required></textarea>
                                 </div>
                                 <button type="submit" class="btn btn-danger btn-sm">
-                                    <i class="fas fa-times"></i> Cancel Order
+                                    <i class="fas fa-times"></i> Cancel Order Request
                                 </button>
                             </form>
                         </div>
