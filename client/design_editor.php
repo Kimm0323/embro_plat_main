@@ -318,11 +318,6 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                         <label>Placement Method</label>
                         <select id="placementMethod" class="form-control">
                             <option value="center-chest" selected>Center Chest</option>
-                            <option value="left-chest">Left Chest</option>
-                            <option value="right-chest">Right Chest</option>
-                            <option value="full-front">Full Front</option>
-                            <option value="back-center">Back Center</option>
-                            <option value="sleeve">Sleeve</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -389,9 +384,10 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                 <div class="form-group">
                     <label>Add Text</label>
                     <div class="d-flex gap-2">
-                        <input type="text" id="textInput" class="form-control" placeholder="Enter text">
+                       <input type="text" id="textInput" class="form-control" placeholder="Enter text for Center Chest">
                         <button class="btn btn-primary" id="addTextBtn"><i class="fas fa-plus"></i></button>
                     </div>
+                     <small id="textPlacementHint" class="text-muted">Text will be placed at Center Chest.</small>
                 </div>
 
                  <div class="form-group">
@@ -571,6 +567,85 @@ const state = {
 
 const storageKey = 'embroider_design_editor';
 
+const placementOptionsByCanvasType = {
+    tshirt: [
+        { value: 'center-chest', label: 'Center Chest' },
+        { value: 'left-chest', label: 'Left Chest' },
+        { value: 'right-chest', label: 'Right Chest' },
+        { value: 'full-front', label: 'Full Front' },
+        { value: 'back-center', label: 'Back Center' },
+        { value: 'sleeve', label: 'Sleeve' }
+    ],
+    cap: [
+        { value: 'front-center', label: 'Front Center' },
+        { value: 'left-panel', label: 'Left Panel' },
+        { value: 'right-panel', label: 'Right Panel' },
+        { value: 'back-strap', label: 'Back Strap' }
+    ],
+    'tote-bag': [
+        { value: 'center', label: 'Center' },
+        { value: 'upper-center', label: 'Upper Center' },
+        { value: 'bottom-center', label: 'Bottom Center' }
+    ],
+    'plain-canvas': [
+        { value: 'center', label: 'Center' },
+        { value: 'top-left', label: 'Top Left' },
+        { value: 'top-right', label: 'Top Right' },
+        { value: 'bottom-left', label: 'Bottom Left' },
+        { value: 'bottom-right', label: 'Bottom Right' }
+    ]
+};
+
+function getCanvasTypeGroup(canvasTypeValue = state.canvasType) {
+    if ((canvasTypeValue || '').startsWith('tshirt')) return 'tshirt';
+    if ((canvasTypeValue || '').startsWith('cap')) return 'cap';
+    if (canvasTypeValue === 'tote-bag') return 'tote-bag';
+    return 'plain-canvas';
+}
+
+function getPlacementOptions(canvasTypeValue = state.canvasType) {
+    return placementOptionsByCanvasType[getCanvasTypeGroup(canvasTypeValue)] || placementOptionsByCanvasType.tshirt;
+}
+
+function toPlacementLabel(placementValue) {
+    if (!placementValue) return 'selected placement';
+    return placementValue
+        .split('-')
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+}
+
+function updateTextInputByPlacement() {
+    const selectedPlacement = placementMethod.value || state.placementMethod || '';
+    const placementLabel = toPlacementLabel(selectedPlacement);
+    textInput.placeholder = `Enter text for ${placementLabel}`;
+    const hint = document.getElementById('textPlacementHint');
+    if (hint) {
+        hint.textContent = `Text will be placed at ${placementLabel}.`;
+    }
+}
+
+function syncPlacementOptions(shouldPushHistory = false, shouldSaveState = false) {
+    const options = getPlacementOptions(state.canvasType);
+    const previousPlacement = state.placementMethod;
+    placementMethod.innerHTML = options.map(option => `<option value="${option.value}">${option.label}</option>`).join('');
+
+    const validPlacement = options.some(option => option.value === previousPlacement)
+        ? previousPlacement
+        : options[0].value;
+
+    state.placementMethod = validPlacement;
+    placementMethod.value = validPlacement;
+    updateTextInputByPlacement();
+
+    if (shouldPushHistory && previousPlacement !== validPlacement) {
+        pushHistory();
+    }
+    if (shouldSaveState && previousPlacement !== validPlacement) {
+        saveState();
+    }
+}
+
 function getCanvasColorOptions() {
     return Array.from(canvasColor.options).map(option => ({
         value: option.value.toLowerCase(),
@@ -674,11 +749,13 @@ function normalizeElements(elements) {
         ...element
     }));
 }
+
 function loadState() {
     const saved = localStorage.getItem(storageKey);
     if (!saved) {
         normalizeCanvasColorState();
         pushHistory();
+        syncPlacementOptions();
         render();
         renderCanvasColorPalette();
         renderThreadColorPalette();
@@ -694,7 +771,7 @@ function loadState() {
     safeAreaToggle.value = state.showSafeArea ? 'on' : 'off';
     canvasType.value = state.canvasType || 'tshirt-crew';
      normalizeCanvasColorState();
-    placementMethod.value = state.placementMethod || 'center-chest';
+    syncPlacementOptions();
     rebuildImages();
     pushHistory();
     render();
@@ -750,7 +827,7 @@ function restoreFromHistory(entry) {
     safeAreaToggle.value = state.showSafeArea ? 'on' : 'off';
      canvasType.value = state.canvasType;
     normalizeCanvasColorState();
-    placementMethod.value = state.placementMethod;
+    syncPlacementOptions();
     rebuildImages();
     render();
     renderCanvasColorPalette();
@@ -1063,17 +1140,41 @@ function drawPlainCanvasGuide(hoopX, hoopY, hoopWidth, hoopHeight) {
 }
 
 function drawPlacementGuide(hoopX, hoopY, hoopWidth, hoopHeight) {
-    const placements = {
-        'center-chest': { x: canvas.width / 2, y: hoopY + hoopHeight * 0.45, label: 'Center Chest' },
-        'left-chest': { x: canvas.width / 2 - hoopWidth * 0.2, y: hoopY + hoopHeight * 0.43, label: 'Left Chest' },
-        'right-chest': { x: canvas.width / 2 + hoopWidth * 0.2, y: hoopY + hoopHeight * 0.43, label: 'Right Chest' },
-        'full-front': { x: canvas.width / 2, y: hoopY + hoopHeight * 0.5, label: 'Full Front' },
-        'back-center': { x: canvas.width / 2, y: hoopY + hoopHeight * 0.58, label: 'Back Center' },
-        'sleeve': { x: canvas.width / 2 - hoopWidth * 0.36, y: hoopY + hoopHeight * 0.42, label: 'Sleeve' }
+    const placementsByType = {
+        tshirt: {
+            'center-chest': { x: canvas.width / 2, y: hoopY + hoopHeight * 0.45, label: 'Center Chest' },
+            'left-chest': { x: canvas.width / 2 - hoopWidth * 0.2, y: hoopY + hoopHeight * 0.43, label: 'Left Chest' },
+            'right-chest': { x: canvas.width / 2 + hoopWidth * 0.2, y: hoopY + hoopHeight * 0.43, label: 'Right Chest' },
+            'full-front': { x: canvas.width / 2, y: hoopY + hoopHeight * 0.5, label: 'Full Front' },
+            'back-center': { x: canvas.width / 2, y: hoopY + hoopHeight * 0.58, label: 'Back Center' },
+            'sleeve': { x: canvas.width / 2 - hoopWidth * 0.36, y: hoopY + hoopHeight * 0.42, label: 'Sleeve' }
+        },
+        cap: {
+            'front-center': { x: canvas.width / 2, y: hoopY + hoopHeight * 0.42, label: 'Front Center' },
+            'left-panel': { x: canvas.width / 2 - hoopWidth * 0.22, y: hoopY + hoopHeight * 0.44, label: 'Left Panel' },
+            'right-panel': { x: canvas.width / 2 + hoopWidth * 0.22, y: hoopY + hoopHeight * 0.44, label: 'Right Panel' },
+            'back-strap': { x: canvas.width / 2, y: hoopY + hoopHeight * 0.63, label: 'Back Strap' }
+        },
+        'tote-bag': {
+            center: { x: canvas.width / 2, y: hoopY + hoopHeight * 0.52, label: 'Center' },
+            'upper-center': { x: canvas.width / 2, y: hoopY + hoopHeight * 0.36, label: 'Upper Center' },
+            'bottom-center': { x: canvas.width / 2, y: hoopY + hoopHeight * 0.68, label: 'Bottom Center' }
+        },
+        'plain-canvas': {
+            center: { x: canvas.width / 2, y: hoopY + hoopHeight * 0.5, label: 'Center' },
+            'top-left': { x: canvas.width / 2 - hoopWidth * 0.24, y: hoopY + hoopHeight * 0.32, label: 'Top Left' },
+            'top-right': { x: canvas.width / 2 + hoopWidth * 0.24, y: hoopY + hoopHeight * 0.32, label: 'Top Right' },
+            'bottom-left': { x: canvas.width / 2 - hoopWidth * 0.24, y: hoopY + hoopHeight * 0.68, label: 'Bottom Left' },
+            'bottom-right': { x: canvas.width / 2 + hoopWidth * 0.24, y: hoopY + hoopHeight * 0.68, label: 'Bottom Right' }
+        }
     };
 
-    const point = placements[state.placementMethod] || placements['center-chest'];
-    const guideSize = state.placementMethod === 'full-front' ? 92 : 50;
+     const canvasTypeGroup = getCanvasTypeGroup();
+    const placements = placementsByType[canvasTypeGroup] || placementsByType.tshirt;
+    const firstPlacement = getPlacementOptions()[0]?.value;
+    const point = placements[state.placementMethod] || placements[firstPlacement] || Object.values(placements)[0];
+    const largePlacements = new Set(['full-front']);
+    const guideSize = largePlacements.has(state.placementMethod) ? 92 : 50;
 
     ctx.save();
     ctx.strokeStyle = '#f59e0b';
@@ -1216,7 +1317,7 @@ function renderVersions() {
             safeAreaToggle.value = state.showSafeArea ? 'on' : 'off';
             canvasType.value = state.canvasType;
             normalizeCanvasColorState();
-            placementMethod.value = state.placementMethod;
+            syncPlacementOptions();
             rebuildImages();
             pushHistory();
             render();
@@ -1282,6 +1383,44 @@ function setToggleState(button, enabled) {
     button.classList.toggle('active', enabled);
 }
 
+function getPlacementPoint() {
+    const hoop = getHoopDimensions();
+    const hoopY = (canvas.height - hoop.height) / 2;
+    const placementsByType = {
+        tshirt: {
+            'center-chest': { x: canvas.width / 2, y: hoopY + hoop.height * 0.45 },
+            'left-chest': { x: canvas.width / 2 - hoop.width * 0.2, y: hoopY + hoop.height * 0.43 },
+            'right-chest': { x: canvas.width / 2 + hoop.width * 0.2, y: hoopY + hoop.height * 0.43 },
+            'full-front': { x: canvas.width / 2, y: hoopY + hoop.height * 0.5 },
+            'back-center': { x: canvas.width / 2, y: hoopY + hoop.height * 0.58 },
+            sleeve: { x: canvas.width / 2 - hoop.width * 0.36, y: hoopY + hoop.height * 0.42 }
+        },
+        cap: {
+            'front-center': { x: canvas.width / 2, y: hoopY + hoop.height * 0.42 },
+            'left-panel': { x: canvas.width / 2 - hoop.width * 0.22, y: hoopY + hoop.height * 0.44 },
+            'right-panel': { x: canvas.width / 2 + hoop.width * 0.22, y: hoopY + hoop.height * 0.44 },
+            'back-strap': { x: canvas.width / 2, y: hoopY + hoop.height * 0.63 }
+        },
+        'tote-bag': {
+            center: { x: canvas.width / 2, y: hoopY + hoop.height * 0.52 },
+            'upper-center': { x: canvas.width / 2, y: hoopY + hoop.height * 0.36 },
+            'bottom-center': { x: canvas.width / 2, y: hoopY + hoop.height * 0.68 }
+        },
+        'plain-canvas': {
+            center: { x: canvas.width / 2, y: hoopY + hoop.height * 0.5 },
+            'top-left': { x: canvas.width / 2 - hoop.width * 0.24, y: hoopY + hoop.height * 0.32 },
+            'top-right': { x: canvas.width / 2 + hoop.width * 0.24, y: hoopY + hoop.height * 0.32 },
+            'bottom-left': { x: canvas.width / 2 - hoop.width * 0.24, y: hoopY + hoop.height * 0.68 },
+            'bottom-right': { x: canvas.width / 2 + hoop.width * 0.24, y: hoopY + hoop.height * 0.68 }
+        }
+    };
+
+    const canvasTypeGroup = getCanvasTypeGroup();
+    const placements = placementsByType[canvasTypeGroup] || placementsByType.tshirt;
+    const firstPlacement = getPlacementOptions()[0]?.value;
+    return placements[state.placementMethod] || placements[firstPlacement] || { x: canvas.width / 2, y: canvas.height / 2 };
+}
+
 function addText() {
     if (!textInput.value.trim()) return;
     const element = {
@@ -1289,8 +1428,8 @@ function addText() {
         type: 'text',
         text: textInput.value.trim(),
         label: textInput.value.trim().slice(0, 12),
-        x: canvas.width / 2,
-        y: canvas.height / 2,
+        x: getPlacementPoint().x,
+        y: getPlacementPoint().y,
         scale: 1,
         rotation: 0,
         fontSize: 76,
@@ -1441,6 +1580,7 @@ safeAreaToggle.addEventListener('change', () => {
 
 canvasType.addEventListener('change', () => {
     state.canvasType = canvasType.value;
+    syncPlacementOptions();
     pushHistory();
     render();
     saveState();
@@ -1475,6 +1615,7 @@ threadColorPalette.addEventListener('click', event => {
 
 placementMethod.addEventListener('change', () => {
     state.placementMethod = placementMethod.value;
+    updateTextInputByPlacement();
     pushHistory();
     render();
     saveState();
@@ -1761,6 +1902,7 @@ normalizeCanvasColorState();
 renderCanvasColorPalette();
 renderThreadColorPalette();
 loadState();
+updateTextInputByPlacement();
 </script>
 </body>
 </html>
