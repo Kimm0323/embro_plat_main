@@ -177,6 +177,55 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             gap: 8px;
             margin-top: 10px;
         }
+        .palette-select-native {
+            display: none;
+        }
+        .palette-dropdown {
+            margin-top: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            background: #ffffff;
+            position: relative;
+        }
+        .palette-dropdown summary {
+            list-style: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 8px 10px;
+            font-size: 0.9rem;
+            color: #1e293b;
+        }
+        .palette-dropdown summary::-webkit-details-marker {
+            display: none;
+        }
+        .palette-dropdown summary::after {
+            content: '\f078';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            font-size: 0.75rem;
+            color: #64748b;
+            transition: transform 0.2s ease;
+        }
+        .palette-dropdown[open] summary::after {
+            transform: rotate(180deg);
+        }
+        .palette-dropdown-current {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+        }
+        .palette-dropdown-menu {
+            margin-top: 0;
+            border-top: 1px solid #e2e8f0;
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            background: #f8fafc;
+        }
         .color-palette-btn {
             display: flex;
             align-items: center;
@@ -248,7 +297,7 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                     </div>
                     <div class="form-group">
                         <label>Canvas Color</label>
-                         <select id="canvasColor" class="form-control">
+                         <select id="canvasColor" class="form-control palette-select-native">
                             <option value="#f8fafc" selected>Arctic White</option>
                             <option value="#e2e8f0">Silver Mist</option>
                             <option value="#d6d3d1">Linen Beige</option>
@@ -258,7 +307,12 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                             <option value="#14532d">Forest Green</option>
                             <option value="#111827">Jet Black</option>
                         </select>
-                        <div id="canvasColorPalette" class="color-palette" aria-label="Canvas color palette"></div>
+                        <details class="palette-dropdown" id="canvasColorDropdown">
+                            <summary>
+                                <span class="palette-dropdown-current" id="canvasColorCurrentLabel"></span>
+                            </summary>
+                            <div id="canvasColorPalette" class="color-palette palette-dropdown-menu" aria-label="Canvas color palette"></div>
+                        </details>
                     </div>
                     <div class="form-group">
                         <label>Placement Method</label>
@@ -283,7 +337,7 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                     </div>
                     <div class="form-group">
                         <label>Thread Color Palette</label>
-                        <select id="threadColor" class="form-control">
+                         <select id="threadColor" class="form-control palette-select-native">
                             <option value="#111827">Jet Black</option>
                             <option value="#f8fafc">Pearl White</option>
                             <option value="#1d4ed8" selected>Royal Blue</option>
@@ -297,6 +351,12 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                             <option value="#7c3aed">Violet Purple</option>
                             <option value="#db2777">Fuchsia Pink</option>
                         </select>
+                        <details class="palette-dropdown" id="threadColorDropdown">
+                            <summary>
+                                <span class="palette-dropdown-current" id="threadColorCurrentLabel"></span>
+                            </summary>
+                            <div id="threadColorPalette" class="color-palette palette-dropdown-menu" aria-label="Thread color palette"></div>
+                        </details>
                     </div>
                     <div class="form-group">
                         <label>Safe Area Overlay</label>
@@ -479,6 +539,12 @@ const placementMethod = document.getElementById('placementMethod');
 const logoSliderControls = document.getElementById('logoSliderControls');
 const goToProofingBtn = document.getElementById('goToProofingBtn');
 const canvasColorPalette = document.getElementById('canvasColorPalette');
+const threadColorPalette = document.getElementById('threadColorPalette');
+const canvasColorCurrentLabel = document.getElementById('canvasColorCurrentLabel');
+const threadColorCurrentLabel = document.getElementById('threadColorCurrentLabel');
+const canvasColorDropdown = document.getElementById('canvasColorDropdown');
+const threadColorDropdown = document.getElementById('threadColorDropdown');
+
 
 const presets = {
     'XS': { width: 4.0, height: 4.0 },
@@ -511,11 +577,31 @@ function getCanvasColorOptions() {
         name: option.textContent.trim()
     }));
 }
+function getThreadColorOptions() {
+    return Array.from(threadColor.options).map(option => ({
+        value: option.value.toLowerCase(),
+        name: option.textContent.trim()
+    }));
+}
+
+function getColorOptionByValue(options, value, fallbackValue) {
+    const normalizedValue = (value || fallbackValue || '').toLowerCase();
+    return options.find(option => option.value === normalizedValue) || options[0] || { value: fallbackValue, name: fallbackValue };
+}
+
+function setPaletteCurrentLabel(target, option) {
+    if (!target || !option) return;
+    target.innerHTML = `
+        <span class="color-swatch" style="background: ${option.value};"></span>
+        <span class="color-palette-name">${option.name}</span>
+    `;
+}
 
 function renderCanvasColorPalette() {
     if (!canvasColorPalette) return;
     const currentColor = (state.canvasColor || canvasColor.value || '').toLowerCase();
     const options = getCanvasColorOptions();
+    const currentOption = getColorOptionByValue(options, currentColor, '#f8fafc');
     canvasColorPalette.innerHTML = options.map(option => `
         <button
             type="button"
@@ -529,6 +615,28 @@ function renderCanvasColorPalette() {
             <span class="color-palette-name">${option.name}</span>
         </button>
     `).join('');
+    setPaletteCurrentLabel(canvasColorCurrentLabel, currentOption);
+}
+
+function renderThreadColorPalette() {
+    if (!threadColorPalette) return;
+    const currentColor = (state.threadColor || threadColor.value || '').toLowerCase();
+    const options = getThreadColorOptions();
+    const currentOption = getColorOptionByValue(options, currentColor, '#1d4ed8');
+    threadColorPalette.innerHTML = options.map(option => `
+        <button
+            type="button"
+            class="color-palette-btn ${option.value === currentColor ? 'active' : ''}"
+            data-color="${option.value}"
+            title="${option.name}"
+            aria-label="Thread color ${option.name}"
+            aria-pressed="${option.value === currentColor ? 'true' : 'false'}"
+        >
+            <span class="color-swatch" style="background: ${option.value};"></span>
+            <span class="color-palette-name">${option.name}</span>
+        </button>
+    `).join('');
+    setPaletteCurrentLabel(threadColorCurrentLabel, currentOption);
 }
 
 function setCanvasColor(colorValue, shouldPushHistory = false, shouldSaveState = false) {
@@ -573,6 +681,7 @@ function loadState() {
         pushHistory();
         render();
         renderCanvasColorPalette();
+        renderThreadColorPalette();
         return;
     }
     const parsed = JSON.parse(saved);
@@ -590,6 +699,7 @@ function loadState() {
     pushHistory();
     render();
     renderCanvasColorPalette();
+     renderThreadColorPalette();
     renderVersions();
 }
 
@@ -644,6 +754,7 @@ function restoreFromHistory(entry) {
     rebuildImages();
     render();
     renderCanvasColorPalette();
+    renderThreadColorPalette();
     saveState();
 }
 
@@ -1110,6 +1221,7 @@ function renderVersions() {
             pushHistory();
             render();
             renderCanvasColorPalette();
+             renderThreadColorPalette();
             saveState();
         };
         
@@ -1309,13 +1421,14 @@ hoopPreset.addEventListener('change', () => {
 });
 
 threadColor.addEventListener('change', () => {
-    state.threadColor = threadColor.value;
+    state.threadColor = threadColor.value.toLowerCase();
     const selected = state.elements.find(element => element.id === state.selectedId);
     if (selected && selected.type === 'text') {
         selected.color = state.threadColor;
     }
     pushHistory();
     render();
+    renderThreadColorPalette();
     saveState();
 });
 
@@ -1345,6 +1458,19 @@ canvasColorPalette.addEventListener('click', event => {
     const button = event.target.closest('.color-palette-btn');
     if (!button) return;
     setCanvasColor(button.dataset.color, true, true);
+     if (canvasColorDropdown) {
+        canvasColorDropdown.removeAttribute('open');
+    }
+});
+
+threadColorPalette.addEventListener('click', event => {
+    const button = event.target.closest('.color-palette-btn');
+    if (!button) return;
+    threadColor.value = button.dataset.color;
+    threadColor.dispatchEvent(new Event('change'));
+    if (threadColorDropdown) {
+        threadColorDropdown.removeAttribute('open');
+    }
 });
 
 placementMethod.addEventListener('change', () => {
@@ -1633,6 +1759,7 @@ setInterval(() => {
 
 normalizeCanvasColorState();
 renderCanvasColorPalette();
+renderThreadColorPalette();
 loadState();
 </script>
 </body>
