@@ -59,7 +59,8 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (str_starts_with($business_phone_raw, '+63')) {
                 if (strlen($business_phone_raw) !== 12) {
                     throw new RuntimeException('If business phone starts with +63, it must be exactly 12 characters.');
-             } elseif (str_starts_with($business_phone_raw, '09')) {
+              }
+            } elseif (str_starts_with($business_phone_raw, '09')) {
                 if (strlen($business_phone_raw) !== 11) {
                     throw new RuntimeException('If business phone starts with 09, it must be exactly 11 digits.');
                 }
@@ -157,6 +158,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = $e->getMessage();
     } catch(PDOException $e) {
          $error = 'Failed to submit business information: ' . $e->getMessage();
+         }
 }
     
 ?>
