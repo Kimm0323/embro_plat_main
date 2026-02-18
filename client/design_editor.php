@@ -191,16 +191,26 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             <div class="editor-panel">
                 <div class="editor-toolbar">
                     <div class="form-group">
-                        <label>Hoop Size Preset</label>
+                        <label>T-SHIRT SIZES</label>
                         <select id="hoopPreset" class="form-control">
-                            <option value="4x4">4" x 4" (Small)</option>
-                            <option value="5x7">5" x 7" (Medium)</option>
-                            <option value="6x10">6" x 10" (Large)</option>
+                            <option value="XS">Extra Small (XS)</option>
+                            <option value="S">Small (S)</option>
+                            <option value="M" selected>Medium (M)</option>
+                            <option value="L">Large (L)</option>
+                            <option value="XL">Extra Large (XL)</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Thread Color</label>
-                        <input type="color" id="threadColor" class="form-control" value="#1d4ed8">
+                        <label>Thread Color Palette</label>
+                        <select id="threadColor" class="form-control">
+                            <option value="#111827">Jet Black</option>
+                            <option value="#f8fafc">Pearl White</option>
+                            <option value="#1d4ed8" selected>Royal Blue</option>
+                            <option value="#dc2626">Crimson Red</option>
+                            <option value="#15803d">Emerald Green</option>
+                            <option value="#f59e0b">Gold Yellow</option>
+                            <option value="#7c3aed">Violet Purple</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label>Safe Area Overlay</label>
@@ -373,9 +383,11 @@ const resetTransformBtn = document.getElementById('resetTransformBtn');
 const lockLayerBtn = document.getElementById('lockLayerBtn');
 
 const presets = {
-    '4x4': { width: 4, height: 4 },
-    '5x7': { width: 5, height: 7 },
-    '6x10': { width: 6, height: 10 }
+    'XS': { width: 4.0, height: 4.0 },
+    'S': { width: 4.8, height: 4.8 },
+    'M': { width: 5.6, height: 5.6 },
+    'L': { width: 6.4, height: 6.4 },
+    'XL': { width: 7.2, height: 7.2 }
 };
 
 const state = {
@@ -413,7 +425,7 @@ function loadState() {
      state.elements = normalizeElements(state.elements);
     state.history = [];
     state.future = [];
-    hoopPreset.value = state.hoopPreset || '4x4';
+    hoopPreset.value = state.hoopPreset || 'M';
     threadColor.value = state.threadColor || '#1d4ed8';
     safeAreaToggle.value = state.showSafeArea ? 'on' : 'off';
     rebuildImages();
@@ -473,7 +485,7 @@ function rebuildImages() {
 }
 
 function getHoopDimensions() {
-    const preset = presets[state.hoopPreset];
+    const preset = presets[state.hoopPreset] || presets.M;
     const aspect = preset.width / preset.height;
     const baseWidth = canvas.width * 0.8;
     const width = baseWidth;

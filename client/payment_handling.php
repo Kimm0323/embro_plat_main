@@ -5,6 +5,7 @@ require_role('client');
 
 $client_id = $_SESSION['user']['id'];
 $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
+$downpayment_rate = 0.20;
 
 $payments_stmt = $pdo->prepare("
     SELECT
@@ -41,6 +42,7 @@ $unpaid_orders_stmt = $pdo->prepare("
     SELECT
         o.id,
         o.order_number,
+        o.status,
         o.price,
         o.payment_status,
         o.created_at,
@@ -50,7 +52,6 @@ $unpaid_orders_stmt = $pdo->prepare("
     WHERE o.client_id = ?
       AND o.payment_status IN ('unpaid', 'rejected')
     ORDER BY o.created_at DESC
-    LIMIT 8
 ");
 $unpaid_orders_stmt->execute([$client_id]);
 $unpaid_orders = $unpaid_orders_stmt->fetchAll();
@@ -125,6 +126,19 @@ function payment_badge_class($status)
             flex-wrap: wrap;
             gap: 0.5rem;
         }
+
+         .methods-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+
+        .method-card {
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius);
+            padding: 1rem;
+            background: #fff;
+        }
     </style>
 </head>
 <body>
@@ -168,6 +182,26 @@ function payment_badge_class($status)
             </div>
 
            <div class="card">
+             <div class="card-header">
+                <h3><i class="fas fa-wallet text-primary"></i> Available Payment Methods</h3>
+            </div>
+            <div class="methods-grid">
+                <div class="method-card">
+                    <h4 class="mb-1"><i class="fas fa-mobile-screen-button"></i> GCash</h4>
+                    <p class="text-muted mb-0">Pay your required downpayment digitally and upload proof for verification.</p>
+                </div>
+                <div class="method-card">
+                    <h4 class="mb-1"><i class="fas fa-building-columns"></i> Bank Transfer</h4>
+                    <p class="text-muted mb-0">Send payment via bank transfer and submit your receipt as payment proof.</p>
+                </div>
+                <div class="method-card">
+                    <h4 class="mb-1"><i class="fas fa-money-bill-wave"></i> Cash Payment</h4>
+                    <p class="text-muted mb-0">Coordinate with the shop for accepted cash payments and still upload proof/acknowledgment.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
             <div class="card-header">
                 <h3><i class="fas fa-credit-card text-primary"></i> Recent Payment Submissions</h3>
             </div>
@@ -225,7 +259,9 @@ function payment_badge_class($status)
                         <tr>
                             <th>Order #</th>
                             <th>Shop</th>
-                            <th>Amount Due</th>
+                            <th>Required Downpayment (20%)</th>
+                            <th>Order Total</th>
+                            <th>Order Status</th>
                             <th>Status</th>
                             <th>Action</th>
                         </tr>
@@ -235,7 +271,9 @@ function payment_badge_class($status)
                             <tr>
                                 <td><?php echo htmlspecialchars($order['order_number']); ?></td>
                                 <td><?php echo htmlspecialchars($order['shop_name'] ?? '-'); ?></td>
+                                 <td>₱<?php echo number_format((float) ($order['price'] ?? 0) * $downpayment_rate, 2); ?></td>
                                 <td>₱<?php echo number_format((float) ($order['price'] ?? 0), 2); ?></td>
+                                 <td><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $order['status'] ?? 'pending'))); ?></td>
                                 <td>
                                     <span class="badge <?php echo payment_badge_class($order['payment_status']); ?>">
                                         <?php echo htmlspecialchars(ucfirst($order['payment_status'])); ?>

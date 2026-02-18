@@ -41,7 +41,7 @@ if(isset($_POST['submit_rating'])) {
               SELECT 1
               FROM order_fulfillments f
               WHERE f.order_id = orders.id
-                AND f.status = 'claimed'
+              AND f.status IN ('delivered', 'claimed')
           )
     ");
         $order_stmt->execute([$order_id, $client_id]);
@@ -69,7 +69,7 @@ if(isset($_POST['submit_rating'])) {
     }
 }
 
-$pending_stmt = $pdo->prepare("
+ $pending_stmt = $pdo->prepare("
     SELECT o.*, s.shop_name
     FROM orders o
     JOIN shops s ON o.shop_id = s.id
@@ -80,26 +80,29 @@ $pending_stmt = $pdo->prepare("
           SELECT 1
           FROM order_fulfillments f
           WHERE f.order_id = o.id
-            AND f.status = 'claimed'
+          AND f.status IN ('delivered', 'claimed')
       )
     ORDER BY o.completed_at DESC, o.created_at DESC
 ");
 $pending_stmt->execute([$client_id]);
 $pending_orders = $pending_stmt->fetchAll();
 
-$rated_stmt = $pdo->prepare("
+$completed_stmt = $pdo->prepare("
     SELECT o.*, s.shop_name
     FROM orders o
     JOIN shops s ON o.shop_id = s.id
     WHERE o.client_id = ?
       AND o.status = 'completed'
-      AND o.rating IS NOT NULL
-      AND o.rating > 0
+       AND EXISTS (
+          SELECT 1
+          FROM order_fulfillments f
+          WHERE f.order_id = o.id
+            AND f.status IN ('delivered', 'claimed')
+      )
     ORDER BY o.completed_at DESC, o.created_at DESC
-    LIMIT 5
 ");
-$rated_stmt->execute([$client_id]);
-$rated_orders = $rated_stmt->fetchAll();
+$completed_stmt->execute([$client_id]);
+$completed_orders = $completed_stmt->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -158,7 +161,7 @@ $rated_orders = $rated_stmt->fetchAll();
     <div class="container">
         <div class="dashboard-header">
             <h2>Rate Your Providers</h2>
-            <p class="text-muted">Share feedback for completed orders to help shops improve their service. Ratings are available after an order has been claimed.</p>
+            <p class="text-muted">Rate received orders that are not yet reviewed. This page also lists all completed or delivered orders, even those you already rated.</p>
         </div>
 
         <?php if($error): ?>
@@ -221,10 +224,10 @@ $rated_orders = $rated_stmt->fetchAll();
         </div>
 
         <div class="card mt-4">
-            <h3>Recently Rated</h3>
-            <?php if(!empty($rated_orders)): ?>
+            <h3>Completed / Delivered Orders</h3>
+            <?php if(!empty($completed_orders)): ?>
                 <div class="rated-list">
-                    <?php foreach($rated_orders as $order): ?>
+                    <?php foreach($completed_orders as $order): ?>
                         <div class="rated-card">
                             <div class="d-flex justify-between align-center">
                                 <div>
@@ -232,9 +235,13 @@ $rated_orders = $rated_stmt->fetchAll();
                                     <div class="text-muted small"><i class="fas fa-store"></i> <?php echo htmlspecialchars($order['shop_name']); ?></div>
                                 </div>
                                 <div>
-                                    <?php for($i = 1; $i <= 5; $i++): ?>
-                                        <i class="fas fa-star<?php echo $i <= $order['rating'] ? '' : '-o'; ?> text-warning"></i>
-                                    <?php endfor; ?>
+                                   <?php if(!empty($order['rating']) && (int)$order['rating'] > 0): ?>
+                                        <?php for($i = 1; $i <= 5; $i++): ?>
+                                            <i class="fas fa-star<?php echo $i <= $order['rating'] ? '' : '-o'; ?> text-warning"></i>
+                                        <?php endfor; ?>
+                                    <?php else: ?>
+                                        <span class="badge badge-warning">Needs review</span>
+                                    <?php endif; ?>
                                 </div>
                                 <?php if(!empty($order['rating_status']) && $order['rating_status'] !== 'approved'): ?>
                                         <?php if($order['rating_status'] === 'rejected'): ?>
@@ -267,8 +274,8 @@ $rated_orders = $rated_stmt->fetchAll();
             <?php else: ?>
                 <div class="text-center p-4">
                     <i class="fas fa-clipboard-check fa-3x text-muted mb-3"></i>
-                    <h4>No Ratings Yet</h4>
-                    <p class="text-muted">Complete an order to leave your first rating.</p>
+                    <h4>No Completed Orders Yet</h4>
+                    <p class="text-muted">Completed or delivered orders will appear here.</p>
                 </div>
             <?php endif; ?>
         </div>
