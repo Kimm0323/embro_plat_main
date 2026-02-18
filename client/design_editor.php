@@ -191,6 +191,35 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             <div class="editor-panel">
                 <div class="editor-toolbar">
                     <div class="form-group">
+                        <label>Canvas Type</label>
+                        <select id="canvasType" class="form-control">
+                            <option value="tshirt-crew" selected>T-Shirt (Crew Neck)</option>
+                            <option value="tshirt-vneck">T-Shirt (V-Neck)</option>
+                            <option value="tshirt-polo">T-Shirt (Polo / Collared)</option>
+                            <option value="tshirt-tank">T-Shirt (Tank Top / Sleeveless)</option>
+                            <option value="tshirt-pocket">T-Shirt (Pocket T-Shirt)</option>
+                            <option value="cap-baseball">Cap (Baseball Cap)</option>
+                            <option value="cap-bucket">Cap (Bucket Hat)</option>
+                            <option value="tote-bag">Tote Bag</option>
+                            <option value="plain-canvas">Plain Canvas</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Canvas Color</label>
+                        <input type="color" id="canvasColor" class="form-control" value="#f5f5f5">
+                    </div>
+                    <div class="form-group">
+                        <label>Placement Method</label>
+                        <select id="placementMethod" class="form-control">
+                            <option value="center-chest" selected>Center Chest</option>
+                            <option value="left-chest">Left Chest</option>
+                            <option value="right-chest">Right Chest</option>
+                            <option value="full-front">Full Front</option>
+                            <option value="back-center">Back Center</option>
+                            <option value="sleeve">Sleeve</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label>T-SHIRT SIZES</label>
                         <select id="hoopPreset" class="form-control">
                             <option value="XS">Extra Small (XS)</option>
@@ -278,22 +307,19 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                 </div>
 
                 <div class="form-group">
-                    <label>Selected Element</label>
-                    <div class="slider-row">
-                        <input type="range" id="scaleSlider" min="0.3" max="2" step="0.1" value="1">
-                        <span id="scaleValue">100%</span>
-                    </div>
-                    <div class="slider-row mt-2">
-                        <input type="range" id="rotationSlider" min="-180" max="180" step="5" value="0">
-                        <span id="rotationValue">0°</span>
+                    <div id="logoSliderControls">
+                        <div class="slider-row">
+                            <input type="range" id="scaleSlider" min="0.3" max="2" step="0.1" value="1">
+                            <span id="scaleValue">100%</span>
+                        </div>
+                        <div class="slider-row mt-2">
+                            <input type="range" id="rotationSlider" min="-180" max="180" step="5" value="0">
+                            <span id="rotationValue">0°</span>
+                        </div>
                     </div>
                     <div class="d-flex gap-2 mt-2">
                         <button class="btn btn-outline" id="bringForwardBtn"><i class="fas fa-layer-group"></i> Forward</button>
                         <button class="btn btn-outline" id="sendBackwardBtn"><i class="fas fa-layer-group"></i> Back</button>
-                    </div>
-                     <div class="slider-row mt-2">
-                        <input type="range" id="opacitySlider" min="0.1" max="1" step="0.05" value="1">
-                        <span id="opacityValue">100%</span>
                     </div>
                 </div>
 
@@ -337,6 +363,7 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                         <button class="btn btn-outline" id="exportJsonBtn"><i class="fas fa-file-code"></i> Design JSON</button>
                         <button class="btn btn-outline" id="exportPngBtn"><i class="fas fa-image"></i> PNG Proof</button>
                         <button class="btn btn-outline" id="postToCommunityBtn"><i class="fas fa-paper-plane"></i> Post to Owner Community</button>
+                        <button class="btn btn-outline" id="goToProofingBtn"><i class="fas fa-arrow-right"></i> Go to Design Proofing</button>
                     </div>
                     <div class="version-list" id="versionList"></div>
                 </div>
@@ -363,8 +390,6 @@ const scaleSlider = document.getElementById('scaleSlider');
 const scaleValue = document.getElementById('scaleValue');
 const rotationSlider = document.getElementById('rotationSlider');
 const rotationValue = document.getElementById('rotationValue');
-const opacitySlider = document.getElementById('opacitySlider');
-const opacityValue = document.getElementById('opacityValue');
 const layerList = document.getElementById('layerList');
 const saveVersionBtn = document.getElementById('saveVersionBtn');
 const exportJsonBtn = document.getElementById('exportJsonBtn');
@@ -391,6 +416,11 @@ const flipHorizontalBtn = document.getElementById('flipHorizontalBtn');
 const flipVerticalBtn = document.getElementById('flipVerticalBtn');
 const resetTransformBtn = document.getElementById('resetTransformBtn');
 const lockLayerBtn = document.getElementById('lockLayerBtn');
+const canvasType = document.getElementById('canvasType');
+const canvasColor = document.getElementById('canvasColor');
+const placementMethod = document.getElementById('placementMethod');
+const logoSliderControls = document.getElementById('logoSliderControls');
+const goToProofingBtn = document.getElementById('goToProofingBtn');
 
 const presets = {
     'XS': { width: 4.0, height: 4.0 },
@@ -407,6 +437,9 @@ const state = {
     threadColor: threadColor.value,
     showSafeArea: true,
     versions: [],
+    canvasType: canvasType.value,
+    canvasColor: canvasColor.value,
+    placementMethod: placementMethod.value,
     versionCounter: 1,
     history: [],
     future: []
@@ -438,11 +471,15 @@ function loadState() {
     hoopPreset.value = state.hoopPreset || 'M';
     threadColor.value = state.threadColor || '#1d4ed8';
     safeAreaToggle.value = state.showSafeArea ? 'on' : 'off';
+    canvasType.value = state.canvasType || 'tshirt-crew';
+    canvasColor.value = state.canvasColor || '#f5f5f5';
+    placementMethod.value = state.placementMethod || 'center-chest';
     rebuildImages();
     pushHistory();
     render();
     renderVersions();
 }
+
 
 function saveState() {
     localStorage.setItem(storageKey, JSON.stringify({
@@ -450,6 +487,9 @@ function saveState() {
         hoopPreset: state.hoopPreset,
         threadColor: state.threadColor,
         showSafeArea: state.showSafeArea,
+        canvasType: state.canvasType,
+        canvasColor: state.canvasColor,
+        placementMethod: state.placementMethod,
         versions: state.versions,
         versionCounter: state.versionCounter
     }));
@@ -461,6 +501,9 @@ function pushHistory() {
         hoopPreset: state.hoopPreset,
         threadColor: state.threadColor,
         showSafeArea: state.showSafeArea,
+         canvasType: state.canvasType,
+        canvasColor: state.canvasColor,
+        placementMethod: state.placementMethod,
         selectedId: state.selectedId
     }));
     if (state.history.length > 30) {
@@ -475,10 +518,16 @@ function restoreFromHistory(entry) {
     state.hoopPreset = restored.hoopPreset;
     state.threadColor = restored.threadColor;
     state.showSafeArea = restored.showSafeArea;
+     state.canvasType = restored.canvasType || 'tshirt-crew';
+    state.canvasColor = restored.canvasColor || '#f5f5f5';
+    state.placementMethod = restored.placementMethod || 'center-chest';
     state.selectedId = restored.selectedId;
     hoopPreset.value = state.hoopPreset;
     threadColor.value = state.threadColor;
     safeAreaToggle.value = state.showSafeArea ? 'on' : 'off';
+     canvasType.value = state.canvasType;
+    canvasColor.value = state.canvasColor;
+    placementMethod.value = state.placementMethod;
     rebuildImages();
     render();
     saveState();
@@ -512,7 +561,8 @@ function drawCanvas() {
     const hoopX = (canvas.width - hoop.width) / 2;
     const hoopY = (canvas.height - hoop.height) / 2;
 
-    drawShirtGuide(hoopX, hoopY, hoop.width, hoop.height);
+     drawCanvasGuide(hoopX, hoopY, hoop.width, hoop.height);
+    drawPlacementGuide(hoopX, hoopY, hoop.width, hoop.height);
 
     if (state.showSafeArea) {
         ctx.save();
@@ -530,8 +580,6 @@ function drawCanvas() {
         const scaleX = (element.scaleX || 1) * element.scale;
         const scaleY = (element.scaleY || 1) * element.scale;
         ctx.scale(scaleX, scaleY);
-        ctx.globalAlpha = element.opacity || 1;
-
         if (element.type === 'text') {
             ctx.fillStyle = element.color;
             ctx.font = getTextFont(element);
@@ -583,7 +631,19 @@ function getTextMetrics(element) {
     return { width, height };
 }
 
-function drawShirtGuide(hoopX, hoopY, hoopWidth, hoopHeight) {
+function drawCanvasGuide(hoopX, hoopY, hoopWidth, hoopHeight) {
+    if (state.canvasType.startsWith('cap')) {
+        drawCapGuide(hoopX, hoopY, hoopWidth, hoopHeight);
+        return;
+    }
+    if (state.canvasType === 'tote-bag') {
+        drawToteBagGuide(hoopX, hoopY, hoopWidth, hoopHeight);
+        return;
+    }
+    if (state.canvasType === 'plain-canvas') {
+        drawPlainCanvasGuide(hoopX, hoopY, hoopWidth, hoopHeight);
+        return;
+    }
     const shirtCenterX = canvas.width / 2;
     const shirtTop = Math.max(18, hoopY - 86);
     const shirtWidth = Math.min(canvas.width - 64, hoopWidth + 220);
@@ -615,7 +675,7 @@ function drawShirtGuide(hoopX, hoopY, hoopWidth, hoopHeight) {
     ctx.lineTo(leftSleeve + 6, shoulderY + sleeveDrop);
     ctx.lineTo(leftSleeve - 14, shoulderY + 30);
     ctx.closePath();
-    ctx.fillStyle = '#f5f5f5';
+    ctx.fillStyle = state.canvasColor;
     ctx.fill();
     ctx.strokeStyle = '#2f2f2f';
     ctx.lineWidth = 2.2;
@@ -659,7 +719,161 @@ function drawShirtGuide(hoopX, hoopY, hoopWidth, hoopHeight) {
     ctx.lineTo(rightBody - 12, hemY - 2);
     ctx.stroke();
 
+    if (state.canvasType === 'tshirt-vneck') {
+        ctx.strokeStyle = '#2f2f2f';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(shirtCenterX - 24, neckY + 8);
+        ctx.lineTo(shirtCenterX, neckY + 30);
+        ctx.lineTo(shirtCenterX + 24, neckY + 8);
+        ctx.stroke();
+    }
+
+    if (state.canvasType === 'tshirt-polo') {
+        ctx.strokeStyle = '#2f2f2f';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(shirtCenterX, neckY + 10);
+        ctx.lineTo(shirtCenterX, neckY + 44);
+        ctx.moveTo(shirtCenterX - 18, neckY + 16);
+        ctx.lineTo(shirtCenterX, neckY + 30);
+        ctx.lineTo(shirtCenterX + 18, neckY + 16);
+        ctx.stroke();
+    }
+
+    if (state.canvasType === 'tshirt-pocket') {
+        const pocketW = Math.max(44, bodyWidth * 0.16);
+        const pocketH = Math.max(46, shirtHeight * 0.12);
+        const pocketX = shirtCenterX - bodyWidth * 0.22 - pocketW / 2;
+        const pocketY = shoulderY + 42;
+        ctx.strokeStyle = '#4b5563';
+        ctx.lineWidth = 1.2;
+        ctx.strokeRect(pocketX, pocketY, pocketW, pocketH);
+    }
+
+    if (state.canvasType === 'tshirt-tank') {
+        ctx.strokeStyle = '#6b7280';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(leftBody + 20, shirtTop + 18);
+        ctx.lineTo(leftBody + 20, shoulderY + 62);
+        ctx.moveTo(rightBody - 20, shirtTop + 18);
+        ctx.lineTo(rightBody - 20, shoulderY + 62);
+        ctx.stroke();
+    }
+
     ctx.restore();
+}
+
+function drawCapGuide(hoopX, hoopY, hoopWidth, hoopHeight) {
+    const centerX = canvas.width / 2;
+    const centerY = hoopY + hoopHeight * 0.58;
+    const capWidth = hoopWidth + 150;
+    const capHeight = hoopHeight * 0.72;
+
+    ctx.save();
+    ctx.fillStyle = state.canvasColor;
+    ctx.strokeStyle = '#2f2f2f';
+    ctx.lineWidth = 2;
+
+    if (state.canvasType === 'cap-bucket') {
+        ctx.beginPath();
+        ctx.ellipse(centerX, centerY, capWidth * 0.34, capHeight * 0.32, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(centerX, centerY + capHeight * 0.3, capWidth * 0.5, capHeight * 0.18, 0, 0, Math.PI * 2);
+        ctx.fillStyle = shadeColor(state.canvasColor, -15);
+        ctx.fill();
+        ctx.stroke();
+    } else {
+        ctx.beginPath();
+        ctx.ellipse(centerX, centerY, capWidth * 0.36, capHeight * 0.35, 0, Math.PI, 0, true);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(centerX - capWidth * 0.2, centerY + capHeight * 0.14);
+        ctx.quadraticCurveTo(centerX, centerY + capHeight * 0.28, centerX + capWidth * 0.2, centerY + capHeight * 0.14);
+        ctx.fillStyle = shadeColor(state.canvasColor, -20);
+        ctx.fill();
+        ctx.stroke();
+    }
+
+    ctx.restore();
+}
+
+function drawToteBagGuide(hoopX, hoopY, hoopWidth, hoopHeight) {
+    const bagWidth = hoopWidth + 180;
+    const bagHeight = hoopHeight + 120;
+    const bagX = (canvas.width - bagWidth) / 2;
+    const bagY = Math.max(24, hoopY - 40);
+
+    ctx.save();
+    ctx.fillStyle = state.canvasColor;
+    ctx.strokeStyle = '#2f2f2f';
+    ctx.lineWidth = 2;
+    ctx.fillRect(bagX, bagY + 70, bagWidth, bagHeight - 70);
+    ctx.strokeRect(bagX, bagY + 70, bagWidth, bagHeight - 70);
+
+    ctx.beginPath();
+    ctx.moveTo(bagX + bagWidth * 0.27, bagY + 70);
+    ctx.bezierCurveTo(bagX + bagWidth * 0.25, bagY + 18, bagX + bagWidth * 0.75, bagY + 18, bagX + bagWidth * 0.73, bagY + 70);
+    ctx.stroke();
+    ctx.restore();
+}
+
+function drawPlainCanvasGuide(hoopX, hoopY, hoopWidth, hoopHeight) {
+    const areaWidth = hoopWidth + 220;
+    const areaHeight = hoopHeight + 180;
+    const areaX = (canvas.width - areaWidth) / 2;
+    const areaY = (canvas.height - areaHeight) / 2;
+
+    ctx.save();
+    ctx.fillStyle = state.canvasColor;
+    ctx.fillRect(areaX, areaY, areaWidth, areaHeight);
+    ctx.strokeStyle = '#2f2f2f';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(areaX, areaY, areaWidth, areaHeight);
+    ctx.restore();
+}
+
+function drawPlacementGuide(hoopX, hoopY, hoopWidth, hoopHeight) {
+    const placements = {
+        'center-chest': { x: canvas.width / 2, y: hoopY + hoopHeight * 0.45, label: 'Center Chest' },
+        'left-chest': { x: canvas.width / 2 - hoopWidth * 0.2, y: hoopY + hoopHeight * 0.43, label: 'Left Chest' },
+        'right-chest': { x: canvas.width / 2 + hoopWidth * 0.2, y: hoopY + hoopHeight * 0.43, label: 'Right Chest' },
+        'full-front': { x: canvas.width / 2, y: hoopY + hoopHeight * 0.5, label: 'Full Front' },
+        'back-center': { x: canvas.width / 2, y: hoopY + hoopHeight * 0.58, label: 'Back Center' },
+        'sleeve': { x: canvas.width / 2 - hoopWidth * 0.36, y: hoopY + hoopHeight * 0.42, label: 'Sleeve' }
+    };
+
+    const point = placements[state.placementMethod] || placements['center-chest'];
+    const guideSize = state.placementMethod === 'full-front' ? 92 : 50;
+
+    ctx.save();
+    ctx.strokeStyle = '#f59e0b';
+    ctx.fillStyle = 'rgba(245, 158, 11, 0.12)';
+    ctx.lineWidth = 1.8;
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.rect(point.x - guideSize / 2, point.y - guideSize / 2, guideSize, guideSize);
+    ctx.fill();
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#92400e';
+    ctx.font = "600 13px 'Inter', sans-serif";
+    ctx.fillText(point.label, point.x - guideSize / 2, point.y - guideSize / 2 - 8);
+    ctx.restore();
+}
+
+function shadeColor(hex, percent) {
+    const clean = (hex || '#f5f5f5').replace('#', '');
+    const value = parseInt(clean, 16);
+    const amt = Math.round(2.55 * percent);
+    const r = Math.max(0, Math.min(255, (value >> 16) + amt));
+    const g = Math.max(0, Math.min(255, ((value >> 8) & 0x00ff) + amt));
+    const b = Math.max(0, Math.min(255, (value & 0x0000ff) + amt));
+    return `#${(0x1000000 + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
 
 
@@ -768,10 +982,16 @@ function renderVersions() {
             state.hoopPreset = version.data.hoopPreset;
             state.threadColor = version.data.threadColor;
             state.showSafeArea = version.data.showSafeArea;
+            state.canvasType = version.data.canvasType || 'tshirt-crew';
+            state.canvasColor = version.data.canvasColor || '#f5f5f5';
+            state.placementMethod = version.data.placementMethod || 'center-chest';
             state.selectedId = null;
             hoopPreset.value = state.hoopPreset;
             threadColor.value = state.threadColor;
             safeAreaToggle.value = state.showSafeArea ? 'on' : 'off';
+            canvasType.value = state.canvasType;
+            canvasColor.value = state.canvasColor;
+            placementMethod.value = state.placementMethod;
             rebuildImages();
             pushHistory();
             render();
@@ -800,10 +1020,9 @@ function updateControlValues() {
     if (!selected) {
         scaleSlider.value = 1;
         rotationSlider.value = 0;
-        opacitySlider.value = 1;
         scaleValue.textContent = '100%';
         rotationValue.textContent = '0°';
-        opacityValue.textContent = '100%';
+         logoSliderControls.style.display = 'none';
         fontFamily.value = 'Inter';
         fontSize.value = 76;
         setToggleState(boldBtn, false);
@@ -815,10 +1034,9 @@ function updateControlValues() {
     }
     scaleSlider.value = selected.scale;
     rotationSlider.value = selected.rotation;
-    opacitySlider.value = selected.opacity || 1;
     scaleValue.textContent = `${Math.round(selected.scale * 100)}%`;
     rotationValue.textContent = `${selected.rotation}°`;
-    opacityValue.textContent = `${Math.round((selected.opacity || 1) * 100)}%`;
+     logoSliderControls.style.display = selected.type === 'image' ? 'block' : 'none';
 
     if (selected.type === 'text') {
         fontFamily.value = selected.fontFamily || 'Inter';
@@ -854,7 +1072,6 @@ function addText() {
         fontItalic: false,
         underline: false,
         color: state.threadColor,
-         opacity: 1,
         scaleX: 1,
         scaleY: 1,
         locked: false
@@ -886,7 +1103,6 @@ function addImage(file) {
                 height: img.height * scale,
                 scale: 1,
                 rotation: 0,
-                opacity: 1,
                 scaleX: 1,
                 scaleY: 1,
                 locked: false
@@ -994,6 +1210,31 @@ safeAreaToggle.addEventListener('change', () => {
     saveState();
 });
 
+canvasType.addEventListener('change', () => {
+    state.canvasType = canvasType.value;
+    pushHistory();
+    render();
+    saveState();
+});
+
+canvasColor.addEventListener('input', () => {
+    state.canvasColor = canvasColor.value;
+    render();
+});
+
+canvasColor.addEventListener('change', () => {
+    state.canvasColor = canvasColor.value;
+    pushHistory();
+    saveState();
+});
+
+placementMethod.addEventListener('change', () => {
+    state.placementMethod = placementMethod.value;
+    pushHistory();
+    render();
+    saveState();
+});
+
 scaleSlider.addEventListener('input', () => {
     const selected = state.elements.find(element => element.id === state.selectedId);
     if (!selected) return;
@@ -1018,21 +1259,6 @@ rotationSlider.addEventListener('input', () => {
 });
 
 rotationSlider.addEventListener('change', () => {
-    const selected = state.elements.find(element => element.id === state.selectedId);
-    if (!selected || selected.locked) return;
-    pushHistory();
-    saveState();
-});
-
-opacitySlider.addEventListener('input', () => {
-    const selected = state.elements.find(element => element.id === state.selectedId);
-    if (!selected || selected.locked) return;
-    selected.opacity = parseFloat(opacitySlider.value);
-    opacityValue.textContent = `${Math.round(selected.opacity * 100)}%`;
-    render();
-});
-
-opacitySlider.addEventListener('change', () => {
     const selected = state.elements.find(element => element.id === state.selectedId);
     if (!selected || selected.locked) return;
     pushHistory();
@@ -1148,7 +1374,6 @@ resetTransformBtn.addEventListener('click', () => {
         selected.scaleX = 1;
         selected.scaleY = 1;
         selected.rotation = 0;
-        selected.opacity = 1;
     });
 });
 
@@ -1200,7 +1425,10 @@ saveVersionBtn.addEventListener('click', () => {
             elements: state.elements,
             hoopPreset: state.hoopPreset,
             threadColor: state.threadColor,
-            showSafeArea: state.showSafeArea
+            showSafeArea: state.showSafeArea,
+            canvasType: state.canvasType,
+            canvasColor: state.canvasColor,
+            placementMethod: state.placementMethod
         }
     });
     renderVersions();
@@ -1212,6 +1440,9 @@ exportJsonBtn.addEventListener('click', () => {
         hoopPreset: state.hoopPreset,
         threadColor: state.threadColor,
         showSafeArea: state.showSafeArea,
+        canvasType: state.canvasType,
+        canvasColor: state.canvasColor,
+        placementMethod: state.placementMethod,
         elements: state.elements
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -1229,6 +1460,11 @@ exportPngBtn.addEventListener('click', () => {
     link.download = 'design-proof.png';
     link.click();
 });
+
+goToProofingBtn.addEventListener('click', () => {
+    window.location.href = 'design_proofing.php?from_design_editor=1';
+});
+
 postToCommunityBtn.addEventListener('click', () => {
     if (!state.elements.length) {
         alert('Please add at least one design element before posting to the owner community.');
@@ -1244,7 +1480,7 @@ postToCommunityBtn.addEventListener('click', () => {
         source: 'design_editor',
         title: generatedTitle,
         category: 'Request',
-        description: `I created this design in the editor and I would like feedback/quotes from shop owners.\n\nHoop preset: ${state.hoopPreset}\nThread color: ${state.threadColor}\nElements: ${elementSummary}`,
+        description: `I created this design in the editor and I would like feedback/quotes from shop owners.\n\nCanvas: ${state.canvasType} (${state.canvasColor})\nPlacement: ${state.placementMethod}\nHoop preset: ${state.hoopPreset}\nThread color: ${state.threadColor}\nElements: ${elementSummary}`,
         generatedAt: new Date().toISOString()
     };
 
@@ -1263,7 +1499,10 @@ setInterval(() => {
             elements: state.elements,
             hoopPreset: state.hoopPreset,
             threadColor: state.threadColor,
-            showSafeArea: state.showSafeArea
+            showSafeArea: state.showSafeArea,
+            canvasType: state.canvasType,
+            canvasColor: state.canvasColor,
+            placementMethod: state.placementMethod
         }
     });
     if (state.versions.length > 12) {
