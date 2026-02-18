@@ -5,6 +5,7 @@ require_role('owner');
 
 $owner_id = $_SESSION['user']['id'];
 $order_id = (int) ($_GET['order_id'] ?? 0);
+$payment_id = (int) ($_GET['payment_id'] ?? 0);
 if ($order_id <= 0) {
     header('Location: shop_orders.php');
     exit();
@@ -34,16 +35,47 @@ if (!$order) {
     exit();
 }
 
-$receipt_stmt = $pdo->prepare("
-    SELECT p.amount, p.created_at, pr.receipt_number, pr.issued_at
+$receipt_query = "
+    SELECT p.id AS payment_id,
+           p.amount,
+           p.created_at,
+           p.status AS payment_verification_status,
+           o.price AS order_total,
+           pr.receipt_number,
+           pr.issued_at
     FROM payments p
+    JOIN orders o ON p.order_id = o.id
     JOIN payment_receipts pr ON pr.payment_id = p.id
     WHERE p.order_id = ? AND p.status = 'verified'
-    ORDER BY p.created_at DESC
-    LIMIT 1
-");
-$receipt_stmt->execute([$order_id]);
+    ";
+
+$receipt_params = [$order_id];
+if($payment_id > 0) {
+    $receipt_query .= " AND p.id = ?";
+    $receipt_params[] = $payment_id;
+}
+
+$receipt_query .= " ORDER BY p.created_at DESC LIMIT 1";
+
+$receipt_stmt = $pdo->prepare($receipt_query);
+$receipt_stmt->execute($receipt_params);
 $receipt = $receipt_stmt->fetch();
+
+function receipt_settlement_type(array $receipt): string {
+    $amount = (float) ($receipt['amount'] ?? 0);
+    $order_total = (float) ($receipt['order_total'] ?? 0);
+    if($order_total <= 0 || $amount <= 0) {
+        return 'Unclassified';
+    }
+    $downpayment_due = round($order_total * 0.20, 2);
+    if(abs($amount - $order_total) <= 0.01) {
+        return 'Full payment';
+    }
+    if(abs($amount - $downpayment_due) <= 0.01) {
+        return 'Downpayment';
+    }
+    return 'Balance';
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -116,14 +148,33 @@ $receipt = $receipt_stmt->fetch();
                         <div><?php echo date('M d, Y', strtotime($receipt['issued_at'])); ?></div>
                     </div>
                     <div>
+                        <strong>Payment ID</strong>
+                        <div>#<?php echo (int) $receipt['payment_id']; ?></div>
+                    </div>
+                    <div>
                         <strong>Client</strong>
                         <div><?php echo htmlspecialchars($order['client_name']); ?></div>
+                    </div>
+                     <div>
+                        <strong>Payment type</strong>
+                        <div><?php echo htmlspecialchars(receipt_settlement_type($receipt)); ?></div>
+                    </div>
+                    <div>
+                        <strong>Verification status</strong>
+                        <div><?php echo htmlspecialchars(ucfirst($receipt['payment_verification_status'] ?? 'verified')); ?></div>
+                    </div>
+                    <div>
+                        <strong>Paid at</strong>
+                        <div><?php echo date('M d, Y h:i A', strtotime($receipt['created_at'])); ?></div>
                     </div>
                 </div>
                 <hr>
                 <div>
                     <strong>Amount Paid</strong>
                     <h3>₱<?php echo number_format((float) ($receipt['amount'] ?? $order['price'] ?? 0), 2); ?></h3>
+                </div>
+                <div class="mt-2 text-muted">
+                    Order total: ₱<?php echo number_format((float) ($receipt['order_total'] ?? $order['price'] ?? 0), 2); ?>
                 </div>
             <?php else: ?>
                 <p class="text-muted">Receipt details are available after payment verification.</p>

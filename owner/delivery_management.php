@@ -35,6 +35,21 @@ $courier_options = [
     'Other' => 'Other (set in notes)',
 ];
 
+$courier_zones = [
+    'metro_manila' => [
+        'keywords' => ['manila', 'quezon', 'makati', 'pasig', 'taguig', 'mandaluyong', 'caloocan', 'paranaque', 'las pinas', 'muntinlupa', 'marikina', 'navotas', 'malabon', 'valenzuela', 'pateros', 'san juan', 'ncr', 'metro manila'],
+        'couriers' => ['Grab Express', 'Lalamove', 'Shop Rider', 'J&T Express', 'Ninja Van'],
+    ],
+    'greater_luzon' => [
+        'keywords' => ['bulacan', 'cavite', 'laguna', 'rizal', 'pampanga', 'tarlac', 'nueva ecija', 'batangas', 'quezon province', 'bataan', 'zambales', 'pangasinan'],
+        'couriers' => ['J&T Express', 'LBC Express', 'JRS Express', 'Ninja Van'],
+    ],
+    'vismin' => [
+        'keywords' => ['cebu', 'iloilo', 'bacolod', 'davao', 'cagayan de oro', 'zamboanga', 'leyte', 'samar', 'bohol', 'mindanao', 'visayas', 'palawan'],
+        'couriers' => ['LBC Express', 'J&T Express', 'JRS Express', 'Ninja Van'],
+    ],
+];
+
 $fulfillment_statuses = [
     FULFILLMENT_PENDING => 'Pending',
     FULFILLMENT_READY_FOR_PICKUP => 'Ready for Pickup',
@@ -44,6 +59,61 @@ $fulfillment_statuses = [
     FULFILLMENT_FAILED => 'Failed',
 ];
 
+$staff_stmt = $pdo->prepare(" 
+    SELECT u.id, u.fullname, ss.position
+    FROM shop_staffs ss
+    JOIN users u ON ss.user_id = u.id
+    WHERE ss.shop_id = ?
+      AND ss.status = 'active'
+    ORDER BY u.fullname ASC
+");
+$staff_stmt->execute([$shop_id]);
+$active_staff = $staff_stmt->fetchAll();
+
+function normalize_location_string(string $value): string {
+    $normalized = strtolower($value);
+    return preg_replace('/\s+/', ' ', trim($normalized)) ?? '';
+}
+
+function delivery_recommended_couriers(string $location_hint, array $courier_zones, array $courier_options): array {
+    $normalized = normalize_location_string($location_hint);
+    if($normalized === '') {
+        return array_values(array_filter(array_keys($courier_options)));
+    }
+
+    foreach($courier_zones as $zone) {
+        foreach($zone['keywords'] as $keyword) {
+            if(str_contains($normalized, $keyword)) {
+                return $zone['couriers'];
+            }
+        }
+    }
+
+    return ['J&T Express', 'LBC Express', 'Ninja Van'];
+}
+
+function split_pickup_handler_and_notes(?string $raw_notes): array {
+    $note_text = trim((string) $raw_notes);
+    $handler = '';
+    if($note_text !== '' && preg_match('/^\[Pickup Staff:\s*(.*?)\]\s*(.*)$/i', $note_text, $matches)) {
+        $handler = trim((string) ($matches[1] ?? ''));
+        $note_text = trim((string) ($matches[2] ?? ''));
+    }
+    return [$handler, $note_text];
+}
+
+function build_fulfillment_notes(string $handler, string $notes): ?string {
+    $handler = trim($handler);
+    $notes = trim($notes);
+    if($handler !== '' && $notes !== '') {
+        return sprintf('[Pickup Staff: %s] %s', $handler, $notes);
+    }
+    if($handler !== '') {
+        return sprintf('[Pickup Staff: %s]', $handler);
+    }
+    return $notes !== '' ? $notes : null;
+}
+
 if(isset($_POST['save_fulfillment'])) {
     $order_id = (int) ($_POST['order_id'] ?? 0);
     $fulfillment_type = $_POST['fulfillment_type'] ?? '';
@@ -52,6 +122,13 @@ if(isset($_POST['save_fulfillment'])) {
     $tracking_number = sanitize($_POST['tracking_number'] ?? '');
     $pickup_location = sanitize($_POST['pickup_location'] ?? '');
     $notes = sanitize($_POST['notes'] ?? '');
+    $pickup_handler = sanitize($_POST['pickup_handler'] ?? '');
+
+    if($fulfillment_type !== 'pickup') {
+        $pickup_handler = '';
+    }
+
+    $final_notes = build_fulfillment_notes($pickup_handler, $notes);
 
     $order_stmt = $pdo->prepare("
         SELECT o.id, o.order_number, o.client_id, u.fullname as client_name
@@ -68,6 +145,8 @@ if(isset($_POST['save_fulfillment'])) {
         $error = 'Please select a valid fulfillment type.';
     } elseif(!isset($fulfillment_statuses[$status])) {
         $error = 'Please select a valid fulfillment status.';
+         } elseif($fulfillment_type === 'pickup' && $pickup_handler === '') {
+        $error = 'Please assign a pickup staff handler for pickup orders.';
     } else {
         $existing_stmt = $pdo->prepare("SELECT * FROM order_fulfillments WHERE order_id = ?");
         $existing_stmt->execute([$order_id]);
@@ -123,7 +202,7 @@ if(isset($_POST['save_fulfillment'])) {
                     $courier ?: null,
                     $tracking_number ?: null,
                     $pickup_location ?: null,
-                    $notes ?: null,
+                     $final_notes,
                     $ready_at,
                     $delivered_at,
                     $claimed_at,
@@ -143,7 +222,7 @@ if(isset($_POST['save_fulfillment'])) {
                     $courier ?: null,
                     $tracking_number ?: null,
                     $pickup_location ?: null,
-                    $notes ?: null,
+                     $final_notes,
                     $ready_at,
                     $delivered_at,
                     $claimed_at
@@ -156,7 +235,7 @@ if(isset($_POST['save_fulfillment'])) {
                     INSERT INTO order_fulfillment_history (fulfillment_id, status, notes)
                     VALUES (?, ?, ?)
                 ");
-                $history_stmt->execute([$fulfillment_id, $status, $notes ?: null]);
+                $history_stmt->execute([$fulfillment_id, $status, $final_notes]);
 
                 $message = sprintf(
                     'Order #%s fulfillment updated to %s (%s).',
@@ -178,6 +257,7 @@ $orders_stmt = $pdo->prepare("
            o.completed_at,
            o.status AS order_status,
            o.payment_status,
+           o.client_notes,
            u.fullname AS client_name,
            f.id AS fulfillment_id,
            f.fulfillment_type,
@@ -380,6 +460,13 @@ function fulfillment_pill(?string $status): string {
         <?php else: ?>
             <?php foreach($orders as $order): ?>
                 <?php $payment_hold = payment_hold_status(STATUS_COMPLETED, $order['payment_status'] ?? 'unpaid'); ?>
+                <?php [$pickup_handler, $plain_notes] = split_pickup_handler_and_notes($order['notes'] ?? ''); ?>
+                <?php
+                    $location_hint = ($order['pickup_location'] ?? '') !== ''
+                        ? (string) $order['pickup_location']
+                        : (string) ($order['client_notes'] ?? $shop['address'] ?? '');
+                    $recommended_couriers = delivery_recommended_couriers($location_hint, $courier_zones, $courier_options);
+                ?>
                 <div class="delivery-card">
                     <div class="delivery-header">
                         <div>
@@ -402,7 +489,12 @@ function fulfillment_pill(?string $status): string {
                         <div><strong>Type:</strong> <?php echo htmlspecialchars($fulfillment_types[$order['fulfillment_type'] ?? 'pickup'] ?? 'Not set'); ?></div>
                         <div><strong>Tracking:</strong> <?php echo htmlspecialchars($order['tracking_number'] ?? 'Not provided'); ?></div>
                         <div><strong>Courier:</strong> <?php echo htmlspecialchars($order['courier'] ?? 'Not assigned'); ?></div>
+                        <div>
+                            <strong>Available couriers:</strong>
+                            <?php echo htmlspecialchars(implode(', ', $recommended_couriers)); ?>
+                        </div>
                         <div><strong>Pickup location:</strong> <?php echo htmlspecialchars($order['pickup_location'] ?? 'Not specified'); ?></div>
+                        <div><strong>Pickup handler:</strong> <?php echo htmlspecialchars($pickup_handler !== '' ? $pickup_handler : 'Not assigned'); ?></div>
                         <div><strong>Ready at:</strong> <?php echo $order['ready_at'] ? date('M d, Y H:i', strtotime($order['ready_at'])) : '—'; ?></div>
                         <div><strong>Delivered at:</strong> <?php echo $order['delivered_at'] ? date('M d, Y H:i', strtotime($order['delivered_at'])) : '—'; ?></div>
                         <div><strong>Claimed at:</strong> <?php echo $order['claimed_at'] ? date('M d, Y H:i', strtotime($order['claimed_at'])) : '—'; ?></div>
@@ -449,6 +541,22 @@ function fulfillment_pill(?string $status): string {
                             </select>
                         </div>
                         <div>
+                            <label>Pickup staff handler</label>
+                            <select name="pickup_handler" class="form-control">
+                                <option value="">Select staff for pickup handoff</option>
+                                <?php foreach($active_staff as $staff): ?>
+                                    <?php $staff_label = trim($staff['fullname'] . (!empty($staff['position']) ? ' (' . $staff['position'] . ')' : '')); ?>
+                                    <option value="<?php echo htmlspecialchars($staff_label); ?>" <?php echo $pickup_handler === $staff_label ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($staff_label); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                                <?php if($pickup_handler !== '' && empty($active_staff)): ?>
+                                    <option value="<?php echo htmlspecialchars($pickup_handler); ?>" selected><?php echo htmlspecialchars($pickup_handler); ?></option>
+                                <?php endif; ?>
+                            </select>
+                            <small class="text-muted">Required when fulfillment type is pickup.</small>
+                        </div>
+                        <div>
                             <label>Tracking number</label>
                             <input type="text" name="tracking_number" class="form-control" value="<?php echo htmlspecialchars($order['tracking_number'] ?? ''); ?>" placeholder="Tracking ID">
                         </div>
@@ -458,7 +566,7 @@ function fulfillment_pill(?string $status): string {
                         </div>
                         <div>
                             <label>Notes</label>
-                            <input type="text" name="notes" class="form-control" value="<?php echo htmlspecialchars($order['notes'] ?? ''); ?>" placeholder="Optional note">
+                            <input type="text" name="notes" class="form-control" value="<?php echo htmlspecialchars($plain_notes); ?>" placeholder="Optional note">
                         </div>
                         <div>
                             <button type="submit" name="save_fulfillment" class="btn btn-primary" style="margin-top: 22px;">Save update</button>

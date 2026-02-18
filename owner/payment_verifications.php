@@ -183,6 +183,26 @@ function payment_badge($status) {
     $class = $map[$status] ?? 'payment-pending';
     return '<span class="status-pill ' . $class . '">' . ucfirst($status) . '</span>';
 }
+
+function payment_settlement_type(array $payment): string {
+    $amount = (float) ($payment['amount'] ?? 0);
+    $order_total = (float) ($payment['price'] ?? 0);
+    if($order_total <= 0 || $amount <= 0) {
+        return 'Unclassified';
+    }
+
+    $downpayment_due = round($order_total * 0.20, 2);
+    $difference = abs($amount - $order_total);
+    $downpayment_difference = abs($amount - $downpayment_due);
+
+    if($difference <= 0.01) {
+        return 'Full payment';
+    }
+    if($downpayment_difference <= 0.01) {
+        return 'Downpayment';
+    }
+    return 'Balance';
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -298,6 +318,7 @@ function payment_badge($status) {
                             <th>Amount</th>
                             <th>Proof</th>
                             <th>Status</th>
+                            <th>Settlement</th>
                             <th>Invoice</th>
                             <th>Receipt</th>
                             <th>Refund</th>
@@ -318,6 +339,10 @@ function payment_badge($status) {
                                 </td>
                                 <td><?php echo payment_badge($payment['status']); ?></td>
                                 <td>
+                                    <?php $settlement_type = payment_settlement_type($payment); ?>
+                                    <span class="text-muted"><?php echo htmlspecialchars($settlement_type); ?></span>
+                                </td>
+                                <td>
                                     <?php if(!empty($payment['invoice_number'])): ?>
                                         <div>#<?php echo htmlspecialchars($payment['invoice_number']); ?></div>
                                         <small class="text-muted"><?php echo htmlspecialchars($payment['invoice_status']); ?></small>
@@ -327,7 +352,7 @@ function payment_badge($status) {
                                 </td>
                                 <td>
                                     <?php if(!empty($payment['receipt_number'])): ?>
-                                        <a href="view_receipt.php?order_id=<?php echo $payment['order_id']; ?>" class="text-primary">
+                                        <a href="view_receipt.php?order_id=<?php echo $payment['order_id']; ?>&payment_id=<?php echo $payment['id']; ?>" class="text-primary">
                                             #<?php echo htmlspecialchars($payment['receipt_number']); ?>
                                         </a>
                                     <?php else: ?>
