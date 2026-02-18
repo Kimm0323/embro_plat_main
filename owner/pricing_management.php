@@ -24,6 +24,7 @@ $pricing_services = [
     'Bag Embroidery',
     'Custom',
 ];
+$available_services = $pricing_services;
 $default_pricing_settings = [
     'base_prices' => [
         'T-shirt Embroidery' => 180,
@@ -66,6 +67,9 @@ function resolve_pricing_settings(array $shop, array $defaults): array
 }
 
 $pricing_settings = resolve_pricing_settings($shop, $default_pricing_settings);
+$service_settings = $shop['service_settings']
+    ? json_decode($shop['service_settings'], true)
+    : $available_services;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -74,6 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $complexity_input = $_POST['complexity_multipliers'] ?? [];
         $add_on_input = $_POST['add_ons'] ?? [];
         $rush_fee_percent = filter_var($_POST['rush_fee_percent'] ?? null, FILTER_VALIDATE_FLOAT);
+        $enabled_services = array_values(array_intersect($available_services, $_POST['enabled_services'] ?? []));
 
         $products = is_array($pricing_settings['products'] ?? null) ? $pricing_settings['products'] : [];
 
@@ -200,6 +205,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $shop_stmt->execute([$owner_id]);
             $shop = $shop_stmt->fetch(PDO::FETCH_ASSOC);
             $pricing_settings = resolve_pricing_settings($shop, $default_pricing_settings);
+            $service_settings = $shop['service_settings']
+                ? json_decode($shop['service_settings'], true)
+                : $available_services;
             if ($success === '') {
                 $success = 'Product catalog saved successfully.';
             }
@@ -208,6 +216,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($rush_fee_percent === false || $rush_fee_percent < 0) {
             throw new RuntimeException('Please provide a valid rush fee percentage (0 or greater).');
+        }
+        if (empty($enabled_services)) {
+            throw new RuntimeException('Please enable at least one service.');
         }
 
         $base_prices = [];
@@ -245,12 +256,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'products' => $products,
         ];
 
-        $update_stmt = $pdo->prepare('UPDATE shops SET pricing_settings = ? WHERE id = ?');
-        $update_stmt->execute([json_encode($pricing_payload), $shop['id']]);
+        $update_stmt = $pdo->prepare('UPDATE shops SET pricing_settings = ?, service_settings = ? WHERE id = ?');
+        $update_stmt->execute([json_encode($pricing_payload), json_encode(array_values($enabled_services)), $shop['id']]);
 
         $shop_stmt->execute([$owner_id]);
         $shop = $shop_stmt->fetch(PDO::FETCH_ASSOC);
         $pricing_settings = resolve_pricing_settings($shop, $default_pricing_settings);
+         $service_settings = $shop['service_settings']
+            ? json_decode($shop['service_settings'], true)
+            : $available_services;
 
         $success = 'Pricing settings updated. New quotes are now reflected in client place order.';
     } catch (RuntimeException $e) {
@@ -350,6 +364,23 @@ if ($editing_product_id !== '') {
 
                 <form method="POST" action="">
                     <?php echo csrf_field(); ?>
+                    <div class="pricing-card mb-3">
+                        <h5>Service Availability</h5>
+                        <p class="pricing-helper mb-2">Choose which services clients can request from your shop.</p>
+                        <div class="pricing-grid">
+                            <?php foreach ($available_services as $service): ?>
+                                <label style="display:flex;align-items:center;gap:8px;">
+                                    <input
+                                        type="checkbox"
+                                        name="enabled_services[]"
+                                        value="<?php echo htmlspecialchars($service); ?>"
+                                        <?php echo in_array($service, $service_settings, true) ? 'checked' : ''; ?>
+                                    >
+                                    <span><?php echo htmlspecialchars($service); ?></span>
+                                </label>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
                     <div class="pricing-card mb-3">
                         <h5>Base Prices (per unit)</h5>
                         <div class="pricing-grid">

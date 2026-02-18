@@ -25,55 +25,12 @@ $weekdays = [
     5 => 'Friday',
     6 => 'Saturday',
 ];
-$available_services = [
-    'T-shirt Embroidery',
-    'Logo Embroidery',
-    'Cap Embroidery',
-    'Bag Embroidery',
-    'Custom',
-];
-$default_pricing_settings = [
-    'base_prices' => [
-        'T-shirt Embroidery' => 180,
-        'Logo Embroidery' => 160,
-        'Cap Embroidery' => 150,
-        'Bag Embroidery' => 200,
-        'Custom' => 200,
-    ],
-    'complexity_multipliers' => [
-        'Simple' => 1,
-        'Standard' => 1.15,
-        'Complex' => 1.35,
-    ],
-    'rush_fee_percent' => 25,
-    'add_ons' => [
-        'Metallic Thread' => 50,
-        '3D Puff' => 75,
-        'Extra Color' => 25,
-        'Applique' => 60,
-    ],
-];
-
-function resolve_pricing_settings(array $shop, array $defaults): array {
-    if (!empty($shop['pricing_settings'])) {
-        $decoded = json_decode($shop['pricing_settings'], true);
-        if (is_array($decoded)) {
-            return array_replace_recursive($defaults, $decoded);
-        }
-    }
-
-    return $defaults;
-}
 
 $current_operating_days = $shop['operating_days']
     ? json_decode($shop['operating_days'], true)
     : [1, 2, 3, 4, 5, 6];
-$current_services = $shop['service_settings']
-    ? json_decode($shop['service_settings'], true)
-    : $available_services;
 $current_opening_time = $shop['opening_time'] ?: '08:00';
 $current_closing_time = $shop['closing_time'] ?: '18:00';
-$current_pricing_settings = resolve_pricing_settings($shop, $default_pricing_settings);
 $portfolio_stmt = $pdo->prepare("SELECT * FROM shop_portfolio WHERE shop_id = ? ORDER BY created_at DESC");
 $portfolio_stmt->execute([$shop['id']]);
 $portfolio_items = $portfolio_stmt->fetchAll();
@@ -164,26 +121,30 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             $shop_name = sanitize($_POST['shop_name']);
             $shop_description = sanitize($_POST['shop_description']);
             $address = sanitize($_POST['address']);
-            $phone = sanitize($_POST['phone']);
+            $phone_raw = trim((string) ($_POST['phone'] ?? ''));
+            if (!preg_match('/^\+?\d+$/', $phone_raw)) {
+                throw new RuntimeException('Contact phone must contain numbers only.');
+            }
+            if (str_starts_with($phone_raw, '+63')) {
+                if (strlen($phone_raw) !== 12) {
+                    throw new RuntimeException('If phone starts with +63, it must be exactly 12 characters.');
+                }
+            } elseif (str_starts_with($phone_raw, '09')) {
+                if (strlen($phone_raw) !== 11) {
+                    throw new RuntimeException('If phone starts with 09, it must be exactly 11 digits.');
+                }
+            } else {
+                throw new RuntimeException('Contact phone must start with +63 or 09.');
+            }
+            $phone = sanitize($phone_raw);
             $email = sanitize($_POST['email']);
             $business_permit = sanitize($_POST['business_permit']);
             $opening_time = sanitize($_POST['opening_time']);
             $closing_time = sanitize($_POST['closing_time']);
             $operating_days = array_map('intval', $_POST['operating_days'] ?? []);
-            $enabled_services = array_values(array_intersect($available_services, $_POST['enabled_services'] ?? []));
-            $base_prices_input = $_POST['base_prices'] ?? [];
-            $complexity_input = $_POST['complexity_multipliers'] ?? [];
-            $add_on_input = $_POST['add_ons'] ?? [];
-            $rush_fee_percent = filter_var($_POST['rush_fee_percent'] ?? null, FILTER_VALIDATE_FLOAT);
 
             if (empty($operating_days)) {
                 throw new RuntimeException('Please select at least one operating day.');
-            }
-            if (empty($enabled_services)) {
-                throw new RuntimeException('Please enable at least one service.');
-            }
-            if ($rush_fee_percent === false || $rush_fee_percent < 0) {
-                throw new RuntimeException('Please provide a valid rush fee percentage (0 or greater).');
             }
             $opening_timestamp = strtotime($opening_time);
             $closing_timestamp = strtotime($closing_time);
@@ -191,44 +152,10 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('Please provide valid operating hours (opening time must be before closing time).');
             }
 
-            $base_prices = [];
-            foreach ($default_pricing_settings['base_prices'] as $service => $default_price) {
-                $value = filter_var($base_prices_input[$service] ?? null, FILTER_VALIDATE_FLOAT);
-                if ($value === false || $value < 0) {
-                    throw new RuntimeException('Base prices must be 0 or greater.');
-                }
-                $base_prices[$service] = (float) $value;
-            }
-
-        $complexity_multipliers = [];
-            foreach ($default_pricing_settings['complexity_multipliers'] as $level => $default_multiplier) {
-                $value = filter_var($complexity_input[$level] ?? null, FILTER_VALIDATE_FLOAT);
-                if ($value === false || $value <= 0) {
-                    throw new RuntimeException('Complexity multipliers must be greater than 0.');
-                }
-                $complexity_multipliers[$level] = (float) $value;
-            }
-
-            $add_ons = [];
-            foreach ($default_pricing_settings['add_ons'] as $addon => $default_fee) {
-                $value = filter_var($add_on_input[$addon] ?? null, FILTER_VALIDATE_FLOAT);
-                if ($value === false || $value < 0) {
-                    throw new RuntimeException('Add-on fees must be 0 or greater.');
-                }
-                $add_ons[$addon] = (float) $value;
-            }
-
-            $pricing_payload = [
-                'base_prices' => $base_prices,
-                'complexity_multipliers' => $complexity_multipliers,
-                'rush_fee_percent' => (float) $rush_fee_percent,
-                'add_ons' => $add_ons,
-            ];
-
             $update_stmt = $pdo->prepare("
                 UPDATE shops 
                 SET shop_name = ?, shop_description = ?, address = ?, phone = ?, email = ?, business_permit = ?,
-                    opening_time = ?, closing_time = ?, operating_days = ?, service_settings = ?, pricing_settings = ?
+                    opening_time = ?, closing_time = ?, operating_days = ?
                 WHERE id = ?
             ");
             $update_stmt->execute([
@@ -241,8 +168,6 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $opening_time,
                 $closing_time,
                 json_encode(array_values($operating_days)),
-                json_encode(array_values($enabled_services)),
-                json_encode($pricing_payload),
                 $shop['id']
             ]);
 
@@ -251,12 +176,8 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             $current_operating_days = $shop['operating_days']
                 ? json_decode($shop['operating_days'], true)
                 : $current_operating_days;
-            $current_services = $shop['service_settings']
-                ? json_decode($shop['service_settings'], true)
-                : $current_services;
             $current_opening_time = $shop['opening_time'] ?: $current_opening_time;
             $current_closing_time = $shop['closing_time'] ?: $current_closing_time;
-            $current_pricing_settings = resolve_pricing_settings($shop, $default_pricing_settings);
             $success = 'Shop profile updated successfully.';
         }
     } catch(RuntimeException $e) {
@@ -275,35 +196,9 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
      <style>
-        .profile-tabs {
-            display: flex;
-            gap: 0.75rem;
-            margin-bottom: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .profile-tab-btn {
-            border: 1px solid var(--gray-300);
-            background: var(--gray-100);
-            color: var(--gray-700);
-            padding: 0.6rem 1rem;
-            border-radius: var(--radius);
-            cursor: pointer;
-            font-weight: 600;
-        }
-
-        .profile-tab-btn.active {
-            background: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
-        }
-
-        .profile-tab-panel {
-            display: none;
-        }
-
-        .profile-tab-panel.active {
-            display: block;
+        .profile-section-title {
+            margin-top: 1.25rem;
+            margin-bottom: 0.25rem;
         }
     </style>
 </head>
@@ -362,12 +257,9 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?php echo csrf_field(); ?>
                 <input type="hidden" name="action" value="update_profile">
 
-                 <div class="profile-tabs" role="tablist" aria-label="Shop profile sections">
-                    <button type="button" class="profile-tab-btn active" data-tab-target="shop-information">Shop Information</button>
-                    <button type="button" class="profile-tab-btn" data-tab-target="business-information">Business Information</button>
-                </div>
-
-                <div id="shop-information" class="profile-tab-panel active">
+                  <h4 class="profile-section-title">Shop Information</h4>
+                <p class="text-muted">Basic public details that customers can see in your shop profile.</p>
+                <div>
                     <div class="form-group">
                         <label>Shop Name *</label>
                         <input type="text" name="shop_name" class="form-control" required
@@ -387,8 +279,9 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="row" style="display: flex; gap: 15px;">
                         <div class="form-group" style="flex: 1;">
                             <label>Contact Phone *</label>
-                            <input type="tel" name="phone" class="form-control" required
+                           <input type="text" name="phone" class="form-control" required maxlength="12" inputmode="numeric" pattern="^(\+63\d{9}|09\d{9})$"
                                    value="<?php echo htmlspecialchars($shop['phone']); ?>">
+                                   <small class="text-muted">Use <strong>+63</strong> then 9 digits (12 total chars), or <strong>09</strong> then 9 digits (11 digits total).</small>
                         </div>
 
                         <div class="form-group" style="flex: 1;">
@@ -399,7 +292,8 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 </div>
 
-                <div id="business-information" class="profile-tab-panel">
+                <h4 class="profile-section-title">Business Information</h4>
+                <div>
                     <p class="text-muted">Maintain all legal and permit details required for your shop to operate.</p>
                     <div class="form-group">
                         <label>Business Permit Number</label>
@@ -439,59 +333,8 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
 
                 <div class="card" style="background: #f8fafc;">
-                    <h4>Service Availability</h4>
-                    <p class="text-muted">Choose which services clients can request from your shop.</p>
-                    <div class="row" style="display: flex; flex-wrap: wrap; gap: 12px;">
-                        <?php foreach ($available_services as $service): ?>
-                            <label style="display: flex; align-items: center; gap: 6px;">
-                                <input type="checkbox" name="enabled_services[]"
-                                       value="<?php echo htmlspecialchars($service); ?>"
-                                       <?php echo in_array($service, $current_services, true) ? 'checked' : ''; ?>>
-                                <span><?php echo htmlspecialchars($service); ?></span>
-                            </label>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-
-                <div class="card" style="background: #f8fafc;">
                     <h4>Service Catalog & Pricing</h4>
-                    <p class="text-muted">Set standard pricing rules for quotes. These are used to generate estimates for clients.</p>
-                    <div class="row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
-                        <?php foreach ($available_services as $service): ?>
-                            <div class="form-group">
-                                <label><?php echo htmlspecialchars($service); ?> base price (per item)</label>
-                                <input type="number" name="base_prices[<?php echo htmlspecialchars($service); ?>]" class="form-control" min="0" step="0.01" required
-                                       value="<?php echo htmlspecialchars($current_pricing_settings['base_prices'][$service] ?? 0); ?>">
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-
-                    <div class="row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
-                        <?php foreach ($current_pricing_settings['complexity_multipliers'] as $level => $multiplier): ?>
-                            <div class="form-group">
-                                <label><?php echo htmlspecialchars($level); ?> complexity multiplier</label>
-                                <input type="number" name="complexity_multipliers[<?php echo htmlspecialchars($level); ?>]" class="form-control" min="0.1" step="0.01" required
-                                       value="<?php echo htmlspecialchars($multiplier); ?>">
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-
-                    <div class="row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
-                        <?php foreach ($current_pricing_settings['add_ons'] as $addon => $fee): ?>
-                            <div class="form-group">
-                                <label><?php echo htmlspecialchars($addon); ?> add-on fee</label>
-                                <input type="number" name="add_ons[<?php echo htmlspecialchars($addon); ?>]" class="form-control" min="0" step="0.01" required
-                                       value="<?php echo htmlspecialchars($fee); ?>">
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Rush fee (%)</label>
-                        <input type="number" name="rush_fee_percent" class="form-control" min="0" step="0.01" required
-                               value="<?php echo htmlspecialchars($current_pricing_settings['rush_fee_percent'] ?? 0); ?>">
-                        <small class="text-muted">Applied to subtotal when the client requests rush service.</small>
-                    </div>
+                    <p class="text-muted">Service catalog and pricing are now managed in <a href="pricing_management.php">Pricing Management</a>.</p>
                 </div>
 
                 <div class="row" style="display: flex; gap: 15px;">
@@ -523,7 +366,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         <div class="card mt-4">
             <h3>Portfolio Samples</h3>
-            <p class="text-muted">Showcase completed work to help clients evaluate your shop.</p>
+            <p class="text-muted">Showcase completed work to help clients evaluate your shop. Posted samples can also be sold directly to customers from your shop page.</p>
             <form method="POST" enctype="multipart/form-data" class="mb-4">
                 <?php echo csrf_field(); ?>
                 <input type="hidden" name="action" value="add_portfolio">
@@ -579,18 +422,28 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </div>
     <script>
-        document.querySelectorAll('.profile-tab-btn').forEach((button) => {
-            button.addEventListener('click', () => {
-                const target = button.getAttribute('data-tab-target');
-                document.querySelectorAll('.profile-tab-btn').forEach((btn) => btn.classList.remove('active'));
-                document.querySelectorAll('.profile-tab-panel').forEach((panel) => panel.classList.remove('active'));
-                button.classList.add('active');
-                const panel = document.getElementById(target);
-                if (panel) {
-                    panel.classList.add('active');
+        const phoneInput = document.querySelector('input[name="phone"]');
+        if (phoneInput) {
+            phoneInput.addEventListener('input', () => {
+                let value = phoneInput.value.replace(/[^\d+]/g, '');
+                if (value.indexOf('+') > 0) {
+                    value = value.replace(/\+/g, '');
                 }
+
+                if (value.startsWith('+63')) {
+                    value = value.slice(0, 12);
+                } else if (value.startsWith('09')) {
+                    value = value.slice(0, 11);
+                } else {
+                    value = value.startsWith('+') ? '+' : value.replace(/\+/g, '');
+                    value = value.slice(0, 12);
+                }
+                phoneInput.value = value;
             });
-        });
+            phoneInput.addEventListener('blur', () => {
+                phoneInput.reportValidity();
+            });
+        }
     </script>
 </body>
 </html>

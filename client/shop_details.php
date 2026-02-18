@@ -295,7 +295,7 @@ if ($shop_id > 0) {
                                             <i class="fas fa-eye"></i> View
                                         </a>
                                         <a href="place_order.php?shop_id=<?php echo (int) $shop['id']; ?>&portfolio_id=<?php echo (int) $item['id']; ?>" class="btn btn-primary btn-sm">
-                                            <i class="fas fa-cart-plus"></i> Order
+                                            <i class="fas fa-cart-plus"></i> Buy Sample
                                         </a>
                                     </div>
                                 </div>
