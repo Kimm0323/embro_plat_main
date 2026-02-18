@@ -171,9 +171,24 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
      <style>
+        .profile-card {
+            max-width: 980px;
+            margin: 0 auto 2rem;
+        }
         .profile-section-title {
             margin-top: 1.25rem;
             margin-bottom: 0.25rem;
+        }
+
+        .profile-form-grid {
+            display: grid;
+            gap: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }
+
+        .checkbox-stack {
+            display: grid;
+            gap: 8px;
         }
     </style>
 </head>
@@ -214,6 +229,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
     </nav>
 
 
+
     <div class="container">
         <div class="dashboard-header">
             <h2>Shop Profile</h2>
@@ -228,7 +244,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="alert alert-success"><?php echo $success; ?></div>
         <?php endif; ?>
 
-        <div class="card">
+        <div class="card profile-card">
             <form method="POST" enctype="multipart/form-data">
                 <?php echo csrf_field(); ?>
                 <input type="hidden" name="action" value="submit_business_information">
@@ -248,28 +264,28 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
 
                  <h5 class="profile-section-title">Address *</h5>
-                <div class="row" style="display: flex; gap: 15px; flex-wrap: wrap;">
-                    <div class="form-group" style="flex: 1; min-width: 220px;">
+                 <div class="profile-form-grid">
+                    <div class="form-group">
                         <label>Country *</label>
                         <input type="text" name="country" class="form-control" required>
                     </div>
-                     <div class="form-group" style="flex: 1; min-width: 220px;">
+                     <div class="form-group">
                         <label>Province *</label>
                         <input type="text" name="province" class="form-control" required>
                     </div>
-                <div class="form-group" style="flex: 1; min-width: 220px;">
+                <div class="form-group">
                         <label>City / Municipality *</label>
                         <input type="text" name="city_municipality" class="form-control" required>
                     </div>
-                    div class="form-group" style="flex: 1; min-width: 220px;">
+                    <div class="form-group">
                         <label>Barangay *</label>
                         <input type="text" name="barangay" class="form-control" required>
                     </div>
-                    <div class="form-group" style="flex: 1; min-width: 220px;">
+                    <div class="form-group">
                         <label>House Number / Street *</label>
                         <input type="text" name="house_street" class="form-control" required>
                     </div>
-                    <div class="form-group" style="flex: 1; min-width: 260px;">
+                    <div class="form-group">
                         <label>Other Address Information</label>
                         <input type="text" name="other_address_information" class="form-control">
                     </div>
@@ -285,24 +301,24 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
 
 
-                <div class="row" style="display: flex; gap: 15px; flex-wrap: wrap;">
-                    <div class="form-group" style="flex: 1; min-width: 240px;">
+                 <div class="profile-form-grid">
+                    <div class="form-group">
                         <label>Government ID - Front Photo *</label>
                         <input type="file" name="government_id_front_photo" class="form-control" accept=".jpg,.jpeg,.png,.webp" required>
                     </div>
-                    <div class="form-group" style="flex: 1; min-width: 240px;">
+                     <div class="form-group">
                         <label>Government ID - Back Photo *</label>
                         <input type="file" name="government_id_back_photo" class="form-control" accept=".jpg,.jpeg,.png,.webp" required>
                     </div>
-                    </div>
-                    </div>
-                <div class="row" style="display: flex; gap: 15px; flex-wrap: wrap;">
-                    <div class="form-group" style="flex: 1; min-width: 240px;">
+                    < </div>
+
+                <div class="profile-form-grid">
+                    <div class="form-group">
                         <label>Business Email *</label>
                         <input type="email" name="business_email" class="form-control" required
                                value="<?php echo htmlspecialchars($shop['email']); ?>">
                     </div>
-                    <div class="form-group" style="flex: 1; min-width: 240px;">
+                     <div class="form-group">
                         <label>Business Phone Number *</label>
                         <input type="text" name="business_phone" class="form-control" required maxlength="12" inputmode="numeric" pattern="^(\+63\d{9}|09\d{9})$"
                                value="<?php echo htmlspecialchars($shop['phone']); ?>">
@@ -338,12 +354,12 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </select>
                 </div>
 
-                <div class="form-group">
+                 <div class="form-group checkbox-stack">
                     <label style="display: flex; align-items: center; gap: 8px;">
                         <input type="checkbox" name="agree_terms_conditions" value="1" required>
                         <span>I agree to the Terms and Conditions.</span>
                     </label>
-                    <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+                    <label style="display: flex; align-items: center; gap: 8px;">
                         <input type="checkbox" name="agree_data_privacy" value="1" required>
                         <span>I agree to the Data Privacy Policy.</span>
                     </label>
