@@ -54,7 +54,7 @@ function notify_shop_staff(PDO $pdo, int $shop_id, int $order_id, string $type, 
     }
 }
 
-$shops_stmt = $pdo->query("SELECT id, shop_name, address, rating FROM shops WHERE status = 'active' ORDER BY rating DESC, total_orders DESC, shop_name ASC");
+$shops_stmt = $pdo->query("SELECT id, shop_name, shop_description, address, rating FROM shops WHERE status = 'active' ORDER BY rating DESC, total_orders DESC, shop_name ASC");
 $shops = $shops_stmt->fetchAll();
 
 $selected_custom_order = null;
@@ -78,8 +78,8 @@ if(isset($_POST['request_quote'])) {
         $error = 'Please select the shop where you want to request design proofing and quotation.';
     } elseif($service_type === '') {
         $error = 'Please choose a service type for quotation.';
-    } elseif(mb_strlen(trim($design_description)) < 20) {
-        $error = 'Please provide at least 20 characters describing your design requirements.';
+    } elseif($design_description === '') {
+        $error = 'Please provide your design requirements so the shop can prepare proofing and quotation.';
     }
 
     $shop_stmt = $pdo->prepare("SELECT id, owner_id, shop_name FROM shops WHERE id = ? AND status = 'active' LIMIT 1");
@@ -157,6 +157,24 @@ if(isset($_POST['request_quote'])) {
         cleanup_media($pdo);
         $success = 'Request submitted! The selected shop will prepare your design proofing and price quotation shortly.';
     }
+}
+
+$selected_shop_id = (int) ($_POST['shop_id'] ?? ($selected_custom_order['shop_id'] ?? 0));
+$selected_service_type = trim((string) ($_POST['service_type'] ?? ($selected_custom_order['service_type'] ?? 'Custom Embroidery Design')));
+$selected_design_description = trim((string) ($_POST['design_description'] ?? ($selected_custom_order['design_description'] ?? '')));
+
+$service_type_options = [
+    'Custom Embroidery Design',
+    'Logo Embroidery',
+    'Uniform Embroidery',
+    'Cap Embroidery',
+    'Bag Embroidery',
+    'Patch Embroidery',
+    'Other Embroidery Service',
+];
+
+if($selected_service_type !== '' && !in_array($selected_service_type, $service_type_options, true)) {
+    $service_type_options[] = $selected_service_type;
 }
 
 
@@ -393,6 +411,41 @@ $approvals = $approvals_stmt->fetchAll();
             background: var(--bg-secondary);
         }
 
+        .shop-list {
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .shop-option {
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius);
+            padding: 0.9rem;
+            background: #fff;
+            cursor: pointer;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .shop-option:hover {
+            border-color: #93c5fd;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        }
+
+        .shop-option input[type="radio"] {
+            margin-right: 0.5rem;
+        }
+
+        .shop-option.selected {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+            background: #eff6ff;
+        }
+
+        .shop-option .shop-meta {
+            color: var(--gray-600);
+            font-size: 0.875rem;
+            margin-top: 0.35rem;
+        }
+
         @media(max-width: 900px) {
             .quotation-layout {
                 grid-template-columns: 1fr;
@@ -425,33 +478,28 @@ $approvals = $approvals_stmt->fetchAll();
             <div class="card">
                 <div class="card-header">
                     <h3><i class="fas fa-file-signature text-primary"></i> Request Design Proofing &amp; Quote</h3>
-                    <p class="text-muted">Upload your preferred design, then choose your target shop.</p>
+                   <p class="text-muted">Upload your preferred design and service details, then select a shop on the right side.</p>
                 </div>
                 <form method="POST" enctype="multipart/form-data">
                     <?php echo csrf_field(); ?>
                     <input type="hidden" name="customize_order_id" value="<?php echo (int) ($selected_custom_order['id'] ?? 0); ?>">
 
+                    <input type="hidden" name="shop_id" id="selectedShopIdInput" value="<?php echo $selected_shop_id > 0 ? $selected_shop_id : ''; ?>" required>
+
                     <div class="form-group">
-                        <label>Select Shop</label>
-                        <select class="form-control" name="shop_id" required>
-                            <option value="">Choose where you want to buy</option>
-                            <?php foreach($shops as $shop): ?>
-                                <option value="<?php echo (int) $shop['id']; ?>" <?php echo isset($selected_custom_order['shop_id']) && (int) $selected_custom_order['shop_id'] === (int) $shop['id'] ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($shop['shop_name']); ?>
-                                    <?php if(!empty($shop['address'])): ?> — <?php echo htmlspecialchars($shop['address']); ?><?php endif; ?>
+                         <label>Service Type</label>
+                        <select class="form-control" name="service_type" required>
+                            <?php foreach($service_type_options as $service_option): ?>
+                                <option value="<?php echo htmlspecialchars($service_option); ?>" <?php echo $selected_service_type === $service_option ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($service_option); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
 
                     <div class="form-group">
-                        <label>Service Type</label>
-                        <input class="form-control" name="service_type" required value="<?php echo htmlspecialchars($selected_custom_order['service_type'] ?? 'Custom Embroidery Design'); ?>">
-                    </div>
-
-                    <div class="form-group">
                         <label>Design Description</label>
-                        <textarea class="form-control" name="design_description" rows="5" required placeholder="Explain desired layout, size, colors, and preferred output..."><?php echo htmlspecialchars($selected_custom_order['design_description'] ?? ''); ?></textarea>
+                        <textarea class="form-control" name="design_description" rows="5" required placeholder="Describe the design you want for proofing and price quotation."><?php echo htmlspecialchars($selected_design_description); ?></textarea>
                     </div>
 
                     <div class="form-group">
@@ -468,6 +516,40 @@ $approvals = $approvals_stmt->fetchAll();
             </div>
 
             <div class="d-flex flex-column gap-3">
+                 <div class="card">
+                    <h4><i class="fas fa-store text-primary"></i> Select Shop</h4>
+                    <p class="text-muted">Choose one shop to receive your design proofing and quotation request.</p>
+                    <div class="shop-list" id="shopList">
+                        <?php foreach($shops as $shop): ?>
+                            <?php
+                                $shop_id = (int) $shop['id'];
+                                $is_selected_shop = $selected_shop_id === $shop_id;
+                            ?>
+                            <label class="shop-option <?php echo $is_selected_shop ? 'selected' : ''; ?>" data-shop-id="<?php echo $shop_id; ?>">
+                                <div>
+                                    <input type="radio" name="shop_choice" value="<?php echo $shop_id; ?>" <?php echo $is_selected_shop ? 'checked' : ''; ?>>
+                                    <strong><?php echo htmlspecialchars($shop['shop_name']); ?></strong>
+                                    <?php if(!empty($shop['rating'])): ?>
+                                        <span class="text-muted">• ⭐ <?php echo number_format((float) $shop['rating'], 1); ?></span>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="shop-meta">
+                                    <?php
+                                        $shop_description = trim((string) ($shop['shop_description'] ?? ''));
+                                        if($shop_description === '') {
+                                            $shop_description = 'Professional embroidery services for design proofing and quotation requests.';
+                                        }
+                                    ?>
+                                    <div><?php echo htmlspecialchars($shop_description); ?></div>
+                                    <?php if(!empty($shop['address'])): ?>
+                                        <div><i class="fas fa-location-dot"></i> <?php echo htmlspecialchars($shop['address']); ?></div>
+                                    <?php endif; ?>
+                                </div>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+
                 <?php if($selected_custom_order): ?>
                     <div class="service-note">
                         <h4 class="mb-1"><i class="fas fa-link"></i> From Customize Design</h4>
@@ -617,6 +699,33 @@ $approvals = $approvals_stmt->fetchAll();
         if(designFileInput) {
             designFileInput.addEventListener('change', refreshUploadPreview);
         }
+        
+        const selectedShopIdInput = document.getElementById('selectedShopIdInput');
+        const shopOptions = document.querySelectorAll('.shop-option');
+
+        function setSelectedShop(shopId) {
+            if(!selectedShopIdInput) return;
+            selectedShopIdInput.value = shopId;
+
+            shopOptions.forEach((option) => {
+                const optionShopId = option.getAttribute('data-shop-id');
+                const radio = option.querySelector('input[type="radio"]');
+                const isSelected = optionShopId === String(shopId);
+                option.classList.toggle('selected', isSelected);
+                if(radio) {
+                    radio.checked = isSelected;
+                }
+            });
+        }
+
+        shopOptions.forEach((option) => {
+            option.addEventListener('click', () => {
+                const shopId = option.getAttribute('data-shop-id');
+                if(shopId) {
+                    setSelectedShop(shopId);
+                }
+            });
+        });
     </script>
 </body>
 </html>
