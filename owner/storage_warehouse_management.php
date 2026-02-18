@@ -17,6 +17,28 @@ $success = '';
 $error = '';
 $editing_location = null;
 
+// Ensure required schema updates for this module.
+$address_exists_stmt = $pdo->query("SHOW COLUMNS FROM suppliers LIKE 'address'");
+if (!$address_exists_stmt->fetch()) {
+    $pdo->exec("ALTER TABLE suppliers ADD COLUMN address VARCHAR(255) DEFAULT NULL AFTER contact");
+}
+
+$pdo->exec("
+    CREATE TABLE IF NOT EXISTS warehouse_stock_management (
+        id INT(11) NOT NULL AUTO_INCREMENT,
+        shop_id INT(11) NOT NULL,
+        material_id INT(11) NOT NULL,
+        opening_stock_qty DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        warehouse_location VARCHAR(120) NOT NULL,
+        reorder_level DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        reorder_quantity DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY idx_wsm_shop_id (shop_id),
+        KEY idx_wsm_material_id (material_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+");
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
@@ -74,77 +96,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    if ($action === 'move_stock') {
-        $material_id = (int) ($_POST['material_id'] ?? 0);
-        $from_location = (int) ($_POST['from_location_id'] ?? 0);
-        $to_location = (int) ($_POST['to_location_id'] ?? 0);
-        $qty = $_POST['qty'] ?? '';
+    if ($action === 'create_supplier') {
+        $name = trim($_POST['name'] ?? '');
+        $contact = trim($_POST['contact'] ?? '');
+        $address = trim($_POST['address'] ?? '');
 
-        if ($material_id <= 0 || $to_location <= 0 || $qty === '' || !is_numeric($qty) || (float) $qty <= 0) {
-            $error = 'Please provide valid stock movement details.';
-        } elseif ($from_location === $to_location) {
-            $error = 'The source and destination locations must be different.';
+        if ($name === '') {
+            $error = 'Supplier name is required.';
         } else {
-            try {
-                $pdo->beginTransaction();
+            $stmt = $pdo->prepare("
+                INSERT INTO suppliers (shop_id, name, contact, address)
+                VALUES (?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $shop_id,
+                $name,
+                $contact !== '' ? $contact : null,
+                $address !== '' ? $address : null,
+            ]);
+            $success = 'Supplier added successfully.';
+        }
+    }
 
-                if ($from_location > 0) {
-                    $from_stmt = $pdo->prepare("
-                        SELECT id, qty FROM stock_placements
-                        WHERE location_id = ? AND material_id = ?
-                        FOR UPDATE
-                    ");
-                    $from_stmt->execute([$from_location, $material_id]);
-                    $from_row = $from_stmt->fetch();
+    if ($action === 'create_stock_management') {
+        $material_id = (int) ($_POST['material_id'] ?? 0);
+        $opening_stock_qty = $_POST['opening_stock_qty'] ?? '';
+        $warehouse_location = trim($_POST['warehouse_location'] ?? '');
+        $reorder_level = $_POST['reorder_level'] ?? '';
+        $reorder_quantity = $_POST['reorder_quantity'] ?? '';
 
-                    if (!$from_row || (float) $from_row['qty'] < (float) $qty) {
-                        $pdo->rollBack();
-                        $error = 'Insufficient stock in the source location.';
-                    } else {
-                        $remaining = (float) $from_row['qty'] - (float) $qty;
-                        if ($remaining > 0) {
-                            $update_from = $pdo->prepare("UPDATE stock_placements SET qty = ? WHERE id = ?");
-                            $update_from->execute([$remaining, $from_row['id']]);
-                        } else {
-                            $delete_from = $pdo->prepare("DELETE FROM stock_placements WHERE id = ?");
-                            $delete_from->execute([$from_row['id']]);
-                        }
-                    }
-                }
-
-                if (!$error) {
-                    $to_stmt = $pdo->prepare("
-                        SELECT id, qty FROM stock_placements
-                        WHERE location_id = ? AND material_id = ?
-                        FOR UPDATE
-                    ");
-                    $to_stmt->execute([$to_location, $material_id]);
-                    $to_row = $to_stmt->fetch();
-
-                    if ($to_row) {
-                        $update_to = $pdo->prepare("UPDATE stock_placements SET qty = ? WHERE id = ?");
-                        $update_to->execute([(float) $to_row['qty'] + (float) $qty, $to_row['id']]);
-                    } else {
-                        $insert_to = $pdo->prepare("
-                            INSERT INTO stock_placements (location_id, material_id, qty)
-                            VALUES (?, ?, ?)
-                        ");
-                        $insert_to->execute([$to_location, $material_id, $qty]);
-                    }
-
-                    $log_stmt = $pdo->prepare("
-                        INSERT INTO inventory_transactions (shop_id, material_id, type, qty, ref_type, ref_id)
-                        VALUES (?, ?, 'move', ?, 'stock_placement', ?)
-                    ");
-                    $log_stmt->execute([$shop_id, $material_id, $qty, $to_location]);
-
-                    $pdo->commit();
-                    $success = 'Stock movement recorded successfully.';
-                }
-            } catch (PDOException $e) {
-                $pdo->rollBack();
-                $error = 'Unable to move stock. Please try again.';
-            }
+        if (
+            $material_id <= 0 ||
+            $warehouse_location === '' ||
+            $opening_stock_qty === '' || !is_numeric($opening_stock_qty) ||
+            $reorder_level === '' || !is_numeric($reorder_level) ||
+            $reorder_quantity === '' || !is_numeric($reorder_quantity)
+        ) {
+            $error = 'Please provide valid stock management details.';
+        } else {
+             $stmt = $pdo->prepare("
+                INSERT INTO warehouse_stock_management (
+                    shop_id,
+                    material_id,
+                    opening_stock_qty,
+                    warehouse_location,
+                    reorder_level,
+                    reorder_quantity
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $shop_id,
+                $material_id,
+                $opening_stock_qty,
+                $warehouse_location,
+                $reorder_level,
+                $reorder_quantity,
+            ]);
+            $success = 'Stock management entry created successfully.';
         }
     }
 }
@@ -163,104 +171,27 @@ $materials_stmt->execute([$shop_id]);
 $materials = $materials_stmt->fetchAll();
 
 $locations_stmt = $pdo->prepare("
-    SELECT sl.*,
-           COALESCE(SUM(sp.qty), 0) as total_qty,
-           COUNT(DISTINCT sp.material_id) as material_count
+     SELECT sl.*
     FROM storage_locations sl
-    LEFT JOIN stock_placements sp ON sp.location_id = sl.id
     WHERE sl.shop_id = ?
-    GROUP BY sl.id
     ORDER BY sl.created_at DESC
 ");
 $locations_stmt->execute([$shop_id]);
 $storage_locations = $locations_stmt->fetchAll();
 
-$placements_stmt = $pdo->prepare("
-    SELECT sp.qty, sl.code as location_code, rm.name as material_name, rm.unit
-    FROM stock_placements sp
-    JOIN storage_locations sl ON sl.id = sp.location_id
-    JOIN raw_materials rm ON rm.id = sp.material_id
-    WHERE sl.shop_id = ?
-    ORDER BY sl.code, rm.name
+$suppliers_stmt = $pdo->prepare("SELECT id, name, contact, address, created_at FROM suppliers WHERE shop_id = ? ORDER BY created_at DESC");
+$suppliers_stmt->execute([$shop_id]);
+$suppliers = $suppliers_stmt->fetchAll();
+
+$stock_management_stmt = $pdo->prepare("
+    SELECT wsm.*, rm.name AS material_name, rm.unit
+    FROM warehouse_stock_management wsm
+    JOIN raw_materials rm ON rm.id = wsm.material_id
+    WHERE wsm.shop_id = ?
+    ORDER BY wsm.created_at DESC
 ");
-$placements_stmt->execute([$shop_id]);
-$stock_placements = $placements_stmt->fetchAll();
-
-$movement_stmt = $pdo->prepare("
-    SELECT it.*, rm.name as material_name
-    FROM inventory_transactions it
-    JOIN raw_materials rm ON rm.id = it.material_id
-    WHERE it.shop_id = ? AND it.type = 'move'
-    ORDER BY it.created_at DESC
-    LIMIT 8
-");
-$movement_stmt->execute([$shop_id]);
-$movement_log = $movement_stmt->fetchAll();
-
-$count_locations = count($storage_locations);
-$locations_with_stock = 0;
-foreach ($storage_locations as $location) {
-    if ((float) $location['total_qty'] > 0) {
-        $locations_with_stock++;
-    }
-}
-$utilization = $count_locations > 0 ? round(($locations_with_stock / $count_locations) * 100) : 0;
-
-$moves_today_stmt = $pdo->prepare("
-    SELECT COUNT(*) FROM inventory_transactions
-    WHERE shop_id = ? AND type = 'move' AND DATE(created_at) = CURDATE()
-");
-$moves_today_stmt->execute([$shop_id]);
-$moves_today = (int) $moves_today_stmt->fetchColumn();
-
-$warehouse_kpis = [
-    [
-        'label' => 'Active locations',
-        'value' => $count_locations,
-        'note' => 'Racks, bins, and staging bays.',
-        'icon' => 'fas fa-location-dot',
-        'tone' => 'primary',
-    ],
-    [
-        'label' => 'Space utilization',
-        'value' => $utilization . '%',
-        'note' => 'Locations holding inventory.',
-        'icon' => 'fas fa-warehouse',
-        'tone' => 'info',
-    ],
-    [
-        'label' => 'Materials stored',
-        'value' => count($stock_placements),
-        'note' => 'Items tracked across locations.',
-        'icon' => 'fas fa-clipboard-list',
-        'tone' => 'warning',
-    ],
-    [
-        'label' => 'Movements today',
-        'value' => $moves_today,
-        'note' => 'Transfers & replenishments.',
-        'icon' => 'fas fa-right-left',
-        'tone' => 'success',
-    ],
-];
-
-$automation_rules = [
-    [
-        'title' => 'Pick-list generation',
-        'detail' => 'Auto-build pick-lists when orders move to production, grouped by zone and batch.',
-        'icon' => 'fas fa-list-check',
-    ],
-    [
-        'title' => 'Stock movement tracking',
-        'detail' => 'Log transfers, replenishments, and staging handoffs in real time.',
-        'icon' => 'fas fa-arrows-rotate',
-    ],
-    [
-        'title' => 'Cycle count prompts',
-        'detail' => 'Prompt cycle counts for high-velocity bins weekly to maintain location accuracy.',
-        'icon' => 'fas fa-clipboard-check',
-    ],
-];
+$stock_management_stmt->execute([$shop_id]);
+$stock_management_entries = $stock_management_stmt->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -278,59 +209,32 @@ $automation_rules = [
             margin: 2rem 0;
         }
 
-        .warehouse-kpi {
-            grid-column: span 3;
-        }
-
-        .purpose-card,
-        .movement-card {
+        .location-card,
+        .stock-management-list-card,
+        .supplier-list-card {
             grid-column: span 12;
         }
 
-        .location-card {
+        .form-card,
+        .supplier-form-card,
+        .stock-management-form-card {
+            grid-column: span 4;
+        }
+
+        .module-card {
             grid-column: span 8;
         }
 
-        .form-card {
-            grid-column: span 4;
-        }
-
-        .picklist-card,
-        .automation-card {
-            grid-column: span 4;
-        }
-
-        .kpi-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 1rem;
-        }
-
-        .kpi-item i {
-            font-size: 1.5rem;
-        }
-
-        .queue-item {
-            border: 1px solid var(--gray-200);
-            border-radius: var(--radius);
-            padding: 1rem;
-            background: white;
-        }
-
-        .queue-item + .queue-item {
-            margin-top: 1rem;
-        }
-
-        .automation-item {
-            border: 1px solid var(--gray-200);
-            border-radius: var(--radius);
-            padding: 1rem;
-            background: white;
-        }
-
-        .automation-item + .automation-item {
-            margin-top: 1rem;
+       @media (max-width: 992px) {
+            .location-card,
+            .stock-management-list-card,
+            .supplier-list-card,
+            .form-card,
+            .supplier-form-card,
+            .stock-management-form-card,
+            .module-card {
+                grid-column: span 12;
+            }
         }
     </style>
 </head>
@@ -346,15 +250,6 @@ $automation_rules = [
                 <li><a href="manage_staff.php" class="nav-link">Staff</a></li>
                 <li><a href="shop_orders.php" class="nav-link">Orders</a></li>
                 <li><a href="messages.php" class="nav-link">Messages</a></li>
-                <li class="dropdown">
-                    <a href="#" class="nav-link dropdown-toggle">
-                        <i class="fas fa-coins"></i> Finance
-                    </a>
-                    <div class="dropdown-menu">
-                        <a href="payment_verifications.php" class="dropdown-item"><i class="fas fa-receipt"></i> Payments</a>
-                        <a href="earnings.php" class="dropdown-item"><i class="fas fa-wallet"></i> Earnings</a>
-                    </div>
-                </li>
                 <li class="dropdown">
                     <a href="#" class="nav-link dropdown-toggle">
                         <i class="fas fa-user"></i> <?php echo htmlspecialchars($_SESSION['user']['fullname']); ?>
@@ -373,7 +268,7 @@ $automation_rules = [
             <div class="d-flex justify-between align-center">
                 <div>
                     <h2>Storage &amp; Warehouse Management</h2>
-                   <p class="text-muted">Owners manage stock locations here, while supplier records and full material inventory stay visible for replenishment decisions.</p>
+                   <p class="text-muted">Manage locations, maintain stock management settings, and add supplier records from one place.</p>
                 </div>
                 <span class="badge badge-primary"><i class="fas fa-boxes-stacked"></i> Module 24</span>
             </div>
@@ -387,33 +282,9 @@ $automation_rules = [
         <?php endif; ?>
 
         <div class="warehouse-grid">
-            <div class="card purpose-card">
-                <div class="card-header">
-                    <h3><i class="fas fa-bullseye text-primary"></i> Purpose</h3>
-                </div>
-                <p class="text-muted mb-0">
-                    Owners can oversee storage flow, monitor all material inventory placements, and coordinate with HR/staff stock requests before approving new supply purchases.
-                </p>
-            </div>
-
-            <?php foreach ($warehouse_kpis as $kpi): ?>
-                <div class="card warehouse-kpi">
-                    <div class="kpi-item">
-                        <div>
-                            <p class="text-muted mb-1"><?php echo $kpi['label']; ?></p>
-                            <h3 class="mb-1"><?php echo $kpi['value']; ?></h3>
-                            <small class="text-muted"><?php echo $kpi['note']; ?></small>
-                        </div>
-                        <span class="badge badge-<?php echo $kpi['tone']; ?>">
-                            <i class="<?php echo $kpi['icon']; ?>"></i>
-                        </span>
-                    </div>
-                </div>
-            <?php endforeach; ?>
-
             <div class="card form-card">
                 <div class="card-header">
-                    <h3><i class="fas fa-location-plus text-primary"></i> <?php echo $editing_location ? 'Update Location' : 'Add Location'; ?></h3>
+                   <h3><i class="fas fa-location-dot text-primary"></i> <?php echo $editing_location ? 'Edit Storage Location' : 'Add Storage Location'; ?></h3>
                 </div>
                 <form method="POST">
                     <?php echo csrf_field(); ?>
@@ -438,33 +309,29 @@ $automation_rules = [
                 </form>
             </div>
 
-            <div class="card location-card">
+            <div class="card module-card">
                 <div class="card-header">
                     <h3><i class="fas fa-map-location-dot text-primary"></i> Storage Locations</h3>
-                    <p class="text-muted">Active zones with material counts and stock totals.</p>
+                    <p class="text-muted">Manage all warehouse and storage locations.</p>
                 </div>
                 <table class="table">
                     <thead>
                         <tr>
                             <th>Code</th>
                             <th>Description</th>
-                            <th>Materials</th>
-                            <th>Total qty</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($storage_locations)): ?>
                             <tr>
-                                <td colspan="5" class="text-muted">No storage locations created yet.</td>
+                               <td colspan="3" class="text-muted">No storage locations created yet.</td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($storage_locations as $location): ?>
                                 <tr>
                                     <td><?php echo htmlspecialchars($location['code']); ?></td>
                                     <td><?php echo htmlspecialchars($location['description'] ?? '—'); ?></td>
-                                    <td><?php echo (int) $location['material_count']; ?></td>
-                                    <td><?php echo number_format((float) $location['total_qty'], 2); ?></td>
                                     <td>
                                         <a href="storage_warehouse_management.php?edit_location=<?php echo (int) $location['id']; ?>" class="btn btn-sm btn-light">Edit</a>
                                         <form method="POST" class="d-inline" onsubmit="return confirm('Remove this location?');">
@@ -481,122 +348,127 @@ $automation_rules = [
                 </table>
             </div>
 
-            <div class="card picklist-card">
+            <div class="card supplier-form-card">
                 <div class="card-header">
-                    <h3><i class="fas fa-right-left text-primary"></i> Move Stock</h3>
-                    <p class="text-muted">Transfer materials between storage locations.</p>
+                    <h3><i class="fas fa-truck-field text-primary"></i> Add Supplier</h3>
                 </div>
                 <form method="POST">
                     <?php echo csrf_field(); ?>
-                    <input type="hidden" name="action" value="move_stock">
+                    <input type="hidden" name="action" value="create_supplier">
                     <div class="form-group">
-                        <label>Material</label>
-                        <select name="material_id" required>
-                            <option value="">Select material</option>
-                            <?php foreach ($materials as $material): ?>
-                                <option value="<?php echo (int) $material['id']; ?>">
-                                    <?php echo htmlspecialchars($material['name']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                <div class="form-group">
-                        <label>From location</label>
-                        <select name="from_location_id">
-                            <option value="0">Receiving/Unassigned</option>
-                            <?php foreach ($storage_locations as $location): ?>
-                                <option value="<?php echo (int) $location['id']; ?>"><?php echo htmlspecialchars($location['code']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                        <label>Supplier name</label>
+                        <input type="text" name="name" required>
                     </div>
                     <div class="form-group">
-                        <label>To location</label>
-                        <select name="to_location_id" required>
-                            <option value="">Select location</option>
-                            <?php foreach ($storage_locations as $location): ?>
-                                <option value="<?php echo (int) $location['id']; ?>"><?php echo htmlspecialchars($location['code']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                        <label>Contact number</label>
+                        <input type="text" name="contact">
                     </div>
                     <div class="form-group">
-                        <label>Quantity</label>
-                        <input type="number" step="0.01" name="qty" required>
+                        <label>Address</label>
+                        <textarea name="address" rows="3"></textarea>
                     </div>
-                    <button type="submit" class="btn btn-primary">Record Movement</button>
+                    <button type="submit" class="btn btn-primary">Add Supplier</button>
                 </form>
             </div>
 
-            <div class="card automation-card">
-                <div class="card-header">
-                    <h3><i class="fas fa-gear text-primary"></i> Automation</h3>
-                    <p class="text-muted">Pick and movement tasks that stay synchronized.</p>
-                </div>
-                <?php foreach ($automation_rules as $rule): ?>
-                    <div class="automation-item">
-                        <div class="d-flex align-center gap-2 mb-2">
-                            <i class="<?php echo $rule['icon']; ?> text-primary"></i>
-                            <strong><?php echo $rule['title']; ?></strong>
-                        </div>
-                        <p class="text-muted mb-0"><?php echo $rule['detail']; ?></p>
+            <div class="card supplier-list-card">
+                <div class="card-header d-flex justify-between align-center">
+                    <div>
+                        <h3><i class="fas fa-list text-primary"></i> Supplier List</h3>
+                        <p class="text-muted">Quick view of all suppliers added for this shop.</p>
                     </div>
-                <?php endforeach; ?>
-            </div>
-
-            <div class="card movement-card">
-                <div class="card-header">
-                    <h3><i class="fas fa-right-left text-primary"></i> Stock Movement Tracking</h3>
-                    <p class="text-muted">Every transfer logged for traceability and audit readiness.</p>
+                 <a href="supplier_list.php" class="btn btn-light">Open Full Supplier List Page</a>
                 </div>
                 <table class="table">
                     <thead>
                         <tr>
-                            <th>Material</th>
-                            <th>Quantity</th>
-                            <th>Logged</th>
-                            <th>Status</th>
+                            <th>Name</th>
+                            <th>Contact Number</th>
+                            <th>Address</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php if (empty($movement_log)): ?>
+                        <?php if (empty($suppliers)): ?>
                             <tr>
-                                <td colspan="4" class="text-muted">No movements logged yet.</td>
+                                <td colspan="3" class="text-muted">No suppliers added yet.</td>
                             </tr>
                         <?php else: ?>
-                            <?php foreach ($movement_log as $movement): ?>
+                            <?php foreach ($suppliers as $supplier): ?>
                                 <tr>
-                                    <td><?php echo htmlspecialchars($movement['material_name']); ?></td>
-                                    <td><?php echo number_format((float) $movement['qty'], 2); ?></td>
-                                    <td class="text-muted"><?php echo date('M d, Y H:i', strtotime($movement['created_at'])); ?></td>
-                                    <td>
-                                        <span class="badge badge-success">Completed</span>
-                                    </td>
+                                    <td><?php echo htmlspecialchars($supplier['name']); ?></td>
+                                    <td><?php echo htmlspecialchars($supplier['contact'] ?? '—'); ?></td>
+                                    <td><?php echo htmlspecialchars($supplier['address'] ?? '—'); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </tbody>
                 </table>
+                </div>
+
+            <div class="card stock-management-form-card">
                 <div class="card-header">
-                    <h4><i class="fas fa-boxes-stacked text-primary"></i> Materials in Storage</h4>
+                    <h3><i class="fas fa-clipboard-list text-primary"></i> Stock Management</h3>
+                </div>
+                <form method="POST">
+                    <?php echo csrf_field(); ?>
+                    <input type="hidden" name="action" value="create_stock_management">
+                    <div class="form-group">
+                        <label>Inventory Section (Material)</label>
+                        <select name="material_id" required>
+                            <option value="">Select material</option>
+                            <?php foreach ($materials as $material): ?>
+                                <option value="<?php echo (int) $material['id']; ?>"><?php echo htmlspecialchars($material['name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Opening stock quantity</label>
+                        <input type="number" step="0.01" min="0" name="opening_stock_qty" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Warehouse / Location</label>
+                        <input type="text" name="warehouse_location" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Reorder level</label>
+                        <input type="number" step="0.01" min="0" name="reorder_level" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Reorder quantity</label>
+                        <input type="number" step="0.01" min="0" name="reorder_quantity" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Stock Management</button>
+                </form>
+            </div>
+
+            <div class="card stock-management-list-card">
+                <div class="card-header">
+                   <h3><i class="fas fa-warehouse text-primary"></i> Stock Management List</h3>
+                    <p class="text-muted">Inventory section opening stock and reorder settings per location.</p>
                 </div>
                 <table class="table">
                     <thead>
                         <tr>
-                            <th>Location</th>
-                            <th>Material</th>
-                            <th>Quantity</th>
+                           <th>Inventory Section</th>
+                            <th>Opening Stock Quantity</th>
+                            <th>Warehouse / Location</th>
+                            <th>Reorder Level</th>
+                            <th>Reorder Quantity</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php if (empty($stock_placements)): ?>
+                        <?php if (empty($stock_management_entries)): ?>
                             <tr>
-                                <td colspan="3" class="text-muted">No materials placed yet.</td>
+                                <td colspan="5" class="text-muted">No stock management records found.</td>
                             </tr>
                         <?php else: ?>
-                            <?php foreach ($stock_placements as $placement): ?>
+                            <?php foreach ($stock_management_entries as $entry): ?>
                                 <tr>
-                                    <td><?php echo htmlspecialchars($placement['location_code']); ?></td>
-                                    <td><?php echo htmlspecialchars($placement['material_name']); ?></td>
-                                    <td><?php echo number_format((float) $placement['qty'], 2); ?> <?php echo htmlspecialchars($placement['unit']); ?></td>
+                                     <td><?php echo htmlspecialchars($entry['material_name']); ?></td>
+                                    <td><?php echo number_format((float) $entry['opening_stock_qty'], 2); ?> <?php echo htmlspecialchars($entry['unit']); ?></td>
+                                    <td><?php echo htmlspecialchars($entry['warehouse_location']); ?></td>
+                                    <td><?php echo number_format((float) $entry['reorder_level'], 2); ?> <?php echo htmlspecialchars($entry['unit']); ?></td>
+                                    <td><?php echo number_format((float) $entry['reorder_quantity'], 2); ?> <?php echo htmlspecialchars($entry['unit']); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>

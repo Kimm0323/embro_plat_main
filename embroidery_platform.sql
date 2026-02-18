@@ -628,6 +628,7 @@ CREATE TABLE `suppliers` (
   `shop_id` int(11) NOT NULL,
   `name` varchar(150) NOT NULL,
   `contact` varchar(255) DEFAULT NULL,
+  `address` varchar(255) DEFAULT NULL,
   `rating` decimal(3,1) DEFAULT NULL,
   `status` enum('active','inactive','preferred','watchlist') DEFAULT 'active',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
@@ -686,6 +687,22 @@ CREATE TABLE `stock_placements` (
   `location_id` int(11) NOT NULL,
   `material_id` int(11) NOT NULL,
   `qty` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+--
+-- Table structure for table `warehouse_stock_management`
+--
+
+CREATE TABLE `warehouse_stock_management` (
+  `id` int(11) NOT NULL,
+  `shop_id` int(11) NOT NULL,
+  `material_id` int(11) NOT NULL,
+  `opening_stock_qty` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `warehouse_location` varchar(120) NOT NULL,
+  `reorder_level` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `reorder_quantity` decimal(10,2) NOT NULL DEFAULT 0.00,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
