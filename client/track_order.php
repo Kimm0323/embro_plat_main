@@ -433,7 +433,6 @@ function is_order_for_review(array $order, array $claimed_fulfillment_by_order):
         && !empty($claimed_fulfillment_by_order[$order['id']]);
 }
 function get_order_overview_bucket(
-    string $filter,
     array $order,
     array $fulfillment_by_order,
     array $claimed_fulfillment_by_order
