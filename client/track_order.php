@@ -432,6 +432,46 @@ function is_order_for_review(array $order, array $claimed_fulfillment_by_order):
         && (empty($order['rating']) || (int) $order['rating'] === 0)
         && !empty($claimed_fulfillment_by_order[$order['id']]);
 }
+function get_order_overview_bucket(
+    string $filter,
+    array $order,
+    array $fulfillment_by_order,
+    array $claimed_fulfillment_by_order
+): ?string {
+    $payment_status = $order['payment_status'] ?? 'unpaid';
+    $fulfillment_status = $fulfillment_by_order[$order['id']]['status'] ?? null;
+
+    if($order['status'] === STATUS_CANCELLED) {
+        return 'cancellation';
+    }
+
+    if(in_array($payment_status, ['refund_pending', 'refunded'], true)) {
+        return 'returns';
+    }
+
+    if(is_order_for_review($order, $claimed_fulfillment_by_order)) {
+        return 'to_review';
+    }
+
+   if($fulfillment_status === FULFILLMENT_DELIVERED) {
+        return 'to_receive';
+    }
+
+    if(in_array($fulfillment_status, [FULFILLMENT_PENDING, FULFILLMENT_READY_FOR_PICKUP, FULFILLMENT_OUT_FOR_DELIVERY], true)) {
+        return 'to_ship';
+    }
+
+     if(in_array($order['status'], [STATUS_ACCEPTED, STATUS_IN_PROGRESS, STATUS_COMPLETED], true)
+        && in_array($payment_status, ['unpaid', 'rejected'], true)) {
+        return 'to_pay';
+    }
+
+    if(in_array($order['status'], [STATUS_PENDING, STATUS_ACCEPTED, STATUS_IN_PROGRESS], true)) {
+        return 'to_process';
+    }
+
+   return null;
+}
 
 function matches_order_filter(
     string $filter,
@@ -439,40 +479,7 @@ function matches_order_filter(
     array $fulfillment_by_order,
     array $claimed_fulfillment_by_order
 ): bool {
-    $payment_status = $order['payment_status'] ?? 'unpaid';
-    $fulfillment_status = $fulfillment_by_order[$order['id']]['status'] ?? null;
-
-    if($filter === 'to_pay') {
-        return in_array($order['status'], [STATUS_ACCEPTED, STATUS_IN_PROGRESS, STATUS_COMPLETED], true)
-            && in_array($payment_status, ['unpaid', 'rejected'], true);
-    }
-
-    if($filter === 'to_process') {
-        return in_array($order['status'], [STATUS_PENDING, STATUS_ACCEPTED, STATUS_IN_PROGRESS], true);
-    }
-
-    if($filter === 'to_ship') {
-        return in_array($fulfillment_status, [FULFILLMENT_PENDING, FULFILLMENT_READY_FOR_PICKUP, FULFILLMENT_OUT_FOR_DELIVERY], true)
-            && $order['status'] !== STATUS_CANCELLED;
-    }
-
-    if($filter === 'to_receive') {
-        return $fulfillment_status === FULFILLMENT_DELIVERED && $order['status'] !== STATUS_CANCELLED;
-    }
-
-    if($filter === 'to_review') {
-        return is_order_for_review($order, $claimed_fulfillment_by_order);
-    }
-
-    if($filter === 'returns') {
-        return in_array($payment_status, ['refund_pending', 'refunded'], true);
-    }
-
-    if($filter === 'cancellation') {
-        return $order['status'] === STATUS_CANCELLED;
-    }
-
-    return true;
+    return get_order_overview_bucket($order, $fulfillment_by_order, $claimed_fulfillment_by_order) === $filter;
 }
 
 $orders = $all_orders;
@@ -490,10 +497,9 @@ foreach($allowed_filters as $order_filter) {
     $filter_counts[$order_filter] = 0;
 }
 foreach($all_orders as $order) {
-    foreach($allowed_filters as $order_filter) {
-        if(matches_order_filter($order_filter, $order, $fulfillment_by_order, $claimed_fulfillment_by_order)) {
-            $filter_counts[$order_filter]++;
-        }
+     $bucket = get_order_overview_bucket($order, $fulfillment_by_order, $claimed_fulfillment_by_order);
+    if($bucket !== null && isset($filter_counts[$bucket])) {
+        $filter_counts[$bucket]++;
     }
 }
 function status_pill($status) {
