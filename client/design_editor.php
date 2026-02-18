@@ -171,6 +171,48 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
         .tool-grid .btn {
             width: 100%;
         }
+        .color-palette {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .color-palette-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 6px 8px;
+            background: #ffffff;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .color-palette-btn:hover {
+            border-color: #64748b;
+            transform: translateY(-1px);
+        }
+        .color-palette-btn.active {
+            border-color: #1d4ed8;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+        .color-swatch {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 1px solid rgba(15, 23, 42, 0.25);
+            flex-shrink: 0;
+        }
+        .color-palette-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            text-align: left;
+            color: #1e293b;
+            font-weight: 500;
+        }
         @media (max-width: 980px) {
             .editor-layout {
                 grid-template-columns: 1fr;
@@ -216,6 +258,7 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                             <option value="#14532d">Forest Green</option>
                             <option value="#111827">Jet Black</option>
                         </select>
+                        <div id="canvasColorPalette" class="color-palette" aria-label="Canvas color palette"></div>
                     </div>
                     <div class="form-group">
                         <label>Placement Method</label>
@@ -435,6 +478,7 @@ const canvasColor = document.getElementById('canvasColor');
 const placementMethod = document.getElementById('placementMethod');
 const logoSliderControls = document.getElementById('logoSliderControls');
 const goToProofingBtn = document.getElementById('goToProofingBtn');
+const canvasColorPalette = document.getElementById('canvasColorPalette');
 
 const presets = {
     'XS': { width: 4.0, height: 4.0 },
@@ -461,6 +505,59 @@ const state = {
 
 const storageKey = 'embroider_design_editor';
 
+function getCanvasColorOptions() {
+    return Array.from(canvasColor.options).map(option => ({
+        value: option.value.toLowerCase(),
+        name: option.textContent.trim()
+    }));
+}
+
+function renderCanvasColorPalette() {
+    if (!canvasColorPalette) return;
+    const currentColor = (state.canvasColor || canvasColor.value || '').toLowerCase();
+    const options = getCanvasColorOptions();
+    canvasColorPalette.innerHTML = options.map(option => `
+        <button
+            type="button"
+            class="color-palette-btn ${option.value === currentColor ? 'active' : ''}"
+            data-color="${option.value}"
+            title="${option.name}"
+            aria-label="Canvas color ${option.name}"
+            aria-pressed="${option.value === currentColor ? 'true' : 'false'}"
+        >
+            <span class="color-swatch" style="background: ${option.value};"></span>
+            <span class="color-palette-name">${option.name}</span>
+        </button>
+    `).join('');
+}
+
+function setCanvasColor(colorValue, shouldPushHistory = false, shouldSaveState = false) {
+    if (!colorValue) return;
+    const normalizedColor = colorValue.toLowerCase();
+    state.canvasColor = normalizedColor;
+    canvasColor.value = normalizedColor;
+    render();
+    renderCanvasColorPalette();
+    if (shouldPushHistory) {
+        pushHistory();
+    }
+    if (shouldSaveState) {
+        saveState();
+    }
+}
+
+function normalizeCanvasColor(colorValue) {
+    const normalizedValue = (colorValue || '').toLowerCase();
+    const availableColors = new Set(getCanvasColorOptions().map(option => option.value));
+    return availableColors.has(normalizedValue) ? normalizedValue : '#f8fafc';
+}
+
+function normalizeCanvasColorState() {
+    state.canvasColor = normalizeCanvasColor(state.canvasColor || canvasColor.value);
+    canvasColor.value = state.canvasColor;
+}
+
+
 function normalizeElements(elements) {
     return (elements || []).map(element => ({
         scaleX: 1,
@@ -469,12 +566,13 @@ function normalizeElements(elements) {
         ...element
     }));
 }
-
 function loadState() {
     const saved = localStorage.getItem(storageKey);
     if (!saved) {
+        normalizeCanvasColorState();
         pushHistory();
         render();
+        renderCanvasColorPalette();
         return;
     }
     const parsed = JSON.parse(saved);
@@ -486,11 +584,12 @@ function loadState() {
     threadColor.value = state.threadColor || '#1d4ed8';
     safeAreaToggle.value = state.showSafeArea ? 'on' : 'off';
     canvasType.value = state.canvasType || 'tshirt-crew';
-    canvasColor.value = state.canvasColor || '#f8fafc';
+     normalizeCanvasColorState();
     placementMethod.value = state.placementMethod || 'center-chest';
     rebuildImages();
     pushHistory();
     render();
+    renderCanvasColorPalette();
     renderVersions();
 }
 
@@ -533,17 +632,18 @@ function restoreFromHistory(entry) {
     state.threadColor = restored.threadColor;
     state.showSafeArea = restored.showSafeArea;
      state.canvasType = restored.canvasType || 'tshirt-crew';
-    state.canvasColor = restored.canvasColor || '#f8fafc';
+    state.canvasColor = normalizeCanvasColor(restored.canvasColor);
     state.placementMethod = restored.placementMethod || 'center-chest';
     state.selectedId = restored.selectedId;
     hoopPreset.value = state.hoopPreset;
     threadColor.value = state.threadColor;
     safeAreaToggle.value = state.showSafeArea ? 'on' : 'off';
      canvasType.value = state.canvasType;
-    canvasColor.value = state.canvasColor;
+    normalizeCanvasColorState();
     placementMethod.value = state.placementMethod;
     rebuildImages();
     render();
+    renderCanvasColorPalette();
     saveState();
 }
 
@@ -568,7 +668,7 @@ function getHoopDimensions() {
 
 function drawCanvas() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-     ctx.fillStyle = '#ddddda';
+    ctx.fillStyle = '#ddddda';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     const hoop = getHoopDimensions();
@@ -997,18 +1097,19 @@ function renderVersions() {
             state.threadColor = version.data.threadColor;
             state.showSafeArea = version.data.showSafeArea;
             state.canvasType = version.data.canvasType || 'tshirt-crew';
-             state.canvasColor = version.data.canvasColor || '#f8fafc';
+            state.canvasColor = normalizeCanvasColor(version.data.canvasColor);
             state.placementMethod = version.data.placementMethod || 'center-chest';
             state.selectedId = null;
             hoopPreset.value = state.hoopPreset;
             threadColor.value = state.threadColor;
             safeAreaToggle.value = state.showSafeArea ? 'on' : 'off';
             canvasType.value = state.canvasType;
-            canvasColor.value = state.canvasColor;
+            normalizeCanvasColorState();
             placementMethod.value = state.placementMethod;
             rebuildImages();
             pushHistory();
             render();
+            renderCanvasColorPalette();
             saveState();
         };
         
@@ -1125,6 +1226,7 @@ function addImage(file) {
             state.selectedId = element.id;
             pushHistory();
             render();
+            renderCanvasColorPalette();
             saveState();
         };
         img.src = event.target.result;
@@ -1232,14 +1334,17 @@ canvasType.addEventListener('change', () => {
 });
 
 canvasColor.addEventListener('input', () => {
-    state.canvasColor = canvasColor.value;
-    render();
+   setCanvasColor(canvasColor.value);
 });
 
 canvasColor.addEventListener('change', () => {
-    state.canvasColor = canvasColor.value;
-    pushHistory();
-    saveState();
+   setCanvasColor(canvasColor.value, true, true);
+});
+
+canvasColorPalette.addEventListener('click', event => {
+    const button = event.target.closest('.color-palette-btn');
+    if (!button) return;
+    setCanvasColor(button.dataset.color, true, true);
 });
 
 placementMethod.addEventListener('change', () => {
@@ -1526,6 +1631,8 @@ setInterval(() => {
     saveState();
 }, 600000);
 
+normalizeCanvasColorState();
+renderCanvasColorPalette();
 loadState();
 </script>
 </body>
