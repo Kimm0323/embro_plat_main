@@ -206,7 +206,16 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                     </div>
                     <div class="form-group">
                         <label>Canvas Color</label>
-                        <input type="color" id="canvasColor" class="form-control" value="#f5f5f5">
+                         <select id="canvasColor" class="form-control">
+                            <option value="#f8fafc" selected>Arctic White</option>
+                            <option value="#e2e8f0">Silver Mist</option>
+                            <option value="#d6d3d1">Linen Beige</option>
+                            <option value="#1f2937">Charcoal Gray</option>
+                            <option value="#0f172a">Midnight Navy</option>
+                            <option value="#7f1d1d">Maroon Red</option>
+                            <option value="#14532d">Forest Green</option>
+                            <option value="#111827">Jet Black</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label>Placement Method</label>
@@ -235,10 +244,15 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                             <option value="#111827">Jet Black</option>
                             <option value="#f8fafc">Pearl White</option>
                             <option value="#1d4ed8" selected>Royal Blue</option>
+                            <option value="#2563eb">Sky Blue</option>
                             <option value="#dc2626">Crimson Red</option>
+                             <option value="#b91c1c">Burgundy Red</option>
                             <option value="#15803d">Emerald Green</option>
+                             <option value="#14532d">Forest Green</option>
                             <option value="#f59e0b">Gold Yellow</option>
+                            <option value="#f97316">Sunset Orange</option>
                             <option value="#7c3aed">Violet Purple</option>
+                            <option value="#db2777">Fuchsia Pink</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -472,7 +486,7 @@ function loadState() {
     threadColor.value = state.threadColor || '#1d4ed8';
     safeAreaToggle.value = state.showSafeArea ? 'on' : 'off';
     canvasType.value = state.canvasType || 'tshirt-crew';
-    canvasColor.value = state.canvasColor || '#f5f5f5';
+    canvasColor.value = state.canvasColor || '#f8fafc';
     placementMethod.value = state.placementMethod || 'center-chest';
     rebuildImages();
     pushHistory();
@@ -519,7 +533,7 @@ function restoreFromHistory(entry) {
     state.threadColor = restored.threadColor;
     state.showSafeArea = restored.showSafeArea;
      state.canvasType = restored.canvasType || 'tshirt-crew';
-    state.canvasColor = restored.canvasColor || '#f5f5f5';
+    state.canvasColor = restored.canvasColor || '#f8fafc';
     state.placementMethod = restored.placementMethod || 'center-chest';
     state.selectedId = restored.selectedId;
     hoopPreset.value = state.hoopPreset;
@@ -867,7 +881,7 @@ function drawPlacementGuide(hoopX, hoopY, hoopWidth, hoopHeight) {
 }
 
 function shadeColor(hex, percent) {
-    const clean = (hex || '#f5f5f5').replace('#', '');
+    const clean = (hex || '#f8fafc').replace('#', '');
     const value = parseInt(clean, 16);
     const amt = Math.round(2.55 * percent);
     const r = Math.max(0, Math.min(255, (value >> 16) + amt));
@@ -983,7 +997,7 @@ function renderVersions() {
             state.threadColor = version.data.threadColor;
             state.showSafeArea = version.data.showSafeArea;
             state.canvasType = version.data.canvasType || 'tshirt-crew';
-            state.canvasColor = version.data.canvasColor || '#f5f5f5';
+             state.canvasColor = version.data.canvasColor || '#f8fafc';
             state.placementMethod = version.data.placementMethod || 'center-chest';
             state.selectedId = null;
             hoopPreset.value = state.hoopPreset;
