@@ -258,7 +258,17 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                             <option value="Courier New">Courier New</option>
                             <option value="Times New Roman">Times New Roman</option>
                         </select>
-                        <input type="number" id="fontSize" class="form-control" min="12" max="180" value="48">
+                       <select id="fontSize" class="form-control">
+                            <option value="6">0.1&quot; – 0.25&quot; (2.5 – 6 mm)</option>
+                            <option value="9">0.25&quot; – 0.35&quot; (6 – 9 mm)</option>
+                            <option value="10">0.25&quot; – 0.4&quot; (6 – 10 mm)</option>
+                            <option value="12">0.25&quot; – 0.5&quot; (6 – 12 mm)</option>
+                            <option value="25">0.5&quot; – 1&quot; (12 – 25 mm)</option>
+                            <option value="50">1&quot; – 2&quot; (25 – 50 mm)</option>
+                            <option value="76" selected>1.5&quot; – 3&quot; (38 – 76 mm)</option>
+                            <option value="127">2&quot; – 5&quot; (50 – 127 mm)</option>
+                            <option value="128">5&quot;+ (127+ mm)</option>
+                        </select>
                     </div>
                     <div class="editor-inline-toolbar mt-2">
                         <button class="btn btn-outline icon-toggle" id="boldBtn" title="Bold"><i class="fas fa-bold"></i></button>
@@ -795,7 +805,7 @@ function updateControlValues() {
         rotationValue.textContent = '0°';
         opacityValue.textContent = '100%';
         fontFamily.value = 'Inter';
-        fontSize.value = 48;
+        fontSize.value = 76;
         setToggleState(boldBtn, false);
         setToggleState(italicBtn, false);
         setToggleState(underlineBtn, false);
@@ -838,7 +848,7 @@ function addText() {
         y: canvas.height / 2,
         scale: 1,
         rotation: 0,
-        fontSize: 48,
+        fontSize: 76,
          fontFamily: fontFamily.value,
         fontWeight: 'normal',
         fontItalic: false,
@@ -1041,7 +1051,7 @@ fontFamily.addEventListener('change', () => {
 fontSize.addEventListener('change', () => {
     const selected = state.elements.find(element => element.id === state.selectedId);
     if (!selected || selected.locked || selected.type !== 'text') return;
-    const parsed = Math.max(12, Math.min(180, parseInt(fontSize.value, 10) || 48));
+    const parsed = Math.max(6, Math.min(128, parseInt(fontSize.value, 10) || 76));
     selected.fontSize = parsed;
     fontSize.value = parsed;
     pushHistory();
