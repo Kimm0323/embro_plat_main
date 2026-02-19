@@ -40,7 +40,7 @@ $payment = $payment_stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 
 $fulfillment_stmt = $pdo->prepare("
     SELECT *
-    FROM order_fulfillment
+    FROM order_fulfillments
     WHERE order_id = ?
     ORDER BY created_at DESC
     LIMIT 1
