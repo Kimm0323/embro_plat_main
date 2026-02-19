@@ -25,6 +25,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'submit_business_information') {
             $individual_registered_name = sanitize($_POST['individual_registered_name'] ?? '');
             $business_trade_name = sanitize($_POST['business_trade_name'] ?? '');
+            $shop_description = sanitize($_POST['shop_description'] ?? '');
             $country = sanitize($_POST['country'] ?? '');
             $province = sanitize($_POST['province'] ?? '');
             $city_municipality = sanitize($_POST['city_municipality'] ?? '');
@@ -37,6 +38,9 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             if ($business_trade_name === '') {
                 throw new RuntimeException('Business name/trade name is required.');
+            }
+             if ($shop_description === '') {
+                throw new RuntimeException('Shop description is required.');
             }
             if ($country === '' || $province === '' || $city_municipality === '' || $barangay === '' || $house_street === '') {
                 throw new RuntimeException('Please complete all required address fields.');
@@ -138,11 +142,12 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $update_stmt = $pdo->prepare("
                 UPDATE shops
-                SET shop_name = ?, address = ?, phone = ?, email = ?, business_permit = ?, permit_file = ?
+                SET shop_name = ?, shop_description = ?, address = ?, phone = ?, email = ?, business_permit = ?, permit_file = ?
                 WHERE id = ?
             ");
             $update_stmt->execute([
                 $business_trade_name,
+                 $shop_description,
                 $address,
                  $business_phone,
                 $business_email,
@@ -331,6 +336,11 @@ $shop_posts = $posts_stmt->fetchAll(PDO::FETCH_ASSOC);
                     <label>Business Name / Trade Name *</label>
                     <input type="text" name="business_trade_name" class="form-control" required
                            value="<?php echo htmlspecialchars($shop['shop_name']); ?>">
+                </div>
+
+                <div class="form-group">
+                    <label>Shop Description *</label>
+                    <textarea name="shop_description" class="form-control" rows="4" required placeholder="Describe your embroidery specialties, turnaround, and service highlights."><?php echo htmlspecialchars($shop['shop_description'] ?? ''); ?></textarea>
                 </div>
 
                  <h5 class="profile-section-title">Address *</h5>
