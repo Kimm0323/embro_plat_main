@@ -9,6 +9,18 @@ $client_id = $_SESSION['user']['id'];
 $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
 $error = '';
 $success = '';
+$client_payment_stmt = $pdo->prepare("SELECT email_verified, phone_verified FROM users WHERE id = ? LIMIT 1");
+$client_payment_stmt->execute([$client_id]);
+$client_payment_profile = $client_payment_stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+$can_use_gcash = (int) ($client_payment_profile['phone_verified'] ?? 0) === 1;
+$can_use_card = (int) ($client_payment_profile['email_verified'] ?? 0) === 1;
+$allowed_payment_methods = ['cod', 'pickup'];
+if ($can_use_gcash) {
+    $allowed_payment_methods[] = 'gcash';
+}
+if ($can_use_card) {
+    $allowed_payment_methods[] = 'card';
+}
 $available_services = [
     'T-shirt Embroidery',
     'Logo Embroidery',
@@ -384,9 +396,8 @@ if(isset($_POST['place_order'])) {
             throw new RuntimeException('Please select a service type.');
         }
 
-        $allowed_payment_methods = ['gcash', 'card', 'cod', 'pickup'];
         if (!in_array($payment_method, $allowed_payment_methods, true)) {
-            throw new RuntimeException('Please select a payment method.');
+            throw new RuntimeException('Selected payment method is not available in your account. Use Cash on Delivery (COD) or Pickup Pay, or verify your contact details in your profile first.');
         }
 
         if ($selected_portfolio_id > 0) {
@@ -1186,12 +1197,18 @@ if(isset($_POST['place_order'])) {
                     <label>Payment Method *</label>
                     <div class="row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;">
                         <label class="payment-method-option">
-                            <input type="radio" name="payment_method" value="gcash" required>
+                            <input type="radio" name="payment_method" value="gcash" <?php echo $can_use_gcash ? 'required' : 'disabled'; ?>>
                             <span><strong>GCash</strong></span>
+                            <?php if (!$can_use_gcash): ?>
+                                <small class="text-muted d-block">Unavailable: verify your phone number first.</small>
+                            <?php endif; ?>
                         </label>
                         <label class="payment-method-option">
-                            <input type="radio" name="payment_method" value="card" required>
+                            <input type="radio" name="payment_method" value="card" <?php echo $can_use_card ? (!$can_use_gcash ? 'required' : '') : 'disabled'; ?>>
                             <span><strong>Visa / Mastercard</strong></span>
+                            <?php if (!$can_use_card): ?>
+                                <small class="text-muted d-block">Unavailable: verify your email first.</small>
+                            <?php endif; ?>
                         </label>
                         <label class="payment-method-option">
                             <input type="radio" name="payment_method" value="cod" required>
@@ -1202,6 +1219,9 @@ if(isset($_POST['place_order'])) {
                             <span><strong>Pickup</strong></span>
                         </label>
                     </div>
+                    <?php if (!$can_use_gcash && !$can_use_card): ?>
+                        <small class="text-muted d-block mt-2">GCash and Visa/Mastercard are unavailable because your payment profile is incomplete. You can continue using Cash on Delivery (COD) or Pickup Pay.</small>
+                    <?php endif; ?>
                 </div>
                 <div class="form-group mb-0">
                     <label>Delivery Address</label>
