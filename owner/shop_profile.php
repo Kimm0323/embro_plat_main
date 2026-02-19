@@ -18,20 +18,84 @@ if(!$shop) {
 $success = '';
 $error = '';
 
+$business_information = json_decode((string) ($shop['business_permit'] ?? ''), true);
+if (!is_array($business_information)) {
+    $business_information = [];
+}
+
+$business_form_values = [
+    'individual_registered_name' => (string) ($business_information['individual_registered_name'] ?? ''),
+    'business_trade_name' => (string) ($shop['shop_name'] ?? ''),
+    'shop_description' => (string) ($shop['shop_description'] ?? ''),
+    'country' => '',
+    'province' => '',
+    'city_municipality' => '',
+    'barangay' => '',
+    'house_street' => '',
+    'other_address_information' => '',
+    'primary_business_document_type' => (string) ($business_information['primary_business_document_type'] ?? ''),
+    'business_email' => (string) ($shop['email'] ?? ''),
+    'business_phone' => (string) ($shop['phone'] ?? ''),
+    'tax_payer_identification_number' => (string) ($business_information['tax_payer_identification_number'] ?? ''),
+    'vat_registration' => (string) ($business_information['vat_registration'] ?? ''),
+    'submit_sworn_declaration' => (string) ($business_information['submit_sworn_declaration'] ?? ''),
+    'agree_terms_conditions' => false,
+    'agree_data_privacy' => false,
+];
+
+$address_lines = preg_split('/\r\n|\r|\n/', (string) ($shop['address'] ?? ''));
+foreach ($address_lines as $line) {
+    $line = trim($line);
+    if (str_starts_with($line, 'Country: ')) {
+        $business_form_values['country'] = trim(substr($line, strlen('Country: ')));
+    } elseif (str_starts_with($line, 'Province: ')) {
+        $business_form_values['province'] = trim(substr($line, strlen('Province: ')));
+    } elseif (str_starts_with($line, 'City / Municipality: ')) {
+        $business_form_values['city_municipality'] = trim(substr($line, strlen('City / Municipality: ')));
+    } elseif (str_starts_with($line, 'Barangay: ')) {
+        $business_form_values['barangay'] = trim(substr($line, strlen('Barangay: ')));
+    } elseif (str_starts_with($line, 'House Number / Street: ')) {
+        $business_form_values['house_street'] = trim(substr($line, strlen('House Number / Street: ')));
+    } elseif (str_starts_with($line, 'Other Address Information: ')) {
+        $other_address_information = trim(substr($line, strlen('Other Address Information: ')));
+        $business_form_values['other_address_information'] = $other_address_information === 'N/A' ? '' : $other_address_information;
+    }
+}
+
 if($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? 'submit_business_information';
 
+    if ($action === 'submit_business_information') {
+        $business_form_values['individual_registered_name'] = sanitize($_POST['individual_registered_name'] ?? '');
+        $business_form_values['business_trade_name'] = sanitize($_POST['business_trade_name'] ?? '');
+        $business_form_values['shop_description'] = sanitize($_POST['shop_description'] ?? '');
+        $business_form_values['country'] = sanitize($_POST['country'] ?? '');
+        $business_form_values['province'] = sanitize($_POST['province'] ?? '');
+        $business_form_values['city_municipality'] = sanitize($_POST['city_municipality'] ?? '');
+        $business_form_values['barangay'] = sanitize($_POST['barangay'] ?? '');
+        $business_form_values['house_street'] = sanitize($_POST['house_street'] ?? '');
+        $business_form_values['other_address_information'] = sanitize($_POST['other_address_information'] ?? '');
+        $business_form_values['primary_business_document_type'] = sanitize($_POST['primary_business_document_type'] ?? '');
+        $business_form_values['business_email'] = sanitize($_POST['business_email'] ?? '');
+        $business_form_values['business_phone'] = trim((string) ($_POST['business_phone'] ?? ''));
+        $business_form_values['tax_payer_identification_number'] = sanitize($_POST['tax_payer_identification_number'] ?? '');
+        $business_form_values['vat_registration'] = sanitize($_POST['vat_registration'] ?? '');
+        $business_form_values['submit_sworn_declaration'] = sanitize($_POST['submit_sworn_declaration'] ?? '');
+        $business_form_values['agree_terms_conditions'] = isset($_POST['agree_terms_conditions']);
+        $business_form_values['agree_data_privacy'] = isset($_POST['agree_data_privacy']);
+    }
+
     try {
         if ($action === 'submit_business_information') {
-            $individual_registered_name = sanitize($_POST['individual_registered_name'] ?? '');
-            $business_trade_name = sanitize($_POST['business_trade_name'] ?? '');
-            $shop_description = sanitize($_POST['shop_description'] ?? '');
-            $country = sanitize($_POST['country'] ?? '');
-            $province = sanitize($_POST['province'] ?? '');
-            $city_municipality = sanitize($_POST['city_municipality'] ?? '');
-            $barangay = sanitize($_POST['barangay'] ?? '');
-            $house_street = sanitize($_POST['house_street'] ?? '');
-            $other_address_information = sanitize($_POST['other_address_information'] ?? '');
+           $individual_registered_name = $business_form_values['individual_registered_name'];
+            $business_trade_name = $business_form_values['business_trade_name'];
+            $shop_description = $business_form_values['shop_description'];
+            $country = $business_form_values['country'];
+            $province = $business_form_values['province'];
+            $city_municipality = $business_form_values['city_municipality'];
+            $barangay = $business_form_values['barangay'];
+            $house_street = $business_form_values['house_street'];
+            $other_address_information = $business_form_values['other_address_information'];
 
             if ($individual_registered_name === '') {
                 throw new RuntimeException('Individual registered name is required.');
@@ -46,18 +110,18 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new RuntimeException('Please complete all required address fields.');
             }
 
-        $primary_business_document_type = sanitize($_POST['primary_business_document_type'] ?? '');
+            $primary_business_document_type = $business_form_values['primary_business_document_type'];
             if ($primary_business_document_type === '') {
                 throw new RuntimeException('Primary business document type is required.');
             }
 
-            $business_email = sanitize($_POST['business_email'] ?? '');
+            $business_email = $business_form_values['business_email'];
             if ($business_email === '') {
                 throw new RuntimeException('Business email is required.');
             }
 
 
-            $business_phone_raw = trim((string) ($_POST['business_phone'] ?? ''));
+            $business_phone_raw = $business_form_values['business_phone'];
             if (!preg_match('/^\+?\d+$/', $business_phone_raw)) {
                 throw new RuntimeException('Business phone number must contain numbers only.');
             }
@@ -74,16 +138,16 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
              $business_phone = sanitize($business_phone_raw);
 
-            $tax_payer_identification_number = sanitize($_POST['tax_payer_identification_number'] ?? '');
+             $tax_payer_identification_number = $business_form_values['tax_payer_identification_number'];
             if ($tax_payer_identification_number === '') {
                 throw new RuntimeException('Tax Payer Identification Number is required.');
             }
 
-            $vat_registration = sanitize($_POST['vat_registration'] ?? '');
+            $vat_registration = $business_form_values['vat_registration'];
             if (!in_array($vat_registration, ['vat_registered', 'non_vat_registered'], true)) {
                 throw new RuntimeException('Please select VAT registration type.');
             }
-            $submit_sworn_declaration = sanitize($_POST['submit_sworn_declaration'] ?? '');
+            $submit_sworn_declaration = $business_form_values['submit_sworn_declaration'];
             if (!in_array($submit_sworn_declaration, ['yes', 'no'], true)) {
                 throw new RuntimeException('Please choose yes or no for sworn declaration.');
             }
@@ -329,51 +393,59 @@ $shop_posts = $posts_stmt->fetchAll(PDO::FETCH_ASSOC);
 
                      <div class="form-group">
                     <label>Individual Registered Name *</label>
-                    <input type="text" name="individual_registered_name" class="form-control" required>
+                    <input type="text" name="individual_registered_name" class="form-control" required
+                           value="<?php echo htmlspecialchars($business_form_values['individual_registered_name']); ?>">
                 </div>
 
                 <div class="form-group">
                     <label>Business Name / Trade Name *</label>
                     <input type="text" name="business_trade_name" class="form-control" required
-                           value="<?php echo htmlspecialchars($shop['shop_name']); ?>">
+                           value="<?php echo htmlspecialchars($business_form_values['business_trade_name']); ?>">
                 </div>
 
                 <div class="form-group">
                     <label>Shop Description *</label>
-                    <textarea name="shop_description" class="form-control" rows="4" required placeholder="Describe your embroidery specialties, turnaround, and service highlights."><?php echo htmlspecialchars($shop['shop_description'] ?? ''); ?></textarea>
+                    <textarea name="shop_description" class="form-control" rows="4" required placeholder="Describe your embroidery specialties, turnaround, and service highlights."><?php echo htmlspecialchars($business_form_values['shop_description']); ?></textarea>
                 </div>
 
                  <h5 class="profile-section-title">Address *</h5>
                  <div class="profile-form-grid">
                     <div class="form-group">
                         <label>Country *</label>
-                        <input type="text" name="country" class="form-control" required>
+                        <input type="text" name="country" class="form-control" required
+                               value="<?php echo htmlspecialchars($business_form_values['country']); ?>">
                     </div>
                      <div class="form-group">
                         <label>Province *</label>
-                        <input type="text" name="province" class="form-control" required>
+                        <input type="text" name="province" class="form-control" required
+                               value="<?php echo htmlspecialchars($business_form_values['province']); ?>">
                     </div>
                 <div class="form-group">
                         <label>City / Municipality *</label>
-                        <input type="text" name="city_municipality" class="form-control" required>
+                        <input type="text" name="city_municipality" class="form-control" required
+                               value="<?php echo htmlspecialchars($business_form_values['city_municipality']); ?>">
                     </div>
                     <div class="form-group">
                         <label>Barangay *</label>
-                        <input type="text" name="barangay" class="form-control" required>
+                        <input type="text" name="barangay" class="form-control" required
+                               value="<?php echo htmlspecialchars($business_form_values['barangay']); ?>">
                     </div>
                     <div class="form-group">
                         <label>House Number / Street *</label>
-                        <input type="text" name="house_street" class="form-control" required>
+                        <input type="text" name="house_street" class="form-control" required
+                               value="<?php echo htmlspecialchars($business_form_values['house_street']); ?>">
                     </div>
                     <div class="form-group">
                         <label>Other Address Information</label>
-                        <input type="text" name="other_address_information" class="form-control">
+                        <input type="text" name="other_address_information" class="form-control"
+                               value="<?php echo htmlspecialchars($business_form_values['other_address_information']); ?>">
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label>Primary Business Document Type *</label>
-                    <input type="text" name="primary_business_document_type" class="form-control" required placeholder="DTI Certificate">
+                    <input type="text" name="primary_business_document_type" class="form-control" required placeholder="DTI Certificate"
+                           value="<?php echo htmlspecialchars($business_form_values['primary_business_document_type']); ?>">
                 </div>
             <div class="form-group">
                     <label>Upload Primary Business Document (DTI Certificate) *</label>
@@ -396,28 +468,28 @@ $shop_posts = $posts_stmt->fetchAll(PDO::FETCH_ASSOC);
                     <div class="form-group">
                         <label>Business Email *</label>
                         <input type="email" name="business_email" class="form-control" required
-                               value="<?php echo htmlspecialchars($shop['email']); ?>">
+                               value="<?php echo htmlspecialchars($business_form_values['business_email']); ?>">
                     </div>
                      <div class="form-group">
                         <label>Business Phone Number *</label>
                         <input type="text" name="business_phone" class="form-control" required maxlength="12" inputmode="numeric" pattern="^(\+63\d{9}|09\d{9})$"
-                               value="<?php echo htmlspecialchars($shop['phone']); ?>">
+                               value="<?php echo htmlspecialchars($business_form_values['business_phone']); ?>">
                         <small class="text-muted">Use <strong>+63</strong> then 9 digits, or <strong>09</strong> then 9 digits.</small>
                     </div>
                 </div>
 
             <div class="form-group">
                     <label>Tax Payer Identification Number *</label>
-                    <input type="text" name="tax_payer_identification_number" class="form-control" required>
+                     <input type="text" name="tax_payer_identification_number" class="form-control" required
+                           value="<?php echo htmlspecialchars($business_form_values['tax_payer_identification_number']); ?>">
                 </div>
 
                 <div class="form-group">
                     <label>VAT Registration *</label>
                     <select name="vat_registration" class="form-control" required>
                         <option value="">Select VAT registration</option>
-                        <option value="vat_registered">VAT Registered</option>
-                        <option value="non_vat_registered">Non VAT Registered</option>
-                    </select>
+                        <option value="vat_registered" <?php echo $business_form_values['vat_registration'] === 'vat_registered' ? 'selected' : ''; ?>>VAT Registered</option>
+                        <option value="non_vat_registered" <?php echo $business_form_values['vat_registration'] === 'non_vat_registered' ? 'selected' : ''; ?>>Non VAT Registered</option>
                 </div>
 
                 <div class="form-group">
@@ -429,18 +501,18 @@ $shop_posts = $posts_stmt->fetchAll(PDO::FETCH_ASSOC);
                     <label>Submit Sworn Declaration *</label>
                     <select name="submit_sworn_declaration" class="form-control" required>
                         <option value="">Select option</option>
-                        <option value="yes">Yes</option>
-                        <option value="no">No</option>
+                        <option value="yes" <?php echo $business_form_values['submit_sworn_declaration'] === 'yes' ? 'selected' : ''; ?>>Yes</option>
+                        <option value="no" <?php echo $business_form_values['submit_sworn_declaration'] === 'no' ? 'selected' : ''; ?>>No</option>
                     </select>
                 </div>
 
                  <div class="form-group checkbox-stack">
                     <label style="display: flex; align-items: center; gap: 8px;">
-                        <input type="checkbox" name="agree_terms_conditions" value="1" required>
+                         <input type="checkbox" name="agree_terms_conditions" value="1" required <?php echo $business_form_values['agree_terms_conditions'] ? 'checked' : ''; ?>>
                         <span>I agree to the Terms and Conditions.</span>
                     </label>
                     <label style="display: flex; align-items: center; gap: 8px;">
-                        <input type="checkbox" name="agree_data_privacy" value="1" required>
+                        <input type="checkbox" name="agree_data_privacy" value="1" required <?php echo $business_form_values['agree_data_privacy'] ? 'checked' : ''; ?>>
                         <span>I agree to the Data Privacy Policy.</span>
                     </label>
                 </div>
