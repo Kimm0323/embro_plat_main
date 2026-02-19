@@ -43,11 +43,41 @@ $jobs_stmt = $pdo->prepare("
     JOIN shops s ON o.shop_id = s.id 
     LEFT JOIN job_schedule js ON js.order_id = o.id AND js.staff_id = ?
     WHERE (o.assigned_to = ? OR js.staff_id = ?)
-      AND o.status IN ('accepted', 'in_progress')
+     AND o.status IN ('accepted', 'in_progress', 'completed')
     ORDER BY schedule_date ASC, js.scheduled_time ASC
 ");
 $jobs_stmt->execute([$staff_id, $staff_id, $staff_id]);
 $jobs = $jobs_stmt->fetchAll();
+$jobs_by_id = [];
+foreach($jobs as $job_item) {
+    $jobs_by_id[(int) $job_item['id']] = $job_item;
+}
+
+$selected_order_id = (int) ($_GET['order_id'] ?? $_POST['order_id'] ?? 0);
+$selected_job = $selected_order_id > 0 ? ($jobs_by_id[$selected_order_id] ?? null) : null;
+
+$stage_options = [
+    'materials_ready' => [
+        'label' => 'Materials Ready',
+        'status' => STATUS_IN_PROGRESS,
+        'progress' => 20,
+    ],
+    'in_process_of_making' => [
+        'label' => 'In the Process of Making',
+        'status' => STATUS_IN_PROGRESS,
+        'progress' => 60,
+    ],
+    'order_complete' => [
+        'label' => 'Order Complete',
+        'status' => STATUS_COMPLETED,
+        'progress' => 100,
+    ],
+    'ready_to_pickup' => [
+        'label' => 'Ready to Pickup',
+        'status' => STATUS_COMPLETED,
+        'progress' => 100,
+    ],
+];
 $photo_counts = [];
 function is_design_image(?string $filename): bool {
     if(!$filename) {
@@ -270,9 +300,16 @@ if(isset($_POST['update_status'])) {
         $error = 'You do not have permission to update job status.';
     } else {
     $order_id = (int) ($_POST['order_id'] ?? 0);
+     $selected_stage = $_POST['workflow_stage'] ?? '';
     $progress = (int) ($_POST['progress'] ?? 0);
     $status = $_POST['status'] ?? '';
     $staff_notes = sanitize($_POST['staff_notes'] ?? '');
+
+    if(isset($stage_options[$selected_stage])) {
+        $progress = (int) $stage_options[$selected_stage]['progress'];
+        $status = $stage_options[$selected_stage]['status'];
+        $staff_notes = trim($stage_options[$selected_stage]['label'] . ($staff_notes !== '' ? ': ' . $staff_notes : ''));
+    }
 
     $photo_check_stmt = $pdo->prepare("
         SELECT COUNT(*)
@@ -288,6 +325,11 @@ if(isset($_POST['update_status'])) {
 
     if(!$order_info) {
         $error = "Unable to update this order.";
+        if(isset($stage_options[$selected_stage])) {
+        $progress = (int) $stage_options[$selected_stage]['progress'];
+        $status = $stage_options[$selected_stage]['status'];
+        $staff_notes = trim($stage_options[$selected_stage]['label'] . ($staff_notes !== '' ? ': ' . $staff_notes : ''));
+    }
     } elseif($photo_count === 0) {
         $error = "Please upload a progress photo before updating the status.";
     } elseif(!in_array($status, $allowed_statuses, true)) {
@@ -510,7 +552,6 @@ if(isset($_POST['update_status'])) {
             </ul>
         </div>
     </nav>
-
     <div class="container">
         <div class="dashboard-header">
             <h2>Update Job Status</h2>
@@ -524,200 +565,199 @@ if(isset($_POST['update_status'])) {
         <?php if(isset($success)): ?>
             <div class="alert alert-success"><?php echo $success; ?></div>
         <?php endif; ?>
-
         <?php if(!empty($jobs)): ?>
-            <?php foreach($jobs as $job): ?>
+            <div class="card mb-4">
+                <div class="job-details">
+                    <h4 class="mb-2">Assigned Jobs</h4>
+                    <p class="text-muted mb-3">Select a job to view full order details and update workflow status.</p>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Order #</th>
+                                    <th>Service</th>
+                                    <th>Client</th>
+                                    <th>Current Status</th>
+                                    <th>Progress</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach($jobs as $job): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars($job['order_number']); ?></td>
+                                        <td><?php echo htmlspecialchars($job['service_type']); ?></td>
+                                        <td><?php echo htmlspecialchars($job['client_name']); ?></td>
+                                        <td><?php echo ucfirst(str_replace('_', ' ', $job['status'])); ?></td>
+                                        <td><?php echo (int) $job['progress']; ?>%</td>
+                                        <td>
+                                            <a class="btn btn-outline-primary btn-sm" href="update_status.php?order_id=<?php echo (int) $job['id']; ?>">
+                                                <i class="fas fa-eye"></i> View
+                                            </a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <?php if($selected_job): ?>
                 <?php
+                 $job = $selected_job;
                     $has_photo = !empty($photo_counts[$job['id']]);
                     $payment_hold = payment_hold_status($job['status'] ?? STATUS_PENDING, $job['payment_status'] ?? 'unpaid');
                 ?>
             <div class="card mb-4">
-                <div class="job-details">
-                    <div class="d-flex justify-between align-center">
-                        <div>
-                            <h4><?php echo htmlspecialchars($job['service_type']); ?></h4>
-                            <p class="mb-1">
-                                <i class="fas fa-user"></i> <?php echo htmlspecialchars($job['client_name']); ?> |
-                                <i class="fas fa-store"></i> <?php echo htmlspecialchars($job['shop_name']); ?> |
-                                Order #<?php echo $job['order_number']; ?>
-                            </p>
-                            <p class="mb-0 text-muted">
-                                <?php echo htmlspecialchars($job['design_description']); ?>
-                            </p>
-                            <?php if(!empty($job['design_file'])): ?>
-                                <div class="design-file">
-                                    <a href="../assets/uploads/designs/<?php echo htmlspecialchars($job['design_file']); ?>" target="_blank" rel="noopener noreferrer">
-                                        <i class="fas fa-paperclip"></i> View design file
-                                    </a>
-                                </div>
-                                <?php if(is_design_image($job['design_file'])): ?>
-                                    <div class="design-preview">
-                                        <img src="../assets/uploads/designs/<?php echo htmlspecialchars($job['design_file']); ?>" alt="Client design upload">
-                                    </div>
+                    <div class="job-details">
+                        <div class="d-flex justify-between align-center">
+                            <div>
+                                <h4><?php echo htmlspecialchars($job['service_type']); ?></h4>
+                                <p class="mb-1">
+                                    <i class="fas fa-user"></i> <?php echo htmlspecialchars($job['client_name']); ?> |
+                                    <i class="fas fa-store"></i> <?php echo htmlspecialchars($job['shop_name']); ?> |
+                                    Order #<?php echo $job['order_number']; ?>
+                                </p>
+                                <p class="mb-0 text-muted"><?php echo htmlspecialchars($job['design_description']); ?></p>
+                                <?php if(!empty($job['client_notes'])): ?>
+                                    <p class="mb-0 text-muted"><strong>Client notes:</strong> <?php echo htmlspecialchars($job['client_notes']); ?></p>
                                 <?php endif; ?>
                             <?php endif; ?>
-                            <?php if(!empty($job['schedule_date'])): ?>
-                                <p class="mb-0 text-muted">
-                                    <i class="fas fa-calendar"></i> Scheduled: <?php echo date('M d, Y', strtotime($job['schedule_date'])); ?>
-                                    <?php if(!empty($job['schedule_time'])): ?>
-                                        <span class="ml-1"><i class="fas fa-clock"></i> <?php echo date('h:i A', strtotime($job['schedule_time'])); ?></span>
+                            <?php if(!empty($job['design_file'])): ?>
+                                    <div class="design-file">
+                                        <a href="../assets/uploads/designs/<?php echo htmlspecialchars($job['design_file']); ?>" target="_blank" rel="noopener noreferrer">
+                                            <i class="fas fa-paperclip"></i> View design file
+                                        </a>
+                                    </div>
+                                    <?php if(is_design_image($job['design_file'])): ?>
+                                        <div class="design-preview">
+                                            <img src="../assets/uploads/designs/<?php echo htmlspecialchars($job['design_file']); ?>" alt="Client design upload">
+                                        </div>
                                     <?php endif; ?>
-                                </p>
-                            <?php endif; ?>
-                        </div>
-                        <div class="text-right">
-                            <div class="stat-number"><?php echo $job['progress']; ?>%</div>
-                            <div class="stat-label">Current Progress</div>
-                            <div class="mt-2">
-                                <span class="hold-pill <?php echo htmlspecialchars($payment_hold['class']); ?>">
-                                    Hold: <?php echo htmlspecialchars($payment_hold['label']); ?>
-                                </span>
+                                <?php endif; ?>
+                                <?php if(!empty($job['schedule_date'])): ?>
+                                    <p class="mb-0 text-muted">
+                                        <i class="fas fa-calendar"></i> Scheduled: <?php echo date('M d, Y', strtotime($job['schedule_date'])); ?>
+                                        <?php if(!empty($job['schedule_time'])): ?>
+                                            <span class="ml-1"><i class="fas fa-clock"></i> <?php echo date('h:i A', strtotime($job['schedule_time'])); ?></span>
+                                        <?php endif; ?>
+                                    </p>
+                                <?php endif; ?>
+                            </div>
+                            <div class="text-right">
+                                <div class="stat-number"><?php echo $job['progress']; ?>%</div>
+                                <div class="stat-label">Current Progress</div>
+                                <div class="mt-2">
+                                    <span class="hold-pill <?php echo htmlspecialchars($payment_hold['class']); ?>">
+                                        Hold: <?php echo htmlspecialchars($payment_hold['label']); ?>
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-
                 <?php if($can_upload_photos): ?>
-                    <form method="POST" enctype="multipart/form-data" class="photo-upload">
+                        <form method="POST" enctype="multipart/form-data" class="photo-upload">
+                            <?php echo csrf_field(); ?>
+                            <input type="hidden" name="order_id" value="<?php echo $job['id']; ?>">
+                            <div class="section-header">Progress Photos</div>
+                            <div class="form-group">
+                                <label>Upload Photo</label>
+                                <input type="file" name="photo" class="form-control" accept="image/*" required>
+                                <small class="text-muted">Max 5MB, JPG/PNG/GIF.</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Caption (Optional)</label>
+                                <textarea name="caption" class="form-control" rows="2" placeholder="Add a short update..."></textarea>
+                            </div>
+                            <div class="d-flex justify-between align-center">
+                                <small class="text-muted">Uploaded photos for this job: <?php echo (int) ($photo_counts[$job['id']] ?? 0); ?></small>
+                                <button type="submit" name="upload_photo" class="btn btn-outline-primary">
+                                    <i class="fas fa-camera"></i> Upload Photo
+                                </button>
+                            </div>
+                        </form>
+                    <?php endif; ?>
+
+                    <?php if($can_update_status): ?>
+                    <form method="POST" class="mt-3">
                         <?php echo csrf_field(); ?>
                         <input type="hidden" name="order_id" value="<?php echo $job['id']; ?>">
-                        <div class="section-header">Progress Photos</div>
+                         <div class="section-header">Update Order Stage</div>
                         <div class="form-group">
-                            <label>Upload Photo</label>
-                            <input type="file" name="photo" class="form-control" accept="image/*" required>
-                            <small class="text-muted">Max 5MB, JPG/PNG/GIF.</small>
+                            <label>Workflow Status</label>
+                            <select name="workflow_stage" class="form-control" required>
+                                <option value="">Select status update</option>
+                                <?php foreach($stage_options as $stage_key => $stage): ?>
+                                    <option value="<?php echo htmlspecialchars($stage_key); ?>"><?php echo htmlspecialchars($stage['label']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <small class="text-muted">Choose: materials ready, in the process of making, order complete, or ready to pickup.</small>
                         </div>
                         <div class="form-group">
-                            <label>Caption (Optional)</label>
-                            <textarea name="caption" class="form-control" rows="2" placeholder="Add a short update..."></textarea>
+                           <label>Add Notes (Optional)</label>
+                            <textarea name="staff_notes" class="form-control" rows="3" placeholder="Add any notes about this update..."></textarea>
                         </div>
-                        <div class="d-flex justify-between align-center">
-                            <small class="text-muted">Uploaded photos for this job: <?php echo (int) ($photo_counts[$job['id']] ?? 0); ?></small>
-                            <button type="submit" name="upload_photo" class="btn btn-outline-primary">
-                                <i class="fas fa-camera"></i> Upload Photo
+                         <?php if(!$has_photo): ?>
+                            <div class="alert alert-warning">Please upload a progress photo before updating this job.</div>
+                        <?php endif; ?>
+                        <div class="text-right">
+                            <button type="submit" name="update_status" class="btn btn-primary" <?php echo $has_photo ? '' : 'disabled'; ?>>
+                                <i class="fas fa-save"></i> Update Status
                             </button>
                         </div>
                     </form>
-                <?php endif; ?>
 
-                <?php if($can_update_status): ?>
-
-                <form method="POST">
-                    <?php echo csrf_field(); ?>
-                    <input type="hidden" name="order_id" value="<?php echo $job['id']; ?>">
-                    
-                    <div class="section-header">Job Steps</div>
-                    <div class="job-steps" data-job-id="<?php echo $job['id']; ?>">
-                        <div class="step-item" data-threshold="10">
-                            <span class="step-index">1</span>Prep materials & layout
-                        </div>
-                        <div class="step-item" data-threshold="30">
-                            <span class="step-index">2</span>Hoop & machine setup
-                        </div>
-                        <div class="step-item" data-threshold="55">
-                            <span class="step-index">3</span>Stitching in progress
-                        </div>
-                        <div class="step-item" data-threshold="80">
-                            <span class="step-index">4</span>Finishing & trimming
-                        </div>
-                        <div class="step-item" data-threshold="100">
-                            <span class="step-index">5</span>Quality check & packaging
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Progress (%)</label>
-                        <input type="range" name="progress" class="progress-slider" 
-                               min="0" max="100" value="<?php echo $job['progress']; ?>"
-                               oninput="document.getElementById('progressValue<?php echo $job['id']; ?>').textContent = this.value + '%'; updateSteps(<?php echo $job['id']; ?>, this.value);">
-                        <div class="text-center">
-                            <span id="progressValue<?php echo $job['id']; ?>" class="badge badge-primary">
-                                <?php echo $job['progress']; ?>%
-                            </span>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <div class="section-header">Order Status</div>
-                        <div class="status-options">
-                            <div class="status-option" onclick="selectStatus('in_progress', <?php echo $job['id']; ?>)">
-                                <i class="fas fa-spinner fa-2x mb-2"></i>
-                                <div>In Progress</div>
-                                <input type="radio" name="status" value="in_progress" 
-                                       <?php echo $job['status'] == 'in_progress' ? 'checked' : ''; ?> 
-                                       style="display: none;">
-                            </div>
-                            
-                            <div class="status-option" onclick="selectStatus('completed', <?php echo $job['id']; ?>)">
-                                <i class="fas fa-check-circle fa-2x mb-2"></i>
-                                <div>Completed</div>
-                                <input type="radio" name="status" value="completed" style="display: none;">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Add Notes (Optional)</label>
-                        <textarea name="staff_notes" class="form-control" rows="3"
-                                  placeholder="Add any notes about this update..."></textarea>
-                    </div>
-
-                    <?php if(!$has_photo): ?>
-                        <div class="alert alert-warning">
-                            Please upload a progress photo before updating this job.
-                        </div>
-                    <?php endif; ?>
-
-                    <div class="text-right">
-                        <button type="submit" name="update_status" class="btn btn-primary" <?php echo $has_photo ? '' : 'disabled'; ?>>
-                            <i class="fas fa-save"></i> Update Status
-                        </button>
-                    </div>
-                </form>
-                
                 <form method="POST" class="proof-upload-form mt-3" enctype="multipart/form-data">
-                    <?php echo csrf_field(); ?>
-                    <input type="hidden" name="order_id" value="<?php echo $job['id']; ?>">
-                    <input type="hidden" name="design_file" value="">
-                    <div class="section-header">Upload Design Proof</div>
-                    <div class="form-group">
-                        <label>Proof File (Image)</label>
-                        <input type="file" name="proof_file" class="form-control" accept="image/*" required>
-                        <small class="text-muted">Upload the proof image to send for client approval.</small>
-                    </div>
-                    <div class="form-group">
-                        <label>Notes (Optional)</label>
-                        <textarea name="provider_notes" class="form-control" rows="2" placeholder="Add any notes for the client review."></textarea>
-                    </div>
-                    <div class="text-right">
-                        <button type="submit" name="upload_proof" class="btn btn-outline-primary">
-                            <i class="fas fa-upload"></i> Send Proof for Approval
-                        </button>
-                    </div>
-                </form>
-
-                <form method="POST" class="mt-3">
-                    <input type="hidden" name="order_id" value="<?php echo $job['id']; ?>">
-                    <div class="section-header">Escalation Path</div>
-                    <div class="escalation-panel">
-                        <p class="text-muted mb-2">Use this when you need a decision or you're blocked. These requests alert the shop owner (and the client if clarification is needed).</p>
+                        <?php echo csrf_field(); ?>
+                        <input type="hidden" name="order_id" value="<?php echo $job['id']; ?>">
+                        <input type="hidden" name="design_file" value="">
+                        <div class="section-header">Upload Design Proof</div>
                         <div class="form-group">
-                            <label>Escalation Details</label>
-                            <textarea name="escalation_note" class="form-control" rows="3" placeholder="Describe what you need to move forward..." required></textarea>
+                            <label>Proof File (Image)</label>
+                            <input type="file" name="proof_file" class="form-control" accept="image/*" required>
+                            <small class="text-muted">Upload the proof image to send for client approval.</small>
                         </div>
-                        <div class="escalation-actions">
-                            <button type="submit" name="escalate_issue" value="needs_clarification" class="btn btn-warning">
-                                <i class="fas fa-question-circle"></i> Needs Clarification
-                            </button>
-                            <button type="submit" name="escalate_issue" value="blocked" class="btn btn-danger">
-                                <i class="fas fa-ban"></i> Blocked
+                         <div class="form-group">
+                            <label>Notes (Optional)</label>
+                            <textarea name="provider_notes" class="form-control" rows="2" placeholder="Add any notes for the client review."></textarea>
+                        </div>
+                     <div class="text-right">
+                            <button type="submit" name="upload_proof" class="btn btn-outline-primary">
+                                <i class="fas fa-upload"></i> Send Proof for Approval
                             </button>
                         </div>
+                    </form>
+
+                    <form method="POST" class="mt-3">
+                        <input type="hidden" name="order_id" value="<?php echo $job['id']; ?>">
+                        <div class="section-header">Escalation Path</div>
+                        <div class="escalation-panel">
+                            <p class="text-muted mb-2">Use this when you need a decision or you're blocked.</p>
+                            <div class="form-group">
+                                <label>Escalation Details</label>
+                                <textarea name="escalation_note" class="form-control" rows="3" placeholder="Describe what you need to move forward..." required></textarea>
+                            </div>
+                            <div class="escalation-actions">
+                                <button type="submit" name="escalate_issue" value="needs_clarification" class="btn btn-warning">
+                                    <i class="fas fa-question-circle"></i> Needs Clarification
+                                </button>
+                                <button type="submit" name="escalate_issue" value="blocked" class="btn btn-danger">
+                                    <i class="fas fa-ban"></i> Blocked
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    <?php endif; ?>
+ </div>
+            <?php else: ?>
+                <div class="card mb-4">
+                    <div class="text-center p-4">
+                        <i class="fas fa-eye fa-3x text-muted mb-3"></i>
+                        <h4>Select a Job to View Details</h4>
+                        <p class="text-muted">Click the View button from the Assigned Jobs list.</p>
                     </div>
-                </form>
-                <?php endif; ?>
-            </div>
-            <?php endforeach; ?>
+                 </div>
+            <?php endif; ?>
         <?php else: ?>
             <div class="card">
                 <div class="text-center p-4">
@@ -731,43 +771,7 @@ if(isset($_POST['update_status'])) {
     </div>
 
     <script>
-        function updateSteps(jobId, progress) {
-            const steps = document.querySelectorAll(`.job-steps[data-job-id="${jobId}"] .step-item`);
-            steps.forEach(step => {
-                const threshold = Number(step.getAttribute('data-threshold'));
-                if(progress >= threshold) {
-                    step.classList.add('completed');
-                } else {
-                    step.classList.remove('completed');
-                }
-            });
-        }
-
-        // Status selection
-        function selectStatus(status, jobId) {
-            // Remove selected class from all options in this job
-            const jobCard = event.currentTarget.closest('.card');
-            jobCard.querySelectorAll('.status-option').forEach(option => {
-                option.classList.remove('selected');
-            });
-            
-            // Add selected class to clicked option
-            event.currentTarget.classList.add('selected');
-            
-            // Check the radio button
-            const radio = event.currentTarget.querySelector('input[type="radio"]');
-            radio.checked = true;
-        }
-        
-        // Initialize status selection
         document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('.status-option input[type="radio"]:checked').forEach(radio => {
-                radio.closest('.status-option').classList.add('selected');
-            });
-            document.querySelectorAll('.progress-slider').forEach(slider => {
-                const jobId = slider.closest('.card').querySelector('input[name="order_id"]').value;
-                updateSteps(jobId, slider.value);
-            });
             
             document.querySelectorAll('.proof-upload-form').forEach(form => {
                 form.addEventListener('submit', async function(event) {
