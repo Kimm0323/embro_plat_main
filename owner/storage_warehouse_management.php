@@ -122,14 +122,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $material_id = (int) ($_POST['material_id'] ?? 0);
         $opening_stock_qty = $_POST['opening_stock_qty'] ?? '';
         $warehouse_location = trim($_POST['warehouse_location'] ?? '');
-        $reorder_level = $_POST['reorder_level'] ?? '';
         $reorder_quantity = $_POST['reorder_quantity'] ?? '';
 
         if (
             $material_id <= 0 ||
             $warehouse_location === '' ||
             $opening_stock_qty === '' || !is_numeric($opening_stock_qty) ||
-            $reorder_level === '' || !is_numeric($reorder_level) ||
             $reorder_quantity === '' || !is_numeric($reorder_quantity)
         ) {
             $error = 'Please provide valid stock management details.';
@@ -140,16 +138,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     material_id,
                     opening_stock_qty,
                     warehouse_location,
-                    reorder_level,
                     reorder_quantity
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                 ) VALUES (?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $shop_id,
                 $material_id,
                 $opening_stock_qty,
                 $warehouse_location,
-                $reorder_level,
                 $reorder_quantity,
             ]);
             $success = 'Stock management entry created successfully.';
@@ -208,6 +204,29 @@ $stock_management_entries = $stock_management_stmt->fetchAll();
             gap: 1.5rem;
             margin: 2rem 0;
         }
+
+         .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            box-sizing: border-box;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 0.65rem 0.75rem;
+            font-size: 0.95rem;
+            font-family: inherit;
+        }
+
+        .form-group input,
+        .form-group select {
+            height: 42px;
+        }
+
+        .form-group textarea {
+            min-height: 102px;
+            resize: vertical;
+        }
+
 
         .location-card,
         .stock-management-list-card,
@@ -413,7 +432,7 @@ $stock_management_entries = $stock_management_stmt->fetchAll();
                     <?php echo csrf_field(); ?>
                     <input type="hidden" name="action" value="create_stock_management">
                     <div class="form-group">
-                        <label>Inventory Section (Material)</label>
+                         <label>Material Input</label>
                         <select name="material_id" required>
                             <option value="">Select material</option>
                             <?php foreach ($materials as $material): ?>
@@ -430,36 +449,30 @@ $stock_management_entries = $stock_management_stmt->fetchAll();
                         <input type="text" name="warehouse_location" required>
                     </div>
                     <div class="form-group">
-                        <label>Reorder level</label>
-                        <input type="number" step="0.01" min="0" name="reorder_level" required>
-                    </div>
-                    <div class="form-group">
                         <label>Reorder quantity</label>
                         <input type="number" step="0.01" min="0" name="reorder_quantity" required>
                     </div>
                     <button type="submit" class="btn btn-primary">Save Stock Management</button>
                 </form>
             </div>
-
             <div class="card stock-management-list-card">
                 <div class="card-header">
                    <h3><i class="fas fa-warehouse text-primary"></i> Stock Management List</h3>
-                    <p class="text-muted">Inventory section opening stock and reorder settings per location.</p>
+                   <p class="text-muted">Material opening stock and reorder quantity settings per location.</p>
                 </div>
                 <table class="table">
                     <thead>
                         <tr>
-                           <th>Inventory Section</th>
+                            <th>Material Input</th>
                             <th>Opening Stock Quantity</th>
                             <th>Warehouse / Location</th>
-                            <th>Reorder Level</th>
                             <th>Reorder Quantity</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (empty($stock_management_entries)): ?>
                             <tr>
-                                <td colspan="5" class="text-muted">No stock management records found.</td>
+                               <td colspan="4" class="text-muted">No stock management records found.</td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($stock_management_entries as $entry): ?>
@@ -467,7 +480,6 @@ $stock_management_entries = $stock_management_stmt->fetchAll();
                                      <td><?php echo htmlspecialchars($entry['material_name']); ?></td>
                                     <td><?php echo number_format((float) $entry['opening_stock_qty'], 2); ?> <?php echo htmlspecialchars($entry['unit']); ?></td>
                                     <td><?php echo htmlspecialchars($entry['warehouse_location']); ?></td>
-                                    <td><?php echo number_format((float) $entry['reorder_level'], 2); ?> <?php echo htmlspecialchars($entry['unit']); ?></td>
                                     <td><?php echo number_format((float) $entry['reorder_quantity'], 2); ?> <?php echo htmlspecialchars($entry['unit']); ?></td>
                                 </tr>
                             <?php endforeach; ?>
