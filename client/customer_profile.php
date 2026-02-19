@@ -85,7 +85,7 @@ if (count($name_parts) >= 2) {
             </div>
         </div>
 
-        <div class="card mb-3">
+        <div class="card mb-3" id="delivery-address">
             <div class="card-header">
                <h3><i class="fas fa-truck text-primary"></i> Delivery Address</h3>
             </div>

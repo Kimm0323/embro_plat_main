@@ -314,6 +314,7 @@ if(isset($_POST['place_order'])) {
     $design_description = '';
     $quantity = (int) ($_POST['quantity'] ?? 0);
     $client_notes = sanitize($_POST['client_notes'] ?? '');
+    $payment_method = sanitize($_POST['payment_method'] ?? '');
     $product_font = sanitize($_POST['product_font'] ?? '');
     $product_size = sanitize($_POST['product_size'] ?? '');
     $product_front_text = sanitize($_POST['product_front_text'] ?? '');
@@ -381,6 +382,11 @@ if(isset($_POST['place_order'])) {
 
         if (!$service_type) {
             throw new RuntimeException('Please select a service type.');
+        }
+
+        $allowed_payment_methods = ['gcash', 'card', 'cod', 'pickup'];
+        if (!in_array($payment_method, $allowed_payment_methods, true)) {
+            throw new RuntimeException('Please select a payment method.');
         }
 
         if ($selected_portfolio_id > 0) {
@@ -453,6 +459,7 @@ if(isset($_POST['place_order'])) {
         $estimated_total = $estimated_unit_price * $quantity;
         $quote_details = [
             'service_type' => $service_type,
+            'payment_method' => $payment_method,
             'complexity' => $complexity_level,
             'add_ons' => $selected_add_ons,
             'rush' => $rush_requested,
@@ -588,6 +595,21 @@ if(isset($_POST['place_order'])) {
             border-color: #4361ee;
         }
         .service-option.selected {
+            border-color: #4361ee;
+            background: #f8f9ff;
+        }
+        
+        .payment-method-option {
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .payment-method-option:hover {
             border-color: #4361ee;
             background: #f8f9ff;
         }
@@ -1155,9 +1177,44 @@ if(isset($_POST['place_order'])) {
                 </div>
             </div>
 
-            <!-- Step 5: Submit -->
+            
+            <!-- Step 5: Payment & Delivery Address -->
             <div class="card mb-4">
-                <h3>Step 5: Submit</h3>
+                <h3>Step 5: Payment & Delivery Address</h3>
+                <p class="text-muted">Choose how you want to pay for your order and review your default delivery address.</p>
+                <div class="form-group">
+                    <label>Payment Method *</label>
+                    <div class="row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;">
+                        <label class="payment-method-option">
+                            <input type="radio" name="payment_method" value="gcash" required>
+                            <span><strong>GCash</strong></span>
+                        </label>
+                        <label class="payment-method-option">
+                            <input type="radio" name="payment_method" value="card" required>
+                            <span><strong>Visa / Mastercard</strong></span>
+                        </label>
+                        <label class="payment-method-option">
+                            <input type="radio" name="payment_method" value="cod" required>
+                            <span><strong>Cash on Delivery (COD)</strong></span>
+                        </label>
+                        <label class="payment-method-option">
+                            <input type="radio" name="payment_method" value="pickup" required>
+                            <span><strong>Pickup</strong></span>
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group mb-0">
+                    <label>Delivery Address</label>
+                    <div class="d-flex align-center" style="gap: 10px; flex-wrap: wrap;">
+                        <span class="text-muted">Use your default delivery address from your profile.</span>
+                        <a href="customer_profile.php#delivery-address" class="btn btn-outline-primary btn-sm">Go to Default Delivery Address</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 6: Submit -->
+            <div class="card mb-4">
+                <h3>Step 6: Submit</h3>
                 <div class="alert alert-info mt-3">
                     <strong>Estimated quote:</strong>
                     <span id="quoteEstimate">Select a shop and service to see estimates.</span>
