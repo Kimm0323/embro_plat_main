@@ -149,38 +149,7 @@ create_notification(
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <nav class="navbar navbar--compact">
-        <div class="container d-flex justify-between align-center">
-            <a href="dashboard.php" class="navbar-brand">
-                <i class="fas fa-store"></i> <?php echo htmlspecialchars($shop['shop_name']); ?>
-            </a>
-            <ul class="navbar-nav">
-                <li><a href="dashboard.php" class="nav-link">Dashboard</a></li>
-                <li><a href="shop_profile.php" class="nav-link">Shop Profile</a></li>
-                <li><a href="manage_staff.php" class="nav-link">Staff</a></li>
-                <li><a href="shop_orders.php" class="nav-link active">Orders</a></li>
-                <li><a href="messages.php" class="nav-link">Messages</a></li>
-                <li class="dropdown">
-                    <a href="#" class="nav-link dropdown-toggle">
-                        <i class="fas fa-coins"></i> Finance
-                    </a>
-                    <div class="dropdown-menu">
-                        <a href="payment_verifications.php" class="dropdown-item"><i class="fas fa-receipt"></i> Payments</a>
-                        <a href="earnings.php" class="dropdown-item"><i class="fas fa-wallet"></i> Earnings</a>
-                    </div>
-                </li>
-                <li class="dropdown">
-                    <a href="#" class="nav-link dropdown-toggle">
-                        <i class="fas fa-user"></i> <?php echo htmlspecialchars($_SESSION['user']['fullname']); ?>
-                    </a>
-                    <div class="dropdown-menu">
-                        <a href="profile.php" class="dropdown-item"><i class="fas fa-user-cog"></i> Profile</a>
-                        <a href="../auth/logout.php" class="dropdown-item"><i class="fas fa-sign-out-alt"></i> Logout</a>
-                    </div>
-                </li>
-            </ul>
-        </div>
-    </nav>
+    <?php include __DIR__ . "/includes/owner_navbar.php"; ?>
 
 
 <?php if(isset($error)): ?>

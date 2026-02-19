@@ -408,23 +408,7 @@ function fulfillment_pill(?string $status): string {
     </style>
 </head>
 <body>
-    <nav class="navbar navbar--compact">
-        <div class="container d-flex justify-between align-center">
-            <a href="dashboard.php" class="navbar-brand">
-                <i class="fas fa-store"></i> <?php echo htmlspecialchars($shop['shop_name']); ?>
-            </a>
-            <ul class="navbar-nav">
-                <li><a href="dashboard.php" class="nav-link">Dashboard</a></li>
-                <li><a href="shop_orders.php" class="nav-link">Orders</a></li>
-                <li><a href="reviews.php" class="nav-link">Reviews</a></li>
-                <li><a href="messages.php" class="nav-link">Messages</a></li>
-                <li><a href="delivery_management.php" class="nav-link active">Delivery & Pickup</a></li>
-                <li><a href="manage_staff.php" class="nav-link">Staff</a></li>
-                <li><a href="profile.php" class="nav-link">Profile</a></li>
-                <li><a href="../auth/logout.php" class="nav-link">Logout</a></li>
-            </ul>
-        </div>
-    </nav>
+    <?php include __DIR__ . "/includes/owner_navbar.php"; ?>
 
     <div class="container" style="margin-top: 30px;">
         <div class="module-header">

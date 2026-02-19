@@ -54,16 +54,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
     <link rel="stylesheet" href="../assets/css/style.css">
 </head>
 <body>
-    <nav class="navbar navbar--compact">
-        <div class="container d-flex justify-between align-center">
-            <a href="dashboard.php" class="navbar-brand">
-                <i class="fas fa-store"></i> Create Your Shop
-            </a>
-            <ul class="navbar-nav">
-                <li><a href="../auth/logout.php" class="nav-link">Logout</a></li>
-            </ul>
-        </div>
-    </nav>
+    <?php include __DIR__ . "/includes/owner_navbar.php"; ?>
 
     <div class="container">
         <div class="card mt-4" style="max-width: 800px; margin: 0 auto;">

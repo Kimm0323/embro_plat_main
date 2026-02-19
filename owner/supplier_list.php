@@ -38,6 +38,8 @@ $suppliers = $suppliers_stmt->fetchAll();
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
+    <?php include __DIR__ . "/includes/owner_navbar.php"; ?>
+
     <div class="container" style="padding-top: 2rem; padding-bottom: 2rem;">
         <div class="card">
             <div class="card-header d-flex justify-between align-center">
