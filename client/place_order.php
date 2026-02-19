@@ -316,6 +316,7 @@ if ($preselected_shop_id > 0 && $preselected_portfolio_id > 0) {
     $portfolio_preselect_stmt->execute([$preselected_portfolio_id, $preselected_shop_id]);
     $preselected_portfolio = $portfolio_preselect_stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 }
+$is_sample_order = $preselected_portfolio !== null;
 
 // Place order
 if(isset($_POST['place_order'])) {
@@ -381,8 +382,13 @@ if(isset($_POST['place_order'])) {
         }
 
         $enabled_services = resolve_shop_services($shop_policy, $available_services);
+        $is_sample_order = $selected_portfolio_id > 0;
+        if ($is_sample_order) {
+            $service_type = 'Posted Work Sample';
+            $custom_service = '';
+        }
         $is_custom_allowed = in_array('Custom', $enabled_services, true);
-        if ($custom_service !== '') {
+        if (!$is_sample_order && $custom_service !== '') {
             if (!$is_custom_allowed) {
                 throw new RuntimeException('Custom services are not available for this shop.');
             }
@@ -418,11 +424,11 @@ if(isset($_POST['place_order'])) {
             }
         }
 
-        if (!$is_custom_allowed && !in_array($service_type, $enabled_services, true)) {
+        if (!$is_sample_order && !$is_custom_allowed && !in_array($service_type, $enabled_services, true)) {
             throw new RuntimeException('Selected service is not available for this shop.');
         }
 
-        if ($selected_portfolio_id > 0) {
+        if ($selected_portfolio_id > 0 && !$is_sample_order) {
             if ($product_font === '') {
                 throw new RuntimeException('Please choose a font option for the selected product.');
             }
@@ -457,14 +463,17 @@ if(isset($_POST['place_order'])) {
         if ($product_price < 0) {
             $product_price = 0;
         }
-        $service_type_price = (float) ($base_prices[$service_type] ?? ($base_prices['Custom'] ?? 0));
+        $service_type_price = $is_sample_order ? 0.0 : (float) ($base_prices[$service_type] ?? ($base_prices['Custom'] ?? 0));
         $base_price = $service_type_price;
-        $selected_add_ons = array_values(array_intersect($requested_add_ons, array_keys($add_on_fees)));
+        $selected_add_ons = $is_sample_order ? [] : array_values(array_intersect($requested_add_ons, array_keys($add_on_fees)));
         $add_on_total = 0.0;
         foreach ($selected_add_ons as $addon) {
             $add_on_total += (float) ($add_on_fees[$addon] ?? 0);
         }
         $subtotal = $product_price + $service_type_price + $add_on_total;
+        if ($is_sample_order) {
+            $rush_requested = false;
+        }
         $rush_fee_amount = $rush_requested ? ($subtotal * ($rush_fee_percent / 100)) : 0;
         $estimated_unit_price = $subtotal + $rush_fee_amount;
         $estimated_total = $estimated_unit_price * $quantity;
@@ -487,6 +496,8 @@ if(isset($_POST['place_order'])) {
             ],
             'estimated_unit_price' => round($estimated_unit_price, 2),
             'estimated_total' => round($estimated_total, 2),
+            'selected_portfolio_id' => $selected_portfolio_id > 0 ? $selected_portfolio_id : null,
+            'sample_order' => $is_sample_order,
         ];
         $quote_details_json = json_encode($quote_details);
         $design_file = null;
@@ -760,6 +771,11 @@ if(isset($_POST['place_order'])) {
                     <?php endif; ?>
                 </div>
             <?php endif; ?>
+            <?php if ($is_sample_order): ?>
+                <div class="alert alert-success mb-3">
+                    <strong>Sample checkout mode:</strong> This order uses the exact posted work details. Service type, quote preferences, and extra design setup are skipped.
+                </div>
+            <?php endif; ?>
             <!-- Step 1: Select Shop -->
             <div class="card mb-4">
                 <h3>Step 1: Select Service Provider</h3>
@@ -858,6 +874,7 @@ if(isset($_POST['place_order'])) {
                 </div>
             </div>
 
+            <?php if (!$is_sample_order): ?>
             <!-- Step 2: Service Type -->
             <div class="card mb-4">
                 <h3>Step 2: Select Service Type</h3>
@@ -1189,6 +1206,8 @@ if(isset($_POST['place_order'])) {
             </div>
 
             
+            <?php endif; ?>
+
             <!-- Step 5: Payment & Delivery Address -->
             <div class="card mb-4">
                 <h3>Step 5: Payment & Delivery Address</h3>
@@ -1234,7 +1253,7 @@ if(isset($_POST['place_order'])) {
 
             <!-- Step 6: Submit -->
             <div class="card mb-4">
-                <h3>Step 6: Submit</h3>
+                <h3><?php echo $is_sample_order ? 'Step 2: Submit Sample Order' : 'Step 6: Submit'; ?></h3>
                 <div class="alert alert-info mt-3">
                     <strong>Estimated quote:</strong>
                     <span id="quoteEstimate">Select a shop and service to see estimates.</span>
@@ -1268,12 +1287,16 @@ if(isset($_POST['place_order'])) {
             complexity_multipliers: {},
             rush_fee_percent: 0
         };
+        const isSampleOrder = <?php echo $is_sample_order ? 'true' : 'false'; ?>;
 
         function formatCurrency(value) {
             return '₱' + Number(value || 0).toFixed(2);
         }
 
         function getSelectedService() {
+            if (isSampleOrder) {
+                return 'Posted Work Sample';
+            }
             const selected = document.querySelector('input[name="service_type"]:checked');
             if (selected) {
                 return selected.value;
@@ -1293,6 +1316,9 @@ if(isset($_POST['place_order'])) {
         }
 
         function toggleDetailSelections() {
+            if (isSampleOrder) {
+                return;
+            }
             const tshirtDetails = document.getElementById('tshirtDetailSelections');
             const logoDetails = document.getElementById('logoDetailSelections');
             const capDetails = document.getElementById('capDetailSelections');
@@ -1338,10 +1364,12 @@ if(isset($_POST['place_order'])) {
             }
 
             const serviceTypePrice = Number(pricingState.base_prices[service] ?? pricingState.base_prices.Custom ?? 0);
-            const addOns = Array.from(document.querySelectorAll('input[name="add_ons[]"]:checked'))
-                .map((input) => input.value);
-            const addOnTotal = addOns.reduce((sum, addon) => sum + (pricingState.add_ons[addon] || 0), 0);           
-            const rushRequested = document.getElementById('rushService').checked;
+            const addOns = isSampleOrder
+                ? []
+                : Array.from(document.querySelectorAll('input[name="add_ons[]"]:checked')).map((input) => input.value);
+            const addOnTotal = addOns.reduce((sum, addon) => sum + (pricingState.add_ons[addon] || 0), 0);
+            const rushElement = document.getElementById('rushService');
+            const rushRequested = !isSampleOrder && rushElement && rushElement.checked;
             const subtotal = productPrice + serviceTypePrice + Number(addOnTotal);
             const rushFeeAmount = rushRequested ? subtotal * (pricingState.rush_fee_percent / 100) : 0;
 
@@ -1433,11 +1461,13 @@ if(isset($_POST['place_order'])) {
             pricingState.complexity_multipliers = pricing.complexity_multipliers || {};
             pricingState.rush_fee_percent = Number(pricing.rush_fee_percent || 0);
 
-            renderAddOns(pricingState.add_ons);
-            document.getElementById('rushHint').textContent = pricingState.rush_fee_percent
-                ? `Rush fee: +${pricingState.rush_fee_percent}%`
-                : 'Rush service is not configured.';
-            document.getElementById('addOnHint').textContent = 'Add-ons pulled from shop pricing rules.';
+            if (!isSampleOrder) {
+                renderAddOns(pricingState.add_ons);
+                document.getElementById('rushHint').textContent = pricingState.rush_fee_percent
+                    ? `Rush fee: +${pricingState.rush_fee_percent}%`
+                    : 'Rush service is not configured.';
+                document.getElementById('addOnHint').textContent = 'Add-ons pulled from shop pricing rules.';
+            }
 
             updateQuoteEstimate();
         }
@@ -1462,27 +1492,29 @@ if(isset($_POST['place_order'])) {
             const customServiceInput = document.querySelector('input[name="custom_service"]');
             const customServiceHint = document.getElementById('customServiceHint');
 
-            document.querySelectorAll('.service-option').forEach(option => {
-                const serviceName = option.dataset.service;
-                const enabled = isOpen && services.includes(serviceName);
-                option.classList.toggle('disabled', !enabled);
-                option.style.opacity = enabled ? '1' : '0.5';
-                option.style.pointerEvents = enabled ? 'auto' : 'none';
-                const radioInput = option.querySelector('input[type="radio"]');
-                if (!enabled) {
-                    radioInput.checked = false;
-                    option.classList.remove('selected');
-                }
-            });
+            if (!isSampleOrder) {
+                document.querySelectorAll('.service-option').forEach(option => {
+                    const serviceName = option.dataset.service;
+                    const enabled = isOpen && services.includes(serviceName);
+                    option.classList.toggle('disabled', !enabled);
+                    option.style.opacity = enabled ? '1' : '0.5';
+                    option.style.pointerEvents = enabled ? 'auto' : 'none';
+                    const radioInput = option.querySelector('input[type="radio"]');
+                    if (!enabled) {
+                        radioInput.checked = false;
+                        option.classList.remove('selected');
+                    }
+                });
 
             const customAllowed = services.includes('Custom');
-            customServiceInput.disabled = !customAllowed || !isOpen;
-            if (!customAllowed || !isOpen) {
-                customServiceInput.value = '';
+                customServiceInput.disabled = !customAllowed || !isOpen;
+                if (!customAllowed || !isOpen) {
+                    customServiceInput.value = '';
+                }
+                customServiceHint.textContent = customAllowed
+                    ? (isOpen ? 'Custom services are available for this shop.' : 'This shop is closed right now.')
+                    : 'Custom services are not offered by this shop.';
             }
-            customServiceHint.textContent = customAllowed
-                ? (isOpen ? 'Custom services are available for this shop.' : 'This shop is closed right now.')
-                : 'Custom services are not offered by this shop.';
                 
             const pricing = JSON.parse(shopCard.dataset.pricing || '{}');
             setPricingState(pricing);
@@ -1545,14 +1577,19 @@ if(isset($_POST['place_order'])) {
                 selectShop(preselectedShopId);
             }
         }
-        document.getElementById('rushService').addEventListener('change', updateQuoteEstimate);
+        const rushServiceInput = document.getElementById('rushService');
+        if (rushServiceInput) {
+            rushServiceInput.addEventListener('change', updateQuoteEstimate);
+        }
         document.querySelector('input[name="quantity"]').addEventListener('input', updateQuoteEstimate);
         toggleDetailSelections();
-        document.querySelector('input[name="custom_service"]').addEventListener('input', () => {
-            toggleDetailSelections();
-            updateQuoteEstimate();
-            updateSelectionSummary();
-        });
+        if (!isSampleOrder) {
+            document.querySelector('input[name="custom_service"]').addEventListener('input', () => {
+                toggleDetailSelections();
+                updateQuoteEstimate();
+                updateSelectionSummary();
+            });
+        }
 
         updateSelectionSummary();
     </script>
