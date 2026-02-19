@@ -622,7 +622,6 @@ if(isset($_POST['update_status'])) {
                                 <?php if(!empty($job['client_notes'])): ?>
                                     <p class="mb-0 text-muted"><strong>Client notes:</strong> <?php echo htmlspecialchars($job['client_notes']); ?></p>
                                 <?php endif; ?>
-                            <?php endif; ?>
                             <?php if(!empty($job['design_file'])): ?>
                                     <div class="design-file">
                                         <a href="../assets/uploads/designs/<?php echo htmlspecialchars($job['design_file']); ?>" target="_blank" rel="noopener noreferrer">
