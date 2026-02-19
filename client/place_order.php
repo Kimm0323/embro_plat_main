@@ -364,6 +364,9 @@ if(isset($_POST['place_order'])) {
     if (!is_array($requested_add_ons)) {
         $requested_add_ons = [];
     }
+    $sample_canvas_type = sanitize($_POST['sample_canvas_type'] ?? '');
+    $sample_embroidery_detail = sanitize($_POST['sample_embroidery_detail'] ?? '');
+    $sample_size_selection = sanitize($_POST['sample_size_selection'] ?? '');
     $rush_requested = ($_POST['rush_service'] ?? '') === '1';
     
     // Generate order number
@@ -421,6 +424,18 @@ if(isset($_POST['place_order'])) {
             $design_description = 'Selected posted work: ' . $selected_portfolio['title'];
             if (!empty($selected_portfolio['description'])) {
                 $design_description .= ' - ' . $selected_portfolio['description'];
+            }
+            if ($is_sample_order) {
+                if ($sample_canvas_type === '') {
+                    throw new RuntimeException('Please select a canvas type for the sample order.');
+                }
+                if ($sample_embroidery_detail === '') {
+                    throw new RuntimeException('Please select an embroidery detail for the sample order.');
+                }
+                if ($sample_size_selection === '') {
+                    throw new RuntimeException('Please select a size for the sample order.');
+                }
+                $design_description = trim($design_description . ' | Canvas Type: ' . $sample_canvas_type . ' | Embroidery Detail: ' . $sample_embroidery_detail . ' | Size: ' . $sample_size_selection);
             }
         }
 
@@ -498,6 +513,11 @@ if(isset($_POST['place_order'])) {
             'estimated_total' => round($estimated_total, 2),
             'selected_portfolio_id' => $selected_portfolio_id > 0 ? $selected_portfolio_id : null,
             'sample_order' => $is_sample_order,
+            'sample_order_details' => $is_sample_order ? [
+                'canvas_type' => $sample_canvas_type,
+                'embroidery_detail' => $sample_embroidery_detail,
+                'size_selection' => $sample_size_selection,
+            ] : new stdClass(),
         ];
         $quote_details_json = json_encode($quote_details);
         $design_file = null;
@@ -704,6 +724,26 @@ if(isset($_POST['place_order'])) {
             border-color: #4361ee;
             color: #fff;
         }
+        .sample-preview {
+            display: grid;
+            grid-template-columns: minmax(140px, 220px) 1fr;
+            gap: 14px;
+            align-items: start;
+        }
+        .sample-preview img {
+            width: 100%;
+            border-radius: 10px;
+            border: 1px solid #dbe3f0;
+            object-fit: cover;
+            background: #f8fafc;
+        }
+        .sample-selection-summary {
+            margin-top: 12px;
+            border: 1px solid #dbeafe;
+            border-radius: 10px;
+            padding: 12px;
+            background: #f0f9ff;
+        }
     </style>
 </head>
 <body>
@@ -775,6 +815,77 @@ if(isset($_POST['place_order'])) {
                 <div class="alert alert-success mb-3">
                     <strong>Sample checkout mode:</strong> This order uses the exact posted work details. Service type, quote preferences, and extra design setup are skipped.
                 </div>
+            <?php endif; ?>
+            
+            <?php if ($is_sample_order): ?>
+            <div class="card mb-4">
+                <h3>Step 2: Sample Order Details</h3>
+                <p class="text-muted">Review the posted work and complete your sample preferences before checkout.</p>
+                <div class="sample-preview">
+                    <div>
+                        <?php if (!empty($preselected_portfolio['image_path'])): ?>
+                            <img src="../assets/uploads/<?php echo htmlspecialchars($preselected_portfolio['image_path']); ?>" alt="<?php echo htmlspecialchars($preselected_portfolio['title']); ?>">
+                        <?php else: ?>
+                            <div class="text-muted small">No photo available.</div>
+                        <?php endif; ?>
+                    </div>
+                    <div>
+                        <h4 class="mb-1"><?php echo htmlspecialchars($preselected_portfolio['title']); ?></h4>
+                        <?php if (!empty($preselected_portfolio['description'])): ?>
+                            <p class="text-muted mb-2"><?php echo nl2br(htmlspecialchars($preselected_portfolio['description'])); ?></p>
+                        <?php endif; ?>
+                        <div class="small"><strong>Canvas Type</strong>: <span id="sampleCanvasSummary">Not selected yet</span></div>
+                        <div class="small mt-1"><strong>Embroidery Detail</strong>: <span id="sampleEmbroiderySummary">Not selected yet</span></div>
+                        <div class="small mt-1"><strong>Size</strong>: <span id="sampleSizeSummary">Not selected yet</span></div>
+                        <div class="small mt-1"><strong>Quantity</strong>: <span id="sampleQuantitySummary">1</span></div>
+                    </div>
+                </div>
+
+                <div class="row mt-3" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">
+                    <div class="form-group mb-0">
+                        <label>Canvas Type *</label>
+                        <select name="sample_canvas_type" id="sampleCanvasType" class="form-control" required>
+                            <option value="">Select canvas type</option>
+                            <option value="Cotton Twill">Cotton Twill</option>
+                            <option value="Linen">Linen</option>
+                            <option value="Polyester Blend">Polyester Blend</option>
+                            <option value="Denim">Denim</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label>Embroidery Detail *</label>
+                        <select name="sample_embroidery_detail" id="sampleEmbroideryDetail" class="form-control" required>
+                            <option value="">Select embroidery detail</option>
+                            <option value="Flat Stitch">Flat Stitch</option>
+                            <option value="Satin Stitch">Satin Stitch</option>
+                            <option value="3D Puff">3D Puff</option>
+                            <option value="Applique">Applique</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label>Size Selection *</label>
+                        <select name="sample_size_selection" id="sampleSizeSelection" class="form-control" required>
+                            <option value="">Select size</option>
+                            <option value="Small (5x3 cm)">Small (5x3 cm)</option>
+                            <option value="Medium (5x5 cm)">Medium (5x5 cm)</option>
+                            <option value="Large (8x5 cm)">Large (8x5 cm)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row mt-2" style="display: flex; gap: 15px; flex-wrap: wrap;">
+                    <div class="form-group" style="flex: 1; min-width: 180px;">
+                        <label>Quantity Selection *</label>
+                        <input type="number" name="quantity" id="sampleQuantityInput" class="form-control" value="1" min="1" required>
+                    </div>
+                    <div class="form-group" style="flex: 2; min-width: 240px;">
+                        <label>Additional Notes (Optional)</label>
+                        <textarea name="client_notes" class="form-control" rows="2" placeholder="Any special instructions or requirements..."></textarea>
+                    </div>
+                </div>
+                <div class="sample-selection-summary small text-muted" id="sampleSelectionSummary">
+                    Please complete canvas type, embroidery detail, size, and quantity.
+                </div>
+            </div>
             <?php endif; ?>
             <!-- Step 1: Select Shop -->
             <div class="card mb-4">
@@ -1407,6 +1518,40 @@ if(isset($_POST['place_order'])) {
                 : `Shop: ${shopName} • Order: ${orderText}`;
         }
 
+        function updateSampleOrderSummary() {
+            if (!isSampleOrder) {
+                return;
+            }
+            const canvas = document.getElementById('sampleCanvasType');
+            const embroidery = document.getElementById('sampleEmbroideryDetail');
+            const size = document.getElementById('sampleSizeSelection');
+            const quantity = document.getElementById('sampleQuantityInput');
+
+            const canvasValue = canvas && canvas.value ? canvas.value : 'Not selected yet';
+            const embroideryValue = embroidery && embroidery.value ? embroidery.value : 'Not selected yet';
+            const sizeValue = size && size.value ? size.value : 'Not selected yet';
+            const quantityValue = quantity && quantity.value ? quantity.value : '1';
+
+            const canvasSummary = document.getElementById('sampleCanvasSummary');
+            const embroiderySummary = document.getElementById('sampleEmbroiderySummary');
+            const sizeSummary = document.getElementById('sampleSizeSummary');
+            const quantitySummary = document.getElementById('sampleQuantitySummary');
+            const summaryBox = document.getElementById('sampleSelectionSummary');
+
+            if (canvasSummary) canvasSummary.textContent = canvasValue;
+            if (embroiderySummary) embroiderySummary.textContent = embroideryValue;
+            if (sizeSummary) sizeSummary.textContent = sizeValue;
+            if (quantitySummary) quantitySummary.textContent = quantityValue;
+
+            if (summaryBox) {
+                if (canvas && canvas.value && embroidery && embroidery.value && size && size.value) {
+                    summaryBox.textContent = `Selected: ${canvas.value} canvas, ${embroidery.value}, ${size.value}, quantity ${quantityValue}.`;
+                } else {
+                    summaryBox.textContent = 'Please complete canvas type, embroidery detail, size, and quantity.';
+                }
+            }
+        }
+
         function showOnlySelectedShop(selectedShopId) {
             document.querySelectorAll('.shop-card').forEach(card => {
                 const isSelected = card.id === `shop-${selectedShopId}`;
@@ -1581,7 +1726,10 @@ if(isset($_POST['place_order'])) {
         if (rushServiceInput) {
             rushServiceInput.addEventListener('change', updateQuoteEstimate);
         }
-        document.querySelector('input[name="quantity"]').addEventListener('input', updateQuoteEstimate);
+        document.querySelector('input[name="quantity"]').addEventListener('input', () => {
+            updateQuoteEstimate();
+            updateSampleOrderSummary();
+        });
         toggleDetailSelections();
         if (!isSampleOrder) {
             document.querySelector('input[name="custom_service"]').addEventListener('input', () => {
@@ -1589,9 +1737,16 @@ if(isset($_POST['place_order'])) {
                 updateQuoteEstimate();
                 updateSelectionSummary();
             });
+            } else {
+            ['sampleCanvasType', 'sampleEmbroideryDetail', 'sampleSizeSelection'].forEach((id) => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('change', updateSampleOrderSummary);
+                }
+            });
         }
 
-        updateSelectionSummary();
+        updateSampleOrderSummary();
     </script>
 </body>
 </html>
