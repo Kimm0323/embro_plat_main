@@ -384,7 +384,7 @@ $shop_posts = $posts_stmt->fetchAll(PDO::FETCH_ASSOC);
         <?php endif; ?>
 
         <div class="card profile-card">
-            <form method="POST" enctype="multipart/form-data">
+            <form method="POST" enctype="multipart/form-data" id="business-information-form">
                 <?php echo csrf_field(); ?>
                 <input type="hidden" name="action" value="submit_business_information">
 
@@ -490,6 +490,7 @@ $shop_posts = $posts_stmt->fetchAll(PDO::FETCH_ASSOC);
                         <option value="">Select VAT registration</option>
                         <option value="vat_registered" <?php echo $business_form_values['vat_registration'] === 'vat_registered' ? 'selected' : ''; ?>>VAT Registered</option>
                         <option value="non_vat_registered" <?php echo $business_form_values['vat_registration'] === 'non_vat_registered' ? 'selected' : ''; ?>>Non VAT Registered</option>
+                    </select>
                 </div>
 
                 <div class="form-group">
@@ -517,6 +518,9 @@ $shop_posts = $posts_stmt->fetchAll(PDO::FETCH_ASSOC);
                     </label>
                 </div>
             <div class="text-center mt-4">
+                <button type="button" class="btn btn-secondary btn-lg" id="business-info-reset">
+                        <i class="fas fa-undo"></i> Reset Fields
+                    </button>
                     <button type="submit" class="btn btn-primary btn-lg">
                         <i class="fas fa-paper-plane"></i> Submit
                     </button>
@@ -580,6 +584,40 @@ $shop_posts = $posts_stmt->fetchAll(PDO::FETCH_ASSOC);
         </div>
     </div>
     <script>
+        const businessInformationForm = document.getElementById('business-information-form');
+        const businessInfoResetButton = document.getElementById('business-info-reset');
+
+        if (businessInformationForm && businessInfoResetButton) {
+            const fieldsToReset = [
+                'individual_registered_name',
+                'primary_business_document_type',
+                'tax_payer_identification_number',
+                'vat_registration',
+                'submit_sworn_declaration',
+                'primary_business_document_photo',
+                'government_id_front_photo',
+                'government_id_back_photo',
+                'bir_certificate_registration_photo'
+            ];
+
+            businessInfoResetButton.addEventListener('click', () => {
+                fieldsToReset.forEach((fieldName) => {
+                    const field = businessInformationForm.elements[fieldName];
+                    if (!field) {
+                        return;
+                    }
+
+                    if (field.type === 'file') {
+                        field.value = '';
+                    } else if (field.type === 'checkbox' || field.type === 'radio') {
+                        field.checked = false;
+                    } else {
+                        field.value = '';
+                    }
+                });
+            });
+        }
+
          const businessPhoneInput = document.querySelector('input[name="business_phone"]');
         if (businessPhoneInput) {
             businessPhoneInput.addEventListener('input', () => {
