@@ -535,6 +535,12 @@ if(isset($_POST['place_order'])) {
                 'estimated_total' => $quote_details['estimated_total'] ?? null,
             ]
         );
+        
+        if ($selected_portfolio_id > 0) {
+            header('Location: order_receipt.php?order_id=' . (int) $order_id);
+            exit;
+        }
+
         $success = "Order placed successfully! Your order number is: <strong>$order_number</strong>";
         
     } catch(RuntimeException $e) {
