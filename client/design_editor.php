@@ -1364,22 +1364,10 @@ function drawPlacementGuide(hoopX, hoopY, hoopWidth, hoopHeight) {
     const placements = placementsByType[canvasTypeGroup] || placementsByType.tshirt;
     const firstPlacement = getPlacementOptions()[0]?.value;
     const point = placements[state.placementMethod] || placements[firstPlacement] || Object.values(placements)[0];
-    const largePlacements = new Set(['full-front']);
-    const guideSize = largePlacements.has(state.placementMethod) ? 92 : 50;
-
     ctx.save();
-    ctx.strokeStyle = '#f59e0b';
-    ctx.fillStyle = 'rgba(245, 158, 11, 0.12)';
-    ctx.lineWidth = 1.8;
-    ctx.setLineDash([5, 4]);
-    ctx.beginPath();
-    ctx.rect(point.x - guideSize / 2, point.y - guideSize / 2, guideSize, guideSize);
-    ctx.fill();
-    ctx.stroke();
-    ctx.setLineDash([]);
     ctx.fillStyle = '#92400e';
     ctx.font = "600 13px 'Inter', sans-serif";
-    ctx.fillText(point.label, point.x - guideSize / 2, point.y - guideSize / 2 - 8);
+  
     ctx.restore();
 }
 
