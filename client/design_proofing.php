@@ -618,17 +618,7 @@ $request_history = $requests_stmt->fetchAll();
                         <textarea class="form-control" name="design_description" rows="5" required placeholder="Describe the design you want for proofing and price quotation."><?php echo htmlspecialchars($selected_design_description); ?></textarea>
                     </div>
 
-                    <div class="form-group">
-                        <label>Shop Selection</label>
-                        <select class="form-control" name="shop_id" required>
-                            <option value="">Select a shop for proofing and quote</option>
-                            <?php foreach($shops as $shop): ?>
-                                <option value="<?php echo (int) $shop['id']; ?>" <?php echo $selected_shop_id === (int) $shop['id'] ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($shop['shop_name']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
+                    <input type="hidden" name="shop_id" value="<?php echo (int) $selected_shop_id; ?>" required>
 
                     <div class="form-group">
                         <label>Upload Design File (Optional)</label>
@@ -701,164 +691,11 @@ $request_history = $requests_stmt->fetchAll();
                 <p class="text-muted mb-0">No active requests found. Submit a design proofing request above to get started.</p>
             <?php endif; ?>
         </div>
-
-
-        <div class="card">
-            <div class="card-header">
-                <h3><i class="fas fa-shield-halved text-primary"></i> Pending Designs (Waiting for Approval)</h3>
-                <p class="text-muted">Review design details, quoted pricing, and respond with acceptance, rejection, or negotiation.</p>
-            </div>
-            <?php if(!empty($approvals)): ?>
-                <div class="proofing-grid">
-                    <?php foreach($approvals as $approval): ?>
-                        <div class="proof-card">
-                            <h4>Order #<?php echo htmlspecialchars($approval['order_number']); ?></h4>
-                            <p class="text-muted mb-2"><i class="fas fa-store"></i> <?php echo htmlspecialchars($approval['shop_name']); ?></p>
-
-                            <?php
-                                $design_version_preview = proof_file_url($approval['design_version_preview'] ?? null);
-                                $has_design_version = !empty($approval['design_version_id']);
-                                $approval_status = $approval['approval_status'] ?? 'pending';
-                                $proof_file = !empty($approval['design_file'])
-                                    ? $approval['design_file']
-                                    : ($approval['order_design_file'] ?? '');
-                                    $proof_file_url = proof_file_url($proof_file);
-                            ?>
-                            <span class="badge badge-warning">Proof <?php echo htmlspecialchars($approval_status); ?></span>
-                             <div class="quote-meta">
-                                <p class="mb-1"><strong>Design details:</strong> <?php echo htmlspecialchars($approval['design_description'] ?: 'No description provided.'); ?></p>
-                                <p class="mb-1"><strong>Service:</strong> <?php echo htmlspecialchars($approval['service_type'] ?: 'Custom Embroidery Design'); ?></p>
-                                <p class="mb-0"><strong>Shop price quote:</strong>
-                                    <?php echo $approval['price'] !== null ? '₱' . number_format((float) $approval['price'], 2) : 'Awaiting shop quote'; ?>
-                                </p>
-                            </div>
-                            <?php if(!empty($approval['provider_notes'])): ?>
-                                <div class="alert alert-info mt-3 mb-2">
-                                    <strong><i class="fas fa-user-tie"></i> Staff approval request:</strong>
-                                    <p class="mb-0"><?php echo nl2br(htmlspecialchars($approval['provider_notes'])); ?></p>
-                                </div>
-                            <?php endif; ?>
-                            <?php if($has_design_version): ?>
-                                <div class="mt-3">
-                                    <p class="text-muted mb-1">
-                                        <i class="fas fa-layer-group"></i>
-                                        Latest saved version
-                                        <?php if(!empty($approval['design_version_no'])): ?>
-                                            (v<?php echo (int) $approval['design_version_no']; ?>)
-                                        <?php endif; ?>
-                                    </p>
-                                    <?php if(!empty($approval['design_project_title'])): ?>
-                                        <p class="mb-1"><strong><?php echo htmlspecialchars($approval['design_project_title']); ?></strong></p>
-                                    <?php endif; ?>
-                                    <?php if(!empty($approval['design_version_created_at'])): ?>
-                                        <small class="text-muted">Saved <?php echo date('M d, Y', strtotime($approval['design_version_created_at'])); ?></small>
-                                    <?php endif; ?>
-                                    <?php if($design_version_preview): ?>
-                                        <?php if(is_design_image($approval['design_version_preview'])): ?>
-                                            <img src="<?php echo htmlspecialchars($design_version_preview); ?>" alt="Saved design version" class="mt-2">
-                                        <?php endif; ?>
-                                        <p class="mt-2 mb-0">
-                                            <a href="<?php echo htmlspecialchars($design_version_preview); ?>" target="_blank" rel="noopener noreferrer">
-                                                <i class="fas fa-paperclip"></i> View saved design
-                                            </a>
-                                        </p>
-                                    <?php endif; ?>
-                                </div>
-                            <?php endif; ?>
-
-            <?php if($proof_file_url): ?>
-                                <?php if(is_design_image($proof_file)): ?>
-                                     <img src="<?php echo htmlspecialchars($proof_file_url); ?>" alt="Design proof">
-                                <?php endif; ?>
-                                <p class="mt-2 mb-0">
-                                   <a href="<?php echo htmlspecialchars($proof_file_url); ?>" target="_blank" rel="noopener noreferrer">
-                                        <i class="fas fa-paperclip"></i> View proof file
-                                    </a>
-                                </p>
-                            <?php endif; ?>
-
-                            <div class="proof-actions">
-                                <form method="POST">
-                                    <?php echo csrf_field(); ?>
-                                    <input type="hidden" name="order_id" value="<?php echo $approval['order_id']; ?>">
-                                    <div class="form-group">
-                                        <textarea name="quote_comment" class="form-control" rows="2" placeholder="Comment/recommendation for the quoted price (optional)"></textarea>
-                                    </div>
-                                    <button type="submit" name="accept_price_quote" class="btn btn-outline-success btn-block">
-                                        <i class="fas fa-thumbs-up"></i> Accept Price
-                                    </button>
-                                </form>
-                                <form method="POST">
-                                    <?php echo csrf_field(); ?>
-                                    <input type="hidden" name="order_id" value="<?php echo $approval['order_id']; ?>">
-                                    <div class="form-group">
-                                        <textarea name="quote_comment" class="form-control" rows="2" placeholder="Reason for rejecting the price" required></textarea>
-                                    </div>
-                                    <button type="submit" name="reject_price_quote" class="btn btn-outline-danger btn-block">
-                                        <i class="fas fa-ban"></i> Reject Price
-                                    </button>
-                                </form>
-                                <form method="POST">
-                                    <?php echo csrf_field(); ?>
-                                    <input type="hidden" name="order_id" value="<?php echo $approval['order_id']; ?>">
-                                    <div class="form-group">
-                                        <textarea name="quote_comment" class="form-control" rows="2" placeholder="Suggest your preferred budget / negotiation notes" required></textarea>
-                                    </div>
-                                    <button type="submit" name="negotiate_price_quote" class="btn btn-outline-primary btn-block">
-                                        <i class="fas fa-comments-dollar"></i> Negotiate Price
-                                    </button>
-                                </form>
-                                <form method="POST">
-                                    <?php echo csrf_field(); ?>
-                                    <input type="hidden" name="order_id" value="<?php echo $approval['order_id']; ?>">
-                                    <div class="form-group">
-                                        <textarea name="quote_comment" class="form-control" rows="2" placeholder="Optional note before switching shops"></textarea>
-                                    </div>
-                                    <button type="submit" name="reject_shop_quote" class="btn btn-outline-secondary btn-block">
-                                        <i class="fas fa-store-slash"></i> Reject Shop &amp; Select Another
-                                    </button>
-                                </form>
-                                <form method="POST">
-                                    <?php echo csrf_field(); ?>
-                                    <input type="hidden" name="order_id" value="<?php echo $approval['order_id']; ?>">
-                                    <button type="submit" name="approve_proof" class="btn btn-success btn-block">
-                                        <i class="fas fa-check-circle"></i> Approve Proof
-                                    </button>
-                                </form>
-                                <form method="POST">
-                                    <?php echo csrf_field(); ?>
-                                    <input type="hidden" name="order_id" value="<?php echo $approval['order_id']; ?>">
-                                    <div class="form-group">
-                                        <textarea name="revision_notes" class="form-control" rows="2" placeholder="Request a revision (optional details)" required></textarea>
-                                    </div>
-                                    <button type="submit" name="request_revision" class="btn btn-outline-warning btn-block">
-                                        <i class="fas fa-rotate-left"></i> Request Revision
-                                    </button>
-                                </form>
-                                <form method="POST">
-                                    <?php echo csrf_field(); ?>
-                                    <input type="hidden" name="order_id" value="<?php echo $approval['order_id']; ?>">
-                                    <div class="form-group">
-                                        <textarea name="rejection_notes" class="form-control" rows="2" placeholder="Share rejection notes" required></textarea>
-                                    </div>
-                                    <button type="submit" name="reject_proof" class="btn btn-outline-danger btn-block">
-                                        <i class="fas fa-times-circle"></i> Reject Proof
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            <?php else: ?>
-                <p class="text-muted mb-0">No proofs are waiting for your approval right now.</p>
-            <?php endif; ?>
-            </div>
-    </div>
-     <script>
+        <script>
         const designFileInput = document.getElementById('designFileInput');
         const uploadPreview = document.getElementById('uploadPreview');
         const shopOptions = document.querySelectorAll('[data-shop-option]');
-        const shopSelect = document.querySelector('select[name="shop_id"]');
+        const shopSelect = document.querySelector('[name="shop_id"]');
 
         function refreshUploadPreview() {
             if(!designFileInput || !uploadPreview) return;

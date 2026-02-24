@@ -172,11 +172,13 @@ $latest_posts = $posts_stmt->fetchAll();
         }
         .post-card img {
             width: 100%;
-            height: 160px;
+            max-width: 1200px;
+            height: 400px;
             object-fit: cover;
             border-radius: 10px;
             border: 1px solid #e2e8f0;
             background: #f8fafc;
+            margin: 0 auto;
         }
         .post-card h4 {
             margin: 0;
