@@ -199,10 +199,11 @@ if ($community_comments_table_exists && !empty($client_posts)) {
         }
 
          .post-image {
-            width: 100%;
+            width: 1200px;
+            height: 400px;
+            max-width: 100%;
             border-radius: var(--radius);
             object-fit: cover;
-            max-height: 220px;
             margin-bottom: 0.75rem;
         }
 
