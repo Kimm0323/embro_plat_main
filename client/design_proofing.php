@@ -54,6 +54,24 @@ function notify_shop_staff(PDO $pdo, int $shop_id, int $order_id, string $type, 
     }
 }
 
+function update_quote_details(PDO $pdo, int $order_id, array $payload): void {
+    $details_stmt = $pdo->prepare("SELECT quote_details FROM orders WHERE id = ? LIMIT 1");
+    $details_stmt->execute([$order_id]);
+    $existing_details = $details_stmt->fetchColumn();
+    $quote_details = [];
+
+    if(is_string($existing_details) && $existing_details !== '') {
+        $decoded = json_decode($existing_details, true);
+        if(is_array($decoded)) {
+            $quote_details = $decoded;
+        }
+    }
+
+    $quote_details = array_merge($quote_details, $payload);
+    $update_stmt = $pdo->prepare("UPDATE orders SET quote_details = ?, updated_at = NOW() WHERE id = ?");
+    $update_stmt->execute([json_encode($quote_details), $order_id]);
+}
+
 $shops_stmt = $pdo->query("SELECT id, shop_name, shop_description, address, rating FROM shops WHERE status = 'active' ORDER BY rating DESC, total_orders DESC, shop_name ASC");
 $shops = $shops_stmt->fetchAll();
 
@@ -328,9 +346,79 @@ if(isset($_POST['reject_proof'])) {
     }
 }
 
+
+if(isset($_POST['accept_price_quote']) || isset($_POST['reject_price_quote']) || isset($_POST['negotiate_price_quote']) || isset($_POST['reject_shop_quote'])) {
+    $order_id = (int) ($_POST['order_id'] ?? 0);
+    $comment = sanitize($_POST['quote_comment'] ?? '');
+
+    $quote_stmt = $pdo->prepare("SELECT o.id, o.order_number, o.shop_id, o.client_id, s.owner_id, s.shop_name
+        FROM orders o
+        JOIN shops s ON s.id = o.shop_id
+        WHERE o.id = ? AND o.client_id = ?
+        LIMIT 1");
+    $quote_stmt->execute([$order_id, $client_id]);
+    $order_quote = $quote_stmt->fetch();
+
+    if(!$order_quote) {
+        $error = 'Unable to locate this quote request.';
+    } elseif(isset($_POST['accept_price_quote'])) {
+        update_quote_details($pdo, $order_id, [
+            'price_quote_status' => 'accepted',
+            'price_quote_comment' => $comment !== '' ? $comment : null,
+            'price_quote_updated_at' => date('c'),
+        ]);
+        $message = sprintf('Client accepted the price quote for order #%s.', $order_quote['order_number']);
+        if(!empty($order_quote['owner_id'])) {
+            create_notification($pdo, (int) $order_quote['owner_id'], $order_id, 'success', $message);
+        }
+        notify_shop_staff($pdo, (int) $order_quote['shop_id'], $order_id, 'success', $message);
+        $success = 'Price quote accepted. The shop has been notified.';
+    } elseif(isset($_POST['reject_price_quote'])) {
+        if($comment === '') {
+            $error = 'Please share a reason before rejecting the quoted price.';
+        } else {
+            update_quote_details($pdo, $order_id, [
+                'price_quote_status' => 'rejected',
+                'price_quote_comment' => $comment,
+                'price_quote_updated_at' => date('c'),
+            ]);
+            $message = sprintf('Client rejected the price quote for order #%s.', $order_quote['order_number']);
+            if(!empty($order_quote['owner_id'])) {
+                create_notification($pdo, (int) $order_quote['owner_id'], $order_id, 'warning', $message);
+            }
+            notify_shop_staff($pdo, (int) $order_quote['shop_id'], $order_id, 'warning', $message);
+            $success = 'Price quote rejected. You may now negotiate or choose another shop.';
+        }
+    } elseif(isset($_POST['negotiate_price_quote'])) {
+        if($comment === '') {
+            $error = 'Please add your negotiation recommendation for the shop.';
+        } else {
+            update_quote_details($pdo, $order_id, [
+                'price_quote_status' => 'negotiation_requested',
+                'price_quote_comment' => $comment,
+                'price_quote_updated_at' => date('c'),
+            ]);
+            $message = sprintf('Client requested a price negotiation for order #%s.', $order_quote['order_number']);
+            if(!empty($order_quote['owner_id'])) {
+                create_notification($pdo, (int) $order_quote['owner_id'], $order_id, 'order_status', $message);
+            }
+            notify_shop_staff($pdo, (int) $order_quote['shop_id'], $order_id, 'order_status', $message);
+            $success = 'Negotiation request sent to the shop.';
+        }
+    } elseif(isset($_POST['reject_shop_quote'])) {
+        update_quote_details($pdo, $order_id, [
+            'price_quote_status' => 'shop_rejected',
+            'price_quote_comment' => $comment !== '' ? $comment : 'Client opted to select another shop.',
+            'price_quote_updated_at' => date('c'),
+        ]);
+        $success = 'Shop quote rejected. You can submit a new request above and select another shop.';
+    }
+}
+
 $approvals_stmt = $pdo->prepare("
     SELECT o.id as order_id, o.order_number, o.status as order_status, o.design_approved,
            o.design_version_id,o.design_file as order_design_file,
+           o.service_type, o.design_description, o.price, o.quote_details,
            s.shop_name, s.owner_id,
            da.status as approval_status, da.design_file, da.provider_notes, da.revision_count,
            COALESCE(da.updated_at, o.updated_at) as updated_at,
@@ -411,39 +499,12 @@ $approvals = $approvals_stmt->fetchAll();
             background: var(--bg-secondary);
         }
 
-        .shop-list {
-            display: grid;
-            gap: 0.75rem;
-        }
-
-        .shop-option {
+        .quote-meta {
             border: 1px solid var(--gray-200);
             border-radius: var(--radius);
-            padding: 0.9rem;
-            background: #fff;
-            cursor: pointer;
-            transition: border-color 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .shop-option:hover {
-            border-color: #93c5fd;
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-        }
-
-        .shop-option input[type="radio"] {
-            margin-right: 0.5rem;
-        }
-
-        .shop-option.selected {
-            border-color: #2563eb;
-            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
-            background: #eff6ff;
-        }
-
-        .shop-option .shop-meta {
-            color: var(--gray-600);
-            font-size: 0.875rem;
-            margin-top: 0.35rem;
+            padding: 0.75rem;
+            background: var(--bg-secondary);
+            margin-top: 0.75rem;
         }
 
         @media(max-width: 900px) {
@@ -478,16 +539,14 @@ $approvals = $approvals_stmt->fetchAll();
             <div class="card">
                 <div class="card-header">
                     <h3><i class="fas fa-file-signature text-primary"></i> Request Design Proofing &amp; Quote</h3>
-                   <p class="text-muted">Upload your preferred design and service details, then select a shop on the right side.</p>
+                   <p class="text-muted">Use the dropdown fields below to submit design proofing and price quote requests.</p>
                 </div>
                 <form method="POST" enctype="multipart/form-data">
                     <?php echo csrf_field(); ?>
                     <input type="hidden" name="customize_order_id" value="<?php echo (int) ($selected_custom_order['id'] ?? 0); ?>">
 
-                    <input type="hidden" name="shop_id" id="selectedShopIdInput" value="<?php echo $selected_shop_id > 0 ? $selected_shop_id : ''; ?>" required>
-
                     <div class="form-group">
-                         <label>Service Type</label>
+                         <label>Service Selection</label>
                         <select class="form-control" name="service_type" required>
                             <?php foreach($service_type_options as $service_option): ?>
                                 <option value="<?php echo htmlspecialchars($service_option); ?>" <?php echo $selected_service_type === $service_option ? 'selected' : ''; ?>>
@@ -500,6 +559,18 @@ $approvals = $approvals_stmt->fetchAll();
                     <div class="form-group">
                         <label>Design Description</label>
                         <textarea class="form-control" name="design_description" rows="5" required placeholder="Describe the design you want for proofing and price quotation."><?php echo htmlspecialchars($selected_design_description); ?></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Shop Selection</label>
+                        <select class="form-control" name="shop_id" required>
+                            <option value="">Select a shop for proofing and quote</option>
+                            <?php foreach($shops as $shop): ?>
+                                <option value="<?php echo (int) $shop['id']; ?>" <?php echo $selected_shop_id === (int) $shop['id'] ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($shop['shop_name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
 
                     <div class="form-group">
@@ -516,40 +587,6 @@ $approvals = $approvals_stmt->fetchAll();
             </div>
 
             <div class="d-flex flex-column gap-3">
-                 <div class="card">
-                    <h4><i class="fas fa-store text-primary"></i> Select Shop</h4>
-                    <p class="text-muted">Choose one shop to receive your design proofing and quotation request.</p>
-                    <div class="shop-list" id="shopList">
-                        <?php foreach($shops as $shop): ?>
-                            <?php
-                                $shop_id = (int) $shop['id'];
-                                $is_selected_shop = $selected_shop_id === $shop_id;
-                            ?>
-                            <label class="shop-option <?php echo $is_selected_shop ? 'selected' : ''; ?>" data-shop-id="<?php echo $shop_id; ?>">
-                                <div>
-                                    <input type="radio" name="shop_choice" value="<?php echo $shop_id; ?>" <?php echo $is_selected_shop ? 'checked' : ''; ?>>
-                                    <strong><?php echo htmlspecialchars($shop['shop_name']); ?></strong>
-                                    <?php if(!empty($shop['rating'])): ?>
-                                        <span class="text-muted">• ⭐ <?php echo number_format((float) $shop['rating'], 1); ?></span>
-                                    <?php endif; ?>
-                                </div>
-                                <div class="shop-meta">
-                                    <?php
-                                        $shop_description = trim((string) ($shop['shop_description'] ?? ''));
-                                        if($shop_description === '') {
-                                            $shop_description = 'Professional embroidery services for design proofing and quotation requests.';
-                                        }
-                                    ?>
-                                    <div><?php echo htmlspecialchars($shop_description); ?></div>
-                                    <?php if(!empty($shop['address'])): ?>
-                                        <div><i class="fas fa-location-dot"></i> <?php echo htmlspecialchars($shop['address']); ?></div>
-                                    <?php endif; ?>
-                                </div>
-                            </label>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-
                 <?php if($selected_custom_order): ?>
                     <div class="service-note">
                         <h4 class="mb-1"><i class="fas fa-link"></i> From Customize Design</h4>
@@ -570,8 +607,8 @@ $approvals = $approvals_stmt->fetchAll();
 
         <div class="card">
             <div class="card-header">
-                <h3><i class="fas fa-shield-halved text-primary"></i> Proofs Awaiting Your Approval</h3>
-                <p class="text-muted">Approve the proof to unlock production or reject it with feedback.</p>
+                <h3><i class="fas fa-shield-halved text-primary"></i> Pending Designs (Waiting for Approval)</h3>
+                <p class="text-muted">Review design details, quoted pricing, and respond with acceptance, rejection, or negotiation.</p>
             </div>
             <?php if(!empty($approvals)): ?>
                 <div class="proofing-grid">
@@ -590,6 +627,13 @@ $approvals = $approvals_stmt->fetchAll();
                                     $proof_file_url = proof_file_url($proof_file);
                             ?>
                             <span class="badge badge-warning">Proof <?php echo htmlspecialchars($approval_status); ?></span>
+                             <div class="quote-meta">
+                                <p class="mb-1"><strong>Design details:</strong> <?php echo htmlspecialchars($approval['design_description'] ?: 'No description provided.'); ?></p>
+                                <p class="mb-1"><strong>Service:</strong> <?php echo htmlspecialchars($approval['service_type'] ?: 'Custom Embroidery Design'); ?></p>
+                                <p class="mb-0"><strong>Shop price quote:</strong>
+                                    <?php echo $approval['price'] !== null ? '₱' . number_format((float) $approval['price'], 2) : 'Awaiting shop quote'; ?>
+                                </p>
+                            </div>
                             <?php if(!empty($approval['provider_notes'])): ?>
                                 <div class="alert alert-info mt-3 mb-2">
                                     <strong><i class="fas fa-user-tie"></i> Staff approval request:</strong>
@@ -636,6 +680,46 @@ $approvals = $approvals_stmt->fetchAll();
                             <?php endif; ?>
 
                             <div class="proof-actions">
+                                <form method="POST">
+                                    <?php echo csrf_field(); ?>
+                                    <input type="hidden" name="order_id" value="<?php echo $approval['order_id']; ?>">
+                                    <div class="form-group">
+                                        <textarea name="quote_comment" class="form-control" rows="2" placeholder="Comment/recommendation for the quoted price (optional)"></textarea>
+                                    </div>
+                                    <button type="submit" name="accept_price_quote" class="btn btn-outline-success btn-block">
+                                        <i class="fas fa-thumbs-up"></i> Accept Price
+                                    </button>
+                                </form>
+                                <form method="POST">
+                                    <?php echo csrf_field(); ?>
+                                    <input type="hidden" name="order_id" value="<?php echo $approval['order_id']; ?>">
+                                    <div class="form-group">
+                                        <textarea name="quote_comment" class="form-control" rows="2" placeholder="Reason for rejecting the price" required></textarea>
+                                    </div>
+                                    <button type="submit" name="reject_price_quote" class="btn btn-outline-danger btn-block">
+                                        <i class="fas fa-ban"></i> Reject Price
+                                    </button>
+                                </form>
+                                <form method="POST">
+                                    <?php echo csrf_field(); ?>
+                                    <input type="hidden" name="order_id" value="<?php echo $approval['order_id']; ?>">
+                                    <div class="form-group">
+                                        <textarea name="quote_comment" class="form-control" rows="2" placeholder="Suggest your preferred budget / negotiation notes" required></textarea>
+                                    </div>
+                                    <button type="submit" name="negotiate_price_quote" class="btn btn-outline-primary btn-block">
+                                        <i class="fas fa-comments-dollar"></i> Negotiate Price
+                                    </button>
+                                </form>
+                                <form method="POST">
+                                    <?php echo csrf_field(); ?>
+                                    <input type="hidden" name="order_id" value="<?php echo $approval['order_id']; ?>">
+                                    <div class="form-group">
+                                        <textarea name="quote_comment" class="form-control" rows="2" placeholder="Optional note before switching shops"></textarea>
+                                    </div>
+                                    <button type="submit" name="reject_shop_quote" class="btn btn-outline-secondary btn-block">
+                                        <i class="fas fa-store-slash"></i> Reject Shop &amp; Select Another
+                                    </button>
+                                </form>
                                 <form method="POST">
                                     <?php echo csrf_field(); ?>
                                     <input type="hidden" name="order_id" value="<?php echo $approval['order_id']; ?>">
@@ -699,33 +783,6 @@ $approvals = $approvals_stmt->fetchAll();
         if(designFileInput) {
             designFileInput.addEventListener('change', refreshUploadPreview);
         }
-        
-        const selectedShopIdInput = document.getElementById('selectedShopIdInput');
-        const shopOptions = document.querySelectorAll('.shop-option');
-
-        function setSelectedShop(shopId) {
-            if(!selectedShopIdInput) return;
-            selectedShopIdInput.value = shopId;
-
-            shopOptions.forEach((option) => {
-                const optionShopId = option.getAttribute('data-shop-id');
-                const radio = option.querySelector('input[type="radio"]');
-                const isSelected = optionShopId === String(shopId);
-                option.classList.toggle('selected', isSelected);
-                if(radio) {
-                    radio.checked = isSelected;
-                }
-            });
-        }
-
-        shopOptions.forEach((option) => {
-            option.addEventListener('click', () => {
-                const shopId = option.getAttribute('data-shop-id');
-                if(shopId) {
-                    setSelectedShop(shopId);
-                }
-            });
-        });
     </script>
 </body>
 </html>
