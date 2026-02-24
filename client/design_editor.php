@@ -448,12 +448,9 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                             <div id="canvasColorPalette" class="color-palette palette-dropdown-menu" aria-label="Canvas color palette"></div>
                         </details>
                     </div>
-                    <div class="form-group">
-                        <label>Placement Method</label>
-                        <select id="placementMethod" class="form-control">
-                            <option value="center-chest" selected>Center Chest</option>
-                        </select>
-                    </div>
+                    <select id="placementMethod" class="form-control" hidden aria-hidden="true" tabindex="-1">
+                        <option value="center-chest" selected>Center Chest</option>
+                    </select>
                     <div class="form-group">
                         <label>T-SHIRT SIZES</label>
                         <select id="hoopPreset" class="form-control">
