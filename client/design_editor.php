@@ -293,6 +293,34 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             height: 152px;
             border-radius: 26px 26px 20px 20px;
         }
+        .preview-model.type-tshirt-vneck::before {
+            clip-path: polygon(0 0, 100% 0, 68% 100%, 32% 100%);
+            opacity: 0.55;
+        }
+        .preview-model.type-tshirt-polo::before {
+            border-radius: 0 0 10px 10px;
+            height: 34px;
+            top: 4px;
+        }
+        .preview-model.type-tshirt-pocket .preview-model-surface::after {
+            content: '';
+            position: absolute;
+            width: 28px;
+            height: 24px;
+            left: 28%;
+            top: 30%;
+            border: 1px solid rgba(15, 23, 42, 0.4);
+            border-radius: 2px;
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .preview-model.type-tshirt-tank {
+            border-radius: 20px;
+        }
+        .preview-model.type-tshirt-tank::before {
+            width: 78px;
+            top: 12px;
+            border-radius: 0 0 24px 24px;
+        }
         .preview-model.is-tshirt::before {
             content: '';
             position: absolute;
@@ -313,6 +341,13 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
         .preview-model.is-cap .preview-model-surface {
             inset: 14px 24px 34px;
             border-radius: 54px 54px 24px 24px;
+        }
+        .preview-model.type-cap-bucket {
+            border-radius: 40px 40px 22px 22px;
+        }
+        .preview-model.type-cap-bucket .preview-model-surface {
+            inset: 18px 20px 30px;
+            border-radius: 36px 36px 18px 18px;
         }
         .preview-model.is-tote-bag {
             width: 186px;
@@ -342,10 +377,11 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             inset: 10px;
             border-radius: 12px;
             border: 1px solid rgba(15, 23, 42, 0.2);
-            background-size: cover;
+            background-size: 100% 100%;
             background-position: center;
             background-repeat: no-repeat;
             box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+            overflow: hidden;
         }
         .preview-model::after {
             content: '';
@@ -783,8 +819,23 @@ function updatePreviewModel() {
     const canvasTypeGroup = getCanvasTypeGroup(state.canvasType);
     previewModel.style.backgroundColor = state.canvasColor;
     previewModel.style.setProperty('--model-rotation', `${state.modelRotation}deg`);
-    previewModel.classList.remove('is-tshirt', 'is-cap', 'is-tote-bag', 'is-plain-canvas');
+    previewModel.classList.remove(
+        'is-tshirt',
+        'is-cap',
+        'is-tote-bag',
+        'is-plain-canvas',
+        'type-tshirt-crew',
+        'type-tshirt-vneck',
+        'type-tshirt-polo',
+        'type-tshirt-tank',
+        'type-tshirt-pocket',
+        'type-cap-baseball',
+        'type-cap-bucket',
+        'type-tote-bag',
+        'type-plain-canvas'
+    );
     previewModel.classList.add(`is-${canvasTypeGroup}`);
+    previewModel.classList.add(`type-${state.canvasType}`);
     previewModelSurface.style.backgroundImage = `url(${canvas.toDataURL('image/png')})`;
     if (modelRotationValue) {
         modelRotationValue.textContent = `${state.modelRotation}°`;
