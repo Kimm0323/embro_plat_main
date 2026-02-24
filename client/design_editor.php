@@ -40,6 +40,7 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             background: #f8fafc;
             border-radius: 14px;
             padding: 16px;
+            margin-bottom: 16px;
         }
         .editor-canvas-wrapper canvas {
             width: 100%;
@@ -287,6 +288,55 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             position: relative;
             overflow: hidden;
         }
+        .preview-model.is-tshirt {
+            width: 210px;
+            height: 152px;
+            border-radius: 26px 26px 20px 20px;
+        }
+        .preview-model.is-tshirt::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 6px;
+            width: 56px;
+            height: 28px;
+            transform: translateX(-50%);
+            border-radius: 0 0 16px 16px;
+            border: 1px solid rgba(15, 23, 42, 0.2);
+            background: rgba(255, 255, 255, 0.3);
+        }
+        .preview-model.is-cap {
+            width: 200px;
+            height: 120px;
+            border-radius: 90px 90px 54px 54px;
+        }
+        .preview-model.is-cap .preview-model-surface {
+            inset: 14px 24px 34px;
+            border-radius: 54px 54px 24px 24px;
+        }
+        .preview-model.is-tote-bag {
+            width: 186px;
+            height: 170px;
+            border-radius: 16px;
+        }
+        .preview-model.is-tote-bag::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: -20px;
+            width: 92px;
+            height: 48px;
+            transform: translateX(-50%);
+            border: 5px solid rgba(15, 23, 42, 0.35);
+            border-bottom: 0;
+            border-radius: 56px 56px 0 0;
+            opacity: 0.45;
+        }
+        .preview-model.is-plain-canvas {
+            width: 206px;
+            height: 146px;
+            border-radius: 8px;
+        }
         .preview-model-surface {
             position: absolute;
             inset: 10px;
@@ -434,6 +484,10 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                     </div>
                 </div>
 
+                <div class="editor-canvas-wrapper">
+                    <canvas id="designCanvas" width="900" height="620"></canvas>
+                </div>
+
                 <div class="preview-stage">
                     <div class="d-flex justify-between align-center">
                         <strong>3D Item Preview</strong>
@@ -448,10 +502,6 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                         <input type="range" id="modelRotation" min="-180" max="180" step="5" value="-20">
                         <span>Rotate</span>
                     </div>
-                </div>
-
-                <div class="editor-canvas-wrapper">
-                    <canvas id="designCanvas" width="900" height="620"></canvas>
                 </div>
 
                 <div class="d-flex justify-between align-center mt-3">
@@ -730,8 +780,11 @@ function syncPlacementButtons() {
 
 function updatePreviewModel() {
     if (!previewModel || !previewModelSurface) return;
+    const canvasTypeGroup = getCanvasTypeGroup(state.canvasType);
     previewModel.style.backgroundColor = state.canvasColor;
     previewModel.style.setProperty('--model-rotation', `${state.modelRotation}deg`);
+    previewModel.classList.remove('is-tshirt', 'is-cap', 'is-tote-bag', 'is-plain-canvas');
+    previewModel.classList.add(`is-${canvasTypeGroup}`);
     previewModelSurface.style.backgroundImage = `url(${canvas.toDataURL('image/png')})`;
     if (modelRotationValue) {
         modelRotationValue.textContent = `${state.modelRotation}°`;
