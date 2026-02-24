@@ -45,6 +45,19 @@ function proof_file_url(?string $proof_file): ?string {
     return '../assets/uploads/designs/' . $normalized;
 }
 
+function shop_preview_description(?string $description): string {
+    $clean = trim((string) $description);
+    if($clean === '') {
+        return 'No description provided by this shop yet.';
+    }
+
+    if(function_exists('mb_strimwidth')) {
+        return mb_strimwidth($clean, 0, 120, '...');
+    }
+
+    return strlen($clean) > 120 ? substr($clean, 0, 117) . '...' : $clean;
+}
+
 function notify_shop_staff(PDO $pdo, int $shop_id, int $order_id, string $type, string $message): void {
     $staff_stmt = $pdo->prepare("SELECT user_id FROM shop_staffs WHERE shop_id = ? AND status = 'active'");
     $staff_stmt->execute([$shop_id]);
@@ -440,6 +453,20 @@ $approvals_stmt = $pdo->prepare("
 ");
 $approvals_stmt->execute([$client_id]);
 $approvals = $approvals_stmt->fetchAll();
+
+$requests_stmt = $pdo->prepare("
+    SELECT o.id, o.order_number, o.service_type, o.design_description, o.status, o.price,
+           o.created_at, o.updated_at, o.design_approved, s.shop_name
+    FROM orders o
+    JOIN shops s ON s.id = o.shop_id
+    WHERE o.client_id = ?
+      AND o.client_notes = 'Quote request submitted via Services page.'
+      AND o.design_approved = 0
+      AND o.status IN ('pending', 'accepted', 'in_progress')
+    ORDER BY o.updated_at DESC, o.created_at DESC
+");
+$requests_stmt->execute([$client_id]);
+$request_history = $requests_stmt->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -505,6 +532,36 @@ $approvals = $approvals_stmt->fetchAll();
             padding: 0.75rem;
             background: var(--bg-secondary);
             margin-top: 0.75rem;
+        }
+
+        .shop-selection-list {
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .shop-option {
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius);
+            padding: 0.75rem;
+            background: var(--bg-secondary);
+        }
+
+        .shop-option.active {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2);
+        }
+
+        .request-history {
+            margin-top: 2rem;
+            display: grid;
+            gap: 1rem;
+        }
+
+        .request-item {
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius);
+            padding: 1rem;
+            background: var(--bg-primary);
         }
 
         @media(max-width: 900px) {
@@ -594,14 +651,55 @@ $approvals = $approvals_stmt->fetchAll();
                     </div>
                 <?php endif; ?>
                 <div class="card">
-                    <h4><i class="fas fa-circle-info text-primary"></i> What happens next?</h4>
-                    <ol class="text-muted mb-0" style="padding-left:1rem;">
-                        <li>Shop receives your request and reviews your design.</li>
-                        <li>They prepare a proof and an initial quotation.</li>
-                        <li>You review and approve below.</li>
-                    </ol>
+                    <h4><i class="fas fa-store text-primary"></i> Shop Selection</h4>
+                    <p class="text-muted">Choose from active shops. Each includes a quick description to help with your selection.</p>
+                    <div class="shop-selection-list" id="shopSelectionList">
+                        <?php foreach($shops as $shop): ?>
+                            <?php $is_active_shop = $selected_shop_id === (int) $shop['id']; ?>
+                            <button
+                                type="button"
+                                class="shop-option <?php echo $is_active_shop ? 'active' : ''; ?>"
+                                data-shop-option
+                                data-shop-id="<?php echo (int) $shop['id']; ?>"
+                            >
+                                <div class="d-flex justify-between align-center">
+                                    <strong><?php echo htmlspecialchars($shop['shop_name']); ?></strong>
+                                    <span class="badge badge-primary"><?php echo number_format((float) ($shop['rating'] ?? 0), 1); ?> ★</span>
+                                </div>
+                                <p class="text-muted mb-1"><?php echo htmlspecialchars(shop_preview_description($shop['shop_description'] ?? '')); ?></p>
+                                <?php if(!empty($shop['address'])): ?>
+                                    <small class="text-muted"><i class="fas fa-location-dot"></i> <?php echo htmlspecialchars($shop['address']); ?></small>
+                                <?php endif; ?>
+                            </button>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
             </div>
+        </div>
+
+         <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-clock-rotate-left text-primary"></i> Requested Design Proofing &amp; Price Quotations</h3>
+                <p class="text-muted mb-0">These are your submitted requests that are still waiting for approval progress.</p>
+            </div>
+            <?php if(!empty($request_history)): ?>
+                <div class="request-history">
+                    <?php foreach($request_history as $request): ?>
+                        <div class="request-item">
+                            <div class="d-flex justify-between align-center mb-2">
+                                <strong>Order #<?php echo htmlspecialchars($request['order_number']); ?></strong>
+                                <span class="badge badge-warning"><?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $request['status']))); ?></span>
+                            </div>
+                            <p class="mb-1"><i class="fas fa-store"></i> <?php echo htmlspecialchars($request['shop_name']); ?></p>
+                            <p class="mb-1"><strong>Service:</strong> <?php echo htmlspecialchars($request['service_type'] ?: 'Custom Embroidery Design'); ?></p>
+                            <p class="mb-1"><strong>Design request:</strong> <?php echo htmlspecialchars($request['design_description'] ?: 'No design details provided.'); ?></p>
+                            <p class="mb-0"><strong>Quoted price:</strong> <?php echo $request['price'] !== null ? '₱' . number_format((float) $request['price'], 2) : 'Waiting for shop quotation'; ?></p>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php else: ?>
+                <p class="text-muted mb-0">No active requests found. Submit a design proofing request above to get started.</p>
+            <?php endif; ?>
         </div>
 
 
@@ -759,6 +857,8 @@ $approvals = $approvals_stmt->fetchAll();
      <script>
         const designFileInput = document.getElementById('designFileInput');
         const uploadPreview = document.getElementById('uploadPreview');
+        const shopOptions = document.querySelectorAll('[data-shop-option]');
+        const shopSelect = document.querySelector('select[name="shop_id"]');
 
         function refreshUploadPreview() {
             if(!designFileInput || !uploadPreview) return;
@@ -782,6 +882,23 @@ $approvals = $approvals_stmt->fetchAll();
 
         if(designFileInput) {
             designFileInput.addEventListener('change', refreshUploadPreview);
+        }
+
+        if(shopSelect && shopOptions.length > 0) {
+            shopOptions.forEach((option) => {
+                option.addEventListener('click', () => {
+                    const selectedId = option.getAttribute('data-shop-id');
+                    shopSelect.value = selectedId;
+                    shopOptions.forEach((item) => item.classList.remove('active'));
+                    option.classList.add('active');
+                });
+            });
+
+            shopSelect.addEventListener('change', () => {
+                shopOptions.forEach((item) => {
+                    item.classList.toggle('active', item.getAttribute('data-shop-id') === shopSelect.value);
+                });
+            });
         }
     </script>
 </body>
