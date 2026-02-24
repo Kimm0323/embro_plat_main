@@ -566,6 +566,21 @@ function order_filter_description(string $filter): string {
 
     return $descriptions[$filter] ?? $descriptions['all'];
 }
+
+function order_overview_label(array $order, array $fulfillment_by_order, array $claimed_fulfillment_by_order): string {
+    $bucket = get_order_overview_bucket($order, $fulfillment_by_order, $claimed_fulfillment_by_order);
+    $labels = [
+        'to_pay' => 'To Pay',
+        'to_process' => 'To Process',
+        'to_ship' => 'To Ship',
+        'to_receive' => 'To Receive',
+        'to_review' => 'To Review',
+        'returns' => 'Return',
+        'cancellation' => 'Cancellation',
+    ];
+
+    return $labels[$bucket] ?? 'Processing';
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -728,6 +743,29 @@ function order_filter_description(string $filter): string {
             gap: 8px;
             margin-top: 10px;
         }
+        .order-card {
+            border-left: 4px solid #f97316;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+        }
+        .order-card-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            cursor: pointer;
+        }
+        .order-overview-pill {
+            display: inline-flex;
+            margin-top: 6px;
+            background: #fff7ed;
+            color: #c2410c;
+            border: 1px solid #fdba74;
+            border-radius: 999px;
+            padding: 2px 10px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .order-detail-panel { display: none; }
+        .order-detail-panel.is-open { display: block; }
     </style>
 </head>
 <body>
@@ -779,20 +817,22 @@ function order_filter_description(string $filter): string {
         <p class="text-muted mb-3"><?php echo htmlspecialchars(order_filter_description($filter)); ?></p>
 
         <?php if(!empty($orders)): ?>
-            <?php foreach($orders as $order): ?>
+            <?php foreach($orders as $index => $order): ?>
                 <?php $quote_details = !empty($order['quote_details']) ? json_decode($order['quote_details'], true) : null; ?>
                 <?php $status_history = $status_history_by_order[$order['id']] ?? []; ?>
                 <div class="order-card">
-                    <div class="d-flex justify-between align-center">
+                   <div class="order-card-header" data-toggle-order="order-detail-<?php echo (int) $order['id']; ?>">
                         <div>
                             <h4 class="mb-1"><?php echo htmlspecialchars($order['service_type']); ?></h4>
                             <p class="text-muted mb-0">
                                 <i class="fas fa-store"></i> <?php echo htmlspecialchars($order['shop_name']); ?>
                             </p>
+                            <span class="order-overview-pill"><?php echo htmlspecialchars(order_overview_label($order, $fulfillment_by_order, $claimed_fulfillment_by_order)); ?></span>
                         </div>
                         <div class="text-right">
                             <?php echo status_pill($order['status']); ?>
                             <div class="text-muted mt-2">#<?php echo htmlspecialchars($order['order_number']); ?></div>
+                             <div class="text-muted small mt-1">Click to view details <i class="fas fa-angle-down"></i></div>
                         </div>
                     </div>
                     <?php if($quote_details): ?>
@@ -831,6 +871,7 @@ function order_filter_description(string $filter): string {
                         $history = $fulfillment ? ($fulfillment_history_by_id[$fulfillment['id']] ?? []) : [];
                     ?>
 
+                    <div class="order-detail-panel <?php echo $index === 0 ? 'is-open' : ''; ?>" id="order-detail-<?php echo (int) $order['id']; ?>"></div>
                     <div class="detail-section">
                         <h5>Order Overview</h5>
                         <div class="detail-grid">
@@ -924,6 +965,24 @@ function order_filter_description(string $filter): string {
                             <a href="rate_provider.php" class="btn btn-sm btn-primary">
                                 Leave a rating
                             </a>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if($needs_rating): ?>
+                        <div class="card mt-3" style="background: #f8fafc;">
+                            <div class="d-flex justify-between align-center">
+                                <strong>Return Request</strong>
+                                <span class="badge badge-success">Available</span>
+                            </div>
+                            <p class="text-muted small mb-0 mt-2">Return is allowed because this order is now in <strong>To Review</strong> (received) state.</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="card mt-3" style="background: #f8fafc;">
+                            <div class="d-flex justify-between align-center">
+                                <strong>Return Request</strong>
+                                <span class="badge badge-secondary">Locked</span>
+                            </div>
+                            <p class="text-muted small mb-0 mt-2">Return is only available when order status is <strong>To Review</strong> (received).</p>
                         </div>
                     <?php endif; ?>
                     <?php if($order['status'] === 'pending'): ?>
@@ -1108,6 +1167,16 @@ function order_filter_description(string $filter): string {
                         </div>
                     <?php endif; ?>
 
+                    <?php if(!((in_array($order['status'], ['pending', 'accepted'], true) && (int) $order['progress'] <= $max_cancel_progress))): ?>
+                        <div class="card mt-3" style="background: #f8fafc;">
+                            <div class="d-flex justify-between align-center">
+                                <strong>Cancel Order</strong>
+                                <span class="badge badge-secondary">Locked</span>
+                            </div>
+                            <p class="text-muted small mb-0 mt-2">Cancellation is only allowed while order progress is <?php echo (int) $max_cancel_progress; ?>% or lower.</p>
+                        </div>
+                    <?php endif; ?>
+
                     <?php if(!empty($order_photos[$order['id']])): ?>
                         <div class="mt-3">
                             <strong>Latest Photos</strong>
@@ -1118,6 +1187,7 @@ function order_filter_description(string $filter): string {
                             </div>
                         </div>
                     <?php endif; ?>
+                    </div>
                 </div>
             <?php endforeach; ?>
         <?php else: ?>
@@ -1130,5 +1200,17 @@ function order_filter_description(string $filter): string {
             </div>
         <?php endif; ?>
     </div>
+     <script>
+        document.querySelectorAll('[data-toggle-order]').forEach(function (header) {
+            header.addEventListener('click', function () {
+                var panelId = header.getAttribute('data-toggle-order');
+                var panel = document.getElementById(panelId);
+                if (!panel) {
+                    return;
+                }
+                panel.classList.toggle('is-open');
+            });
+        });
+    </script>
 </body>
 </html>
