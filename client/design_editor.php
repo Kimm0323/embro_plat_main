@@ -390,17 +390,6 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             background: linear-gradient(160deg, rgba(255, 255, 255, 0.18), transparent 42%, rgba(15, 23, 42, 0.08));
             pointer-events: none;
         }
-        .placement-button-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 8px;
-            margin-top: 8px;
-        }
-        .placement-btn.active {
-            background: #dbeafe;
-            color: #1d4ed8;
-            border-color: #93c5fd;
-        }
         .upload-area {
             border: 1px dashed #94a3b8;
             border-radius: 12px;
@@ -464,12 +453,6 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                         <select id="placementMethod" class="form-control">
                             <option value="center-chest" selected>Center Chest</option>
                         </select>
-                        <div class="placement-button-grid" id="placementButtonGrid">
-                            <button type="button" class="btn btn-outline placement-btn" data-placement="center-chest">Front</button>
-                            <button type="button" class="btn btn-outline placement-btn" data-placement="back-center">Back</button>
-                            <button type="button" class="btn btn-outline placement-btn" data-placement="left-chest">Left</button>
-                            <button type="button" class="btn btn-outline placement-btn" data-placement="right-chest">Right</button>
-                        </div>
                     </div>
                     <div class="form-group">
                         <label>T-SHIRT SIZES</label>
@@ -711,8 +694,6 @@ const canvasColorCurrentLabel = document.getElementById('canvasColorCurrentLabel
 const threadColorCurrentLabel = document.getElementById('threadColorCurrentLabel');
 const canvasColorDropdown = document.getElementById('canvasColorDropdown');
 const threadColorDropdown = document.getElementById('threadColorDropdown');
-const placementButtonGrid = document.getElementById('placementButtonGrid');
-const placementButtons = Array.from(document.querySelectorAll('.placement-btn'));
 const modelRotation = document.getElementById('modelRotation');
 const modelRotationValue = document.getElementById('modelRotationValue');
 const previewModel = document.getElementById('previewModel');
@@ -804,16 +785,6 @@ function updateTextInputByPlacement() {
     }
 }
 
-function syncPlacementButtons() {
-    if (!placementButtons.length) return;
-    const normalized = state.placementMethod || placementMethod.value;
-    placementButtons.forEach(button => {
-        const isActive = button.dataset.placement === normalized;
-        button.classList.toggle('active', isActive);
-        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-    });
-}
-
 function updatePreviewModel() {
     if (!previewModel || !previewModelSurface) return;
     const canvasTypeGroup = getCanvasTypeGroup(state.canvasType);
@@ -842,42 +813,6 @@ function updatePreviewModel() {
     }
 }
 
-function configurePlacementButtons() {
-    if (!placementButtons.length) return;
-    const buttonMapByType = {
-        tshirt: [
-            { label: 'Front', value: 'center-chest' },
-            { label: 'Back', value: 'back-center' },
-            { label: 'Left', value: 'left-chest' },
-            { label: 'Right', value: 'right-chest' }
-        ],
-        cap: [
-            { label: 'Front', value: 'front-center' },
-            { label: 'Back', value: 'back-strap' },
-            { label: 'Left', value: 'left-panel' },
-            { label: 'Right', value: 'right-panel' }
-        ],
-        'tote-bag': [
-            { label: 'Front', value: 'center' },
-            { label: 'Back', value: 'bottom-center' },
-            { label: 'Left', value: 'upper-center' },
-            { label: 'Right', value: 'center' }
-        ],
-        'plain-canvas': [
-            { label: 'Front', value: 'center' },
-            { label: 'Back', value: 'bottom-right' },
-            { label: 'Left', value: 'top-left' },
-            { label: 'Right', value: 'top-right' }
-        ]
-    };
-    const config = buttonMapByType[getCanvasTypeGroup()] || buttonMapByType.tshirt;
-    placementButtons.forEach((button, index) => {
-        const details = config[index] || config[0];
-        button.dataset.placement = details.value;
-        button.textContent = details.label;
-    });
-}
-
 function syncPlacementOptions(shouldPushHistory = false, shouldSaveState = false) {
     const options = getPlacementOptions(state.canvasType);
     const previousPlacement = state.placementMethod;
@@ -889,9 +824,7 @@ function syncPlacementOptions(shouldPushHistory = false, shouldSaveState = false
 
     state.placementMethod = validPlacement;
     placementMethod.value = validPlacement;
-    configurePlacementButtons();
     updateTextInputByPlacement();
-    syncPlacementButtons();
 
     if (shouldPushHistory && previousPlacement !== validPlacement) {
         pushHistory();
@@ -1877,26 +1810,10 @@ threadColorPalette.addEventListener('click', event => {
 
 placementMethod.addEventListener('change', () => {
     state.placementMethod = placementMethod.value;
-     syncPlacementButtons();
     updateTextInputByPlacement();
     pushHistory();
     render();
     saveState();
-});
-
-placementButtons.forEach(button => {
-    button.addEventListener('click', () => {
-        const targetPlacement = button.dataset.placement || '';
-        const hasPlacement = Array.from(placementMethod.options).some(option => option.value === targetPlacement);
-        if (!hasPlacement) return;
-        placementMethod.value = targetPlacement;
-        state.placementMethod = targetPlacement;
-        syncPlacementButtons();
-        updateTextInputByPlacement();
-        pushHistory();
-        render();
-        saveState();
-    });
 });
 
 scaleSlider.addEventListener('input', () => {
