@@ -262,6 +262,55 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             color: #1e293b;
             font-weight: 500;
         }
+         .preview-stage {
+            margin-bottom: 14px;
+            padding: 14px;
+            border-radius: 12px;
+            border: 1px solid #dbeafe;
+            background: radial-gradient(circle at 15% 10%, #eff6ff, #dbeafe 65%, #bfdbfe);
+        }
+        .preview-shell {
+            perspective: 900px;
+            height: 170px;
+            display: grid;
+            place-items: center;
+        }
+        .preview-model {
+            width: 190px;
+            height: 140px;
+            border-radius: 20px;
+            border: 1px solid rgba(15, 23, 42, 0.22);
+            background: linear-gradient(145deg, rgba(255,255,255,0.75), rgba(148, 163, 184, 0.22));
+            transform: rotateY(var(--model-rotation, -20deg)) rotateX(8deg);
+            box-shadow: 0 20px 35px rgba(15, 23, 42, 0.18);
+            transition: transform 0.25s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .preview-model::after {
+            content: '';
+            position: absolute;
+            inset: 20% 18%;
+            border: 2px dashed rgba(15, 23, 42, 0.3);
+            border-radius: 12px;
+        }
+        .placement-button-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .placement-btn.active {
+            background: #dbeafe;
+            color: #1d4ed8;
+            border-color: #93c5fd;
+        }
+        .upload-area {
+            border: 1px dashed #94a3b8;
+            border-radius: 12px;
+            padding: 10px;
+            background: #f8fafc;
+        }
         @media (max-width: 980px) {
             .editor-layout {
                 grid-template-columns: 1fr;
@@ -275,7 +324,7 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
     <div class="container">
         <div class="dashboard-header">
             <h2>Design Customization Editor</h2>
-            <p class="text-muted">Build embroidery-ready layouts with safe-area validation, color control, and version history.</p>
+            <p class="text-muted">Build embroidery-ready layouts with rotatable preview, placement controls, color tools, and proofing workflow.</p>
         </div>
 
         <div class="editor-layout">
@@ -292,7 +341,7 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                             <option value="cap-baseball">Cap (Baseball Cap)</option>
                             <option value="cap-bucket">Cap (Bucket Hat)</option>
                             <option value="tote-bag">Tote Bag</option>
-                            <option value="plain-canvas">Plain Canvas</option>
+                            <option value="plain-canvas">Canvas</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -319,6 +368,12 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                         <select id="placementMethod" class="form-control">
                             <option value="center-chest" selected>Center Chest</option>
                         </select>
+                        <div class="placement-button-grid" id="placementButtonGrid">
+                            <button type="button" class="btn btn-outline placement-btn" data-placement="center-chest">Front</button>
+                            <button type="button" class="btn btn-outline placement-btn" data-placement="back-center">Back</button>
+                            <button type="button" class="btn btn-outline placement-btn" data-placement="left-chest">Left</button>
+                            <button type="button" class="btn btn-outline placement-btn" data-placement="right-chest">Right</button>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>T-SHIRT SIZES</label>
@@ -362,7 +417,24 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                     </div>
                     <div class="form-group">
                         <label>Upload Logo</label>
-                        <input type="file" id="imageUpload" class="form-control" accept=".png,.jpg,.jpeg,.svg">
+                        <div class="upload-area">
+                            <p class="text-muted" style="margin-bottom:8px;">Drop logo file or browse (PNG, JPG, SVG)</p>
+                            <input type="file" id="imageUpload" class="form-control" accept=".png,.jpg,.jpeg,.svg">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="preview-stage">
+                    <div class="d-flex justify-between align-center">
+                        <strong>3D Item Preview</strong>
+                        <small class="text-muted" id="modelRotationValue">-20°</small>
+                    </div>
+                    <div class="preview-shell mt-2">
+                        <div id="previewModel" class="preview-model" aria-label="Rotatable 3D preview model"></div>
+                    </div>
+                    <div class="slider-row">
+                        <input type="range" id="modelRotation" min="-180" max="180" step="5" value="-20">
+                        <span>Rotate</span>
                     </div>
                 </div>
 
@@ -470,13 +542,14 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                 </div>
 
                 <div class="form-group">
-                    <label>Versioning</label>
+                    <label>Actions</label>
                     <div class="d-flex gap-2">
                         <button class="btn btn-primary" id="saveVersionBtn"><i class="fas fa-save"></i> Save Version</button>
                         <button class="btn btn-outline" id="exportJsonBtn"><i class="fas fa-file-code"></i> Design JSON</button>
                         <button class="btn btn-outline" id="exportPngBtn"><i class="fas fa-image"></i> PNG Proof</button>
                         <button class="btn btn-outline" id="postToCommunityBtn"><i class="fas fa-paper-plane"></i> Post to Owner Community</button>
-                        <button class="btn btn-outline" id="goToProofingBtn"><i class="fas fa-arrow-right"></i> Go to Design Proofing</button>
+                       <button class="btn btn-outline" id="goToProofingBtn"><i class="fas fa-arrow-right"></i> Design Proofing</button>
+                        <button class="btn btn-outline" id="getQuoteBtn"><i class="fas fa-file-invoice-dollar"></i> Get Price Quote</button>
                     </div>
                     <div class="version-list" id="versionList"></div>
                 </div>
@@ -540,6 +613,12 @@ const canvasColorCurrentLabel = document.getElementById('canvasColorCurrentLabel
 const threadColorCurrentLabel = document.getElementById('threadColorCurrentLabel');
 const canvasColorDropdown = document.getElementById('canvasColorDropdown');
 const threadColorDropdown = document.getElementById('threadColorDropdown');
+const placementButtonGrid = document.getElementById('placementButtonGrid');
+const placementButtons = Array.from(document.querySelectorAll('.placement-btn'));
+const modelRotation = document.getElementById('modelRotation');
+const modelRotationValue = document.getElementById('modelRotationValue');
+const previewModel = document.getElementById('previewModel');
+const getQuoteBtn = document.getElementById('getQuoteBtn');
 
 
 const presets = {
@@ -562,7 +641,8 @@ const state = {
     placementMethod: placementMethod.value,
     versionCounter: 1,
     history: [],
-    future: []
+    future: [],
+    modelRotation: Number(modelRotation?.value || -20)
 };
 
 const storageKey = 'embroider_design_editor';
@@ -625,6 +705,61 @@ function updateTextInputByPlacement() {
     }
 }
 
+function syncPlacementButtons() {
+    if (!placementButtons.length) return;
+    const normalized = state.placementMethod || placementMethod.value;
+    placementButtons.forEach(button => {
+        const isActive = button.dataset.placement === normalized;
+        button.classList.toggle('active', isActive);
+        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+}
+
+function updatePreviewModel() {
+    if (!previewModel) return;
+    previewModel.style.backgroundColor = state.canvasColor;
+    previewModel.style.setProperty('--model-rotation', `${state.modelRotation}deg`);
+    if (modelRotationValue) {
+        modelRotationValue.textContent = `${state.modelRotation}°`;
+    }
+}
+
+function configurePlacementButtons() {
+    if (!placementButtons.length) return;
+    const buttonMapByType = {
+        tshirt: [
+            { label: 'Front', value: 'center-chest' },
+            { label: 'Back', value: 'back-center' },
+            { label: 'Left', value: 'left-chest' },
+            { label: 'Right', value: 'right-chest' }
+        ],
+        cap: [
+            { label: 'Front', value: 'front-center' },
+            { label: 'Back', value: 'back-strap' },
+            { label: 'Left', value: 'left-panel' },
+            { label: 'Right', value: 'right-panel' }
+        ],
+        'tote-bag': [
+            { label: 'Front', value: 'center' },
+            { label: 'Back', value: 'bottom-center' },
+            { label: 'Left', value: 'upper-center' },
+            { label: 'Right', value: 'center' }
+        ],
+        'plain-canvas': [
+            { label: 'Front', value: 'center' },
+            { label: 'Back', value: 'bottom-right' },
+            { label: 'Left', value: 'top-left' },
+            { label: 'Right', value: 'top-right' }
+        ]
+    };
+    const config = buttonMapByType[getCanvasTypeGroup()] || buttonMapByType.tshirt;
+    placementButtons.forEach((button, index) => {
+        const details = config[index] || config[0];
+        button.dataset.placement = details.value;
+        button.textContent = details.label;
+    });
+}
+
 function syncPlacementOptions(shouldPushHistory = false, shouldSaveState = false) {
     const options = getPlacementOptions(state.canvasType);
     const previousPlacement = state.placementMethod;
@@ -636,7 +771,9 @@ function syncPlacementOptions(shouldPushHistory = false, shouldSaveState = false
 
     state.placementMethod = validPlacement;
     placementMethod.value = validPlacement;
+    configurePlacementButtons();
     updateTextInputByPlacement();
+    syncPlacementButtons();
 
     if (shouldPushHistory && previousPlacement !== validPlacement) {
         pushHistory();
@@ -763,6 +900,7 @@ function loadState() {
     }
     const parsed = JSON.parse(saved);
     Object.assign(state, parsed);
+    state.modelRotation = Number(parsed.modelRotation ?? state.modelRotation ?? -20);
      state.elements = normalizeElements(state.elements);
     state.history = [];
     state.future = [];
@@ -770,6 +908,7 @@ function loadState() {
     threadColor.value = state.threadColor || '#1d4ed8';
     safeAreaToggle.value = state.showSafeArea ? 'on' : 'off';
     canvasType.value = state.canvasType || 'tshirt-crew';
+    if (modelRotation) modelRotation.value = String(state.modelRotation ?? -20);
      normalizeCanvasColorState();
     syncPlacementOptions();
     rebuildImages();
@@ -790,6 +929,7 @@ function saveState() {
         canvasType: state.canvasType,
         canvasColor: state.canvasColor,
         placementMethod: state.placementMethod,
+        modelRotation: state.modelRotation,
         versions: state.versions,
         versionCounter: state.versionCounter
     }));
@@ -804,6 +944,7 @@ function pushHistory() {
          canvasType: state.canvasType,
         canvasColor: state.canvasColor,
         placementMethod: state.placementMethod,
+        modelRotation: state.modelRotation,
         selectedId: state.selectedId
     }));
     if (state.history.length > 30) {
@@ -821,11 +962,13 @@ function restoreFromHistory(entry) {
      state.canvasType = restored.canvasType || 'tshirt-crew';
     state.canvasColor = normalizeCanvasColor(restored.canvasColor);
     state.placementMethod = restored.placementMethod || 'center-chest';
+    state.modelRotation = Number(restored.modelRotation ?? state.modelRotation ?? -20);
     state.selectedId = restored.selectedId;
     hoopPreset.value = state.hoopPreset;
     threadColor.value = state.threadColor;
     safeAreaToggle.value = state.showSafeArea ? 'on' : 'off';
-     canvasType.value = state.canvasType;
+    canvasType.value = state.canvasType;
+    if (modelRotation) modelRotation.value = String(state.modelRotation ?? -20);
     normalizeCanvasColorState();
     syncPlacementOptions();
     rebuildImages();
@@ -1337,6 +1480,7 @@ function renderVersions() {
 }
 
 function render() {
+    updatePreviewModel();
     drawCanvas();
     renderLayerList();
     validateSafeArea();
@@ -1615,10 +1759,26 @@ threadColorPalette.addEventListener('click', event => {
 
 placementMethod.addEventListener('change', () => {
     state.placementMethod = placementMethod.value;
+     syncPlacementButtons();
     updateTextInputByPlacement();
     pushHistory();
     render();
     saveState();
+});
+
+placementButtons.forEach(button => {
+    button.addEventListener('click', () => {
+        const targetPlacement = button.dataset.placement || '';
+        const hasPlacement = Array.from(placementMethod.options).some(option => option.value === targetPlacement);
+        if (!hasPlacement) return;
+        placementMethod.value = targetPlacement;
+        state.placementMethod = targetPlacement;
+        syncPlacementButtons();
+        updateTextInputByPlacement();
+        pushHistory();
+        render();
+        saveState();
+    });
 });
 
 scaleSlider.addEventListener('input', () => {
@@ -1850,6 +2010,23 @@ exportPngBtn.addEventListener('click', () => {
 goToProofingBtn.addEventListener('click', () => {
     window.location.href = 'design_proofing.php?from_design_editor=1';
 });
+
+if (getQuoteBtn) {
+    getQuoteBtn.addEventListener('click', () => {
+        window.location.href = 'pricing_quotation.php?from_design_editor=1';
+    });
+}
+
+if (modelRotation) {
+    modelRotation.addEventListener('input', () => {
+        state.modelRotation = Number(modelRotation.value || 0);
+        updatePreviewModel();
+    });
+    modelRotation.addEventListener('change', () => {
+        pushHistory();
+        saveState();
+    });
+}
 
 postToCommunityBtn.addEventListener('click', () => {
     if (!state.elements.length) {
