@@ -287,12 +287,22 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             position: relative;
             overflow: hidden;
         }
+        .preview-model-surface {
+            position: absolute;
+            inset: 10px;
+            border-radius: 12px;
+            border: 1px solid rgba(15, 23, 42, 0.2);
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+        }
         .preview-model::after {
             content: '';
             position: absolute;
-            inset: 20% 18%;
-            border: 2px dashed rgba(15, 23, 42, 0.3);
-            border-radius: 12px;
+           inset: 0;
+            background: linear-gradient(160deg, rgba(255, 255, 255, 0.18), transparent 42%, rgba(15, 23, 42, 0.08));
+            pointer-events: none;
         }
         .placement-button-grid {
             display: grid;
@@ -430,7 +440,9 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                         <small class="text-muted" id="modelRotationValue">-20°</small>
                     </div>
                     <div class="preview-shell mt-2">
-                        <div id="previewModel" class="preview-model" aria-label="Rotatable 3D preview model"></div>
+                       <div id="previewModel" class="preview-model" aria-label="Rotatable 3D preview model">
+                            <div id="previewModelSurface" class="preview-model-surface"></div>
+                        </div>
                     </div>
                     <div class="slider-row">
                         <input type="range" id="modelRotation" min="-180" max="180" step="5" value="-20">
@@ -618,6 +630,7 @@ const placementButtons = Array.from(document.querySelectorAll('.placement-btn'))
 const modelRotation = document.getElementById('modelRotation');
 const modelRotationValue = document.getElementById('modelRotationValue');
 const previewModel = document.getElementById('previewModel');
+const previewModelSurface = document.getElementById('previewModelSurface');
 const getQuoteBtn = document.getElementById('getQuoteBtn');
 
 
@@ -716,9 +729,10 @@ function syncPlacementButtons() {
 }
 
 function updatePreviewModel() {
-    if (!previewModel) return;
+    if (!previewModel || !previewModelSurface) return;
     previewModel.style.backgroundColor = state.canvasColor;
     previewModel.style.setProperty('--model-rotation', `${state.modelRotation}deg`);
+    previewModelSurface.style.backgroundImage = `url(${canvas.toDataURL('image/png')})`;
     if (modelRotationValue) {
         modelRotationValue.textContent = `${state.modelRotation}°`;
     }
@@ -1480,8 +1494,8 @@ function renderVersions() {
 }
 
 function render() {
-    updatePreviewModel();
     drawCanvas();
+    updatePreviewModel();
     renderLayerList();
     validateSafeArea();
     updateControlValues();
