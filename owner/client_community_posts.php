@@ -8,6 +8,7 @@ $unread_notifications = fetch_unread_notification_count($pdo, $owner_id);
 $form_error = '';
 $form_success = '';
 $selected_view_post = null;
+$community_comments_table_exists = table_exists($pdo, 'community_post_comments');
 
 $shop_stmt = $pdo->prepare("SELECT id, shop_name FROM shops WHERE owner_id = ?");
 $shop_stmt->execute([$owner_id]);
@@ -104,6 +105,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accept_request'])) {
     }
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_shop_comment'])) {
+    $post_id = (int) ($_POST['post_id'] ?? 0);
+    $comment_text = sanitize($_POST['comment_text'] ?? '');
+
+    if (!$community_comments_table_exists) {
+        $form_error = 'Shop comments are unavailable because the community_post_comments table is missing.';
+    } elseif ($post_id <= 0 || $comment_text === '') {
+        $form_error = 'Please enter a comment before posting your service suggestion.';
+    } else {
+        $post_exists_stmt = $pdo->prepare('SELECT id FROM client_community_posts WHERE id = ? LIMIT 1');
+        $post_exists_stmt->execute([$post_id]);
+
+        if (!$post_exists_stmt->fetchColumn()) {
+            $form_error = 'The selected community post is no longer available.';
+        } else {
+            $insert_comment_stmt = $pdo->prepare('
+                INSERT INTO community_post_comments (post_id, commenter_user_id, commenter_role, shop_id, comment_text, created_at)
+                VALUES (?, ?, "shop", ?, ?, NOW())
+            ');
+            $insert_comment_stmt->execute([
+                $post_id,
+                $owner_id,
+                (int) $shop['id'],
+                $comment_text,
+            ]);
+            $form_success = 'Your shop suggestion has been posted successfully.';
+        }
+    }
+}
+
 $view_post_id = (int) ($_GET['view_post'] ?? 0);
 if ($view_post_id > 0) {
     $view_post_stmt = $pdo->prepare("
@@ -146,6 +177,31 @@ $posts_stmt = $pdo->query("
     ORDER BY ccp.created_at DESC
     LIMIT 12
 ");
+$post_comments_map = [];
+if ($community_comments_table_exists && !empty($community_posts)) {
+    $post_ids = array_map(static function (array $post): int {
+        return (int) $post['id'];
+    }, $community_posts);
+    $placeholders = implode(',', array_fill(0, count($post_ids), '?'));
+
+    $comments_stmt = $pdo->prepare("\n        SELECT c.post_id,
+               c.commenter_role,
+               c.comment_text,
+               c.created_at,
+               u.fullname AS commenter_name,
+               s.id AS shop_id,
+               s.shop_name
+        FROM community_post_comments c
+        LEFT JOIN users u ON c.commenter_user_id = u.id
+        LEFT JOIN shops s ON c.shop_id = s.id
+        WHERE c.post_id IN ($placeholders)
+        ORDER BY c.created_at DESC
+    ");
+    $comments_stmt->execute($post_ids);
+    foreach ($comments_stmt->fetchAll(PDO::FETCH_ASSOC) as $comment_row) {
+        $post_comments_map[(int) $comment_row['post_id']][] = $comment_row;
+    }
+}
 $community_posts = $posts_stmt->fetchAll();
 ?>
 <!DOCTYPE html>
@@ -201,6 +257,19 @@ $community_posts = $posts_stmt->fetchAll();
 
         .post-actions form {
             margin: 0;
+        }
+
+         .comment-section {
+            border-top: 1px solid var(--gray-200);
+            margin-top: 1rem;
+            padding-top: 0.75rem;
+        }
+
+        .comment-item {
+            border: 1px solid var(--gray-200);
+            border-radius: var(--radius);
+            padding: 0.65rem;
+            margin-bottom: 0.5rem;
         }
     </style>
 </head>
@@ -283,6 +352,41 @@ $community_posts = $posts_stmt->fetchAll();
                             <?php endif; ?>
                             <?php if (!empty($post['target_date'])): ?>
                                 <span><i class="fas fa-clock"></i> Target <?php echo date('M d, Y', strtotime($post['target_date'])); ?></span>
+                            <?php endif; ?>
+                            </div>
+                        <?php
+                            $post_comments = $post_comments_map[(int) $post['id']] ?? [];
+                            $shop_comments = array_values(array_filter($post_comments, static function (array $item): bool {
+                                return ($item['commenter_role'] ?? '') === 'shop';
+                            }));
+                        ?>
+                        <div class="comment-section">
+                            <h5 class="mb-2"><i class="fas fa-store text-primary"></i> Shop service suggestions</h5>
+                            <?php if (empty($shop_comments)): ?>
+                                <p class="text-muted small">No shop service suggestions yet.</p>
+                            <?php else: ?>
+                                <?php foreach ($shop_comments as $shop_comment): ?>
+                                    <div class="comment-item">
+                                        <strong><?php echo htmlspecialchars($shop_comment['shop_name'] ?? ($shop_comment['commenter_name'] ?? 'Shop')); ?></strong>
+                                        <p class="mb-2 mt-1"><?php echo nl2br(htmlspecialchars($shop_comment['comment_text'])); ?></p>
+                                        <?php if (!empty($shop_comment['shop_id'])): ?>
+                                            <a href="../client/place_order.php?shop_id=<?php echo (int) $shop_comment['shop_id']; ?>" class="btn btn-primary btn-sm">
+                                                <i class="fas fa-cart-plus"></i> Make Order
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                            <?php if ($community_comments_table_exists): ?>
+                                <form method="POST" class="mt-2">
+                                    <?php echo csrf_field(); ?>
+                                    <input type="hidden" name="post_id" value="<?php echo (int) $post['id']; ?>">
+                                    <label class="mb-1">Suggest your shop service</label>
+                                    <textarea name="comment_text" class="form-control" rows="2" required placeholder="Describe why your shop is a good fit and your service offer."></textarea>
+                                    <button type="submit" name="submit_shop_comment" class="btn btn-outline-primary btn-sm mt-2">
+                                        <i class="fas fa-comment"></i> Post shop comment
+                                    </button>
+                                </form>
                             <?php endif; ?>
                         </div>
                           <div class="post-actions">

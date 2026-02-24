@@ -272,6 +272,16 @@ CREATE TABLE `client_community_posts` (
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+CREATE TABLE `community_post_comments` (
+  `id` int(11) NOT NULL,
+  `post_id` int(11) NOT NULL,
+  `commenter_user_id` int(11) NOT NULL,
+  `commenter_role` enum('client','shop') NOT NULL,
+  `shop_id` int(11) DEFAULT NULL,
+  `comment_text` text NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 --
 -- Table structure for table `job_schedule`
 --
@@ -1104,6 +1114,13 @@ ALTER TABLE `client_community_posts`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_client_community_posts_client` (`client_id`),
   ADD KEY `idx_client_community_posts_status` (`status`);
+
+-- Indexes for table `community_post_comments`
+ALTER TABLE `community_post_comments`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_community_post_comments_post` (`post_id`),
+  ADD KEY `idx_community_post_comments_shop` (`shop_id`),
+  ADD KEY `idx_community_post_comments_user` (`commenter_user_id`);
 --
 -- Indexes for table `orders`
 --
@@ -1452,6 +1469,10 @@ ALTER TABLE `hiring_posts`
 -- AUTO_INCREMENT for table `client_community_posts`
 ALTER TABLE `client_community_posts`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+-- AUTO_INCREMENT for table `community_post_comments`
+ALTER TABLE `community_post_comments`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 --
 -- AUTO_INCREMENT for table `job_schedule`
 --
@@ -1718,6 +1739,10 @@ ALTER TABLE `hiring_posts`
 ALTER TABLE `client_community_posts`
   ADD CONSTRAINT `client_community_posts_ibfk_1` FOREIGN KEY (`client_id`) REFERENCES `users` (`id`);
 
+ALTER TABLE `community_post_comments`
+  ADD CONSTRAINT `community_post_comments_ibfk_1` FOREIGN KEY (`post_id`) REFERENCES `client_community_posts` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `community_post_comments_ibfk_2` FOREIGN KEY (`commenter_user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `community_post_comments_ibfk_3` FOREIGN KEY (`shop_id`) REFERENCES `shops` (`id`) ON DELETE SET NULL;
 --
 -- Constraints for table `job_schedule`
 --
