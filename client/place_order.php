@@ -816,6 +816,18 @@ if(isset($_POST['place_order'])) {
                     <strong>Sample checkout mode:</strong> This order uses the exact posted work details. Service type, quote preferences, and extra design setup are skipped.
                 </div>
             <?php endif; ?>
+
+            <?php if ($is_sample_order): ?>
+            <div class="card mb-4">
+                <h3>Step 1: Shop for This Sample Order</h3>
+                <p class="text-muted mb-2">This sample order is locked to the selected posted work and shop.</p>
+                <input type="hidden" name="shop_id" value="<?php echo (int) $preselected_shop_id; ?>">
+                <div class="alert alert-secondary mb-0">
+                    <div><strong>Shop:</strong> <?php echo htmlspecialchars($preselected_portfolio['shop_name'] ?? 'Selected shop'); ?></div>
+                    <div><strong>Posted work:</strong> <?php echo htmlspecialchars($preselected_portfolio['title'] ?? 'Selected sample'); ?></div>
+                </div>
+            </div>
+            <?php endif; ?>
             
             <?php if ($is_sample_order): ?>
             <div class="card mb-4">
@@ -884,17 +896,6 @@ if(isset($_POST['place_order'])) {
                 </div>
                 <div class="sample-selection-summary small text-muted" id="sampleSelectionSummary">
                     Please complete canvas type, embroidery detail, size, and quantity.
-                </div>
-            </div>
-            <?php endif; ?>
-            <?php if ($is_sample_order): ?>
-            <div class="card mb-4">
-                <h3>Step 1: Shop for This Sample Order</h3>
-                <p class="text-muted mb-2">This sample order is locked to the selected posted work and shop.</p>
-                <input type="hidden" name="shop_id" value="<?php echo (int) $preselected_shop_id; ?>">
-                <div class="alert alert-secondary mb-0">
-                    <div><strong>Shop:</strong> <?php echo htmlspecialchars($preselected_portfolio['shop_name'] ?? 'Selected shop'); ?></div>
-                    <div><strong>Posted work:</strong> <?php echo htmlspecialchars($preselected_portfolio['title'] ?? 'Selected sample'); ?></div>
                 </div>
             </div>
             <?php else: ?>
