@@ -887,6 +887,17 @@ if(isset($_POST['place_order'])) {
                 </div>
             </div>
             <?php endif; ?>
+            <?php if ($is_sample_order): ?>
+            <div class="card mb-4">
+                <h3>Step 1: Shop for This Sample Order</h3>
+                <p class="text-muted mb-2">This sample order is locked to the selected posted work and shop.</p>
+                <input type="hidden" name="shop_id" value="<?php echo (int) $preselected_shop_id; ?>">
+                <div class="alert alert-secondary mb-0">
+                    <div><strong>Shop:</strong> <?php echo htmlspecialchars($preselected_portfolio['shop_name'] ?? 'Selected shop'); ?></div>
+                    <div><strong>Posted work:</strong> <?php echo htmlspecialchars($preselected_portfolio['title'] ?? 'Selected sample'); ?></div>
+                </div>
+            </div>
+            <?php else: ?>
             <!-- Step 1: Select Shop -->
             <div class="card mb-4">
                 <h3>Step 1: Select Service Provider</h3>
@@ -984,6 +995,7 @@ if(isset($_POST['place_order'])) {
                     <?php endforeach; ?>
                 </div>
             </div>
+            <?php endif; ?>
 
             <?php if (!$is_sample_order): ?>
             <!-- Step 2: Service Type -->
@@ -1321,7 +1333,7 @@ if(isset($_POST['place_order'])) {
 
             <!-- Step 5: Payment & Delivery Address -->
             <div class="card mb-4">
-                <h3>Step 5: Payment & Delivery Address</h3>
+                <h3><?php echo $is_sample_order ? 'Step 3: Payment & Delivery Address' : 'Step 5: Payment & Delivery Address'; ?></h3>
                 <p class="text-muted">Choose how you want to pay for your order and review your default delivery address.</p>
                 <div class="form-group">
                     <label>Payment Method *</label>
@@ -1364,9 +1376,9 @@ if(isset($_POST['place_order'])) {
 
             <!-- Step 6: Submit -->
             <div class="card mb-4">
-                <h3><?php echo $is_sample_order ? 'Step 2: Submit Sample Order' : 'Step 6: Submit'; ?></h3>
+                <h3><?php echo $is_sample_order ? 'Step 4: Submit Sample Order' : 'Step 6: Submit'; ?></h3>
                 <div class="alert alert-info mt-3">
-                    <strong>Estimated quote:</strong>
+                    <strong><?php echo $is_sample_order ? 'Price quotation:' : 'Estimated quote:'; ?></strong>
                     <span id="quoteEstimate">Select a shop and service to see estimates.</span>
                     <div class="text-muted small mt-2" id="selectedPortfolioPrice">Selected portfolio price: <?php echo $preselected_portfolio ? '₱' . number_format((float) ($preselected_portfolio['price'] ?? 0), 2) : '₱0.00'; ?></div>
                     <div class="mt-2 small" id="priceBreakdown" style="display: none;">
@@ -1468,6 +1480,22 @@ if(isset($_POST['place_order'])) {
             const productPriceInput = document.querySelector('input[name="product_price"]');
             const productPrice = Number(productPriceInput ? productPriceInput.value : 0);
             selectedPortfolioPrice.textContent = `Selected portfolio price: ${formatCurrency(productPrice)}`;
+             if (isSampleOrder) {
+                if (quantity <= 0) {
+                    quoteEstimate.textContent = 'Set quantity to see the final price quotation.';
+                    priceBreakdown.style.display = 'none';
+                    return;
+                }
+                const totalPrice = productPrice * quantity;
+                quoteEstimate.textContent = `${formatCurrency(productPrice)} per item • ${formatCurrency(totalPrice)} overall total`;
+                priceBreakdown.style.display = 'block';
+                document.getElementById('priceBreakdownBase').textContent = 'Base service: Included in posted work';
+                document.getElementById('priceBreakdownPortfolio').textContent = `Posted work unit price: ${formatCurrency(productPrice)}`;
+                document.getElementById('priceBreakdownAddOns').textContent = 'Add-ons: Not applicable for sample order';
+                document.getElementById('priceBreakdownRush').textContent = 'Rush fee: Not applicable for sample order';
+                document.getElementById('priceBreakdownQuantity').textContent = `Quantity: ${quantity}`;
+                return;
+            }
             if (!service || Object.keys(pricingState.base_prices).length === 0 || quantity <= 0) {
                 quoteEstimate.textContent = 'Select a shop and service to see estimates.';
                  priceBreakdown.style.display = 'none';
@@ -1716,11 +1744,13 @@ if(isset($_POST['place_order'])) {
         });
         
           const preselectedShopId = <?php echo $preselected_shop_id; ?>;
-        if (preselectedShopId) {
+         if (preselectedShopId && !isSampleOrder) {
             const preselectedCard = document.getElementById('shop-' + preselectedShopId);
             if (preselectedCard) {
                 selectShop(preselectedShopId);
             }
+            } else if (isSampleOrder) {
+            updateQuoteEstimate();
         }
         const rushServiceInput = document.getElementById('rushService');
         if (rushServiceInput) {

@@ -91,15 +91,21 @@ if ($shop_id > 0) {
             background: #fff;
             overflow: hidden;
             box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05);
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
         }
 
         .portfolio-card img {
-            width: 100%;
-            height: 220px;
+           width: 1200px;
+            max-width: 100%;
+            height: 400px;
             object-fit: cover;
              border-radius: 0;
             border: 0;
             background: var(--gray-100);
+            display: block;
+            margin: 0 auto;
         }
 
         .portfolio-card-body {
@@ -156,15 +162,21 @@ if ($shop_id > 0) {
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
         }
 
         .product-item img {
-            width: 100%;
-            height: 180px;
+            width: 1200px;
+            max-width: 100%;
+            height: 400px;
             object-fit: cover;
             border-radius: 10px;
             border: 1px solid var(--gray-200);
             background: var(--gray-100);
+            display: block;
+            margin: 0 auto;
         }
 
         .design-tags {
