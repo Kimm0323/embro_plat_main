@@ -27,7 +27,7 @@ if (!$community_comments_table_exists && $form_error === '') {
 
 if ($community_table_exists && $community_price_exists && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_post'])) {
     $title = sanitize($_POST['title'] ?? '');
-    $category = sanitize($_POST['category'] ?? '');
+   $category = 'Request';
     $description = sanitize($_POST['description'] ?? '');
     $preferred_price = trim($_POST['preferred_price'] ?? '');
     $desired_quantity = trim($_POST['desired_quantity'] ?? '');
@@ -35,7 +35,7 @@ if ($community_table_exists && $community_price_exists && $_SERVER['REQUEST_METH
     $image_path = null;
 
 
-     if ($title === '' || $category === '' || $description === '' || $preferred_price === '') {
+     if ($title === '' || $description === '' || $preferred_price === '') {
         $form_error = 'Please complete the required fields to publish your post.';
      }
 
@@ -261,16 +261,6 @@ if ($community_comments_table_exists && !empty($client_posts)) {
                             <label for="title">Post title</label>
                             <input type="text" id="title" name="title" class="form-control" placeholder="e.g., Hoodie embroidery for fall launch" required>
                         </div>
-                        <div>
-                            <label for="category">Post category</label>
-                            <select id="category" name="category" class="form-control" required>
-                                <option value="">Select a category</option>
-                                <option value="Request">Request post</option>
-                                <option value="Inspiration">Inspiration board</option>
-                                <option value="Question">Community question</option>
-                                <option value="Collaboration">Collaboration call</option>
-                            </select>
-                        </div>
                     </div>
                     <div>
                         <label for="description">Project details</label>
@@ -422,15 +412,11 @@ if ($community_comments_table_exists && !empty($client_posts)) {
     try {
         const draft = JSON.parse(draftRaw);
         const titleField = document.getElementById('title');
-        const categoryField = document.getElementById('category');
         const descriptionField = document.getElementById('description');
         const priceField = document.getElementById('preferred_price');
 
         if (titleField && draft.title) {
             titleField.value = draft.title;
-        }
-        if (categoryField && draft.category) {
-            categoryField.value = draft.category;
         }
         if (descriptionField && draft.description) {
             descriptionField.value = draft.description;

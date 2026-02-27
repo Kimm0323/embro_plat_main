@@ -66,6 +66,7 @@ function ensure_orders_price_column(PDO $pdo): void {
 }
 
 ensure_orders_price_column($pdo);
+ensure_payments_payment_method_column($pdo);
 function log_audit(PDO $pdo, ?int $actorId, ?string $actorRole, string $action, string $entityType, ?int $entityId, array $oldValues = [], array $newValues = []): void {
     $stmt = $pdo->prepare("
         INSERT INTO audit_logs (actor_id, actor_role, action, entity_type, entity_id, old_values, new_values, ip_address, user_agent)

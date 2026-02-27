@@ -6,6 +6,7 @@ require_role('client');
 $client_id = $_SESSION['user']['id'];
 $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
 $downpayment_rate = 0.20;
+$payment_method_labels = payment_method_labels_map();
 
 $payments_stmt = $pdo->prepare("
     SELECT
@@ -13,6 +14,7 @@ $payments_stmt = $pdo->prepare("
         p.order_id,
         p.amount,
         p.status,
+        p.payment_method,
         p.created_at,
         o.order_number,
         o.payment_status,
@@ -187,16 +189,16 @@ function payment_badge_class($status)
             </div>
             <div class="methods-grid">
                 <div class="method-card">
-                    <h4 class="mb-1"><i class="fas fa-mobile-screen-button"></i> GCash</h4>
-                    <p class="text-muted mb-0">Pay your required downpayment digitally and upload proof for verification.</p>
+                   <h4 class="mb-1"><i class="fas fa-store"></i> Pick Up Pay</h4>
+                    <p class="text-muted mb-0">Pay directly at the shop upon pickup confirmation.</p>
                 </div>
                 <div class="method-card">
-                    <h4 class="mb-1"><i class="fas fa-building-columns"></i> Bank Transfer</h4>
-                    <p class="text-muted mb-0">Send payment via bank transfer and submit your receipt as payment proof.</p>
+                    <h4 class="mb-1"><i class="fas fa-truck"></i> Cash on Delivery (COD)</h4>
+                    <p class="text-muted mb-0">Settle your order in cash when it is delivered to your address.</p>
                 </div>
                 <div class="method-card">
-                    <h4 class="mb-1"><i class="fas fa-money-bill-wave"></i> Cash Payment</h4>
-                    <p class="text-muted mb-0">Coordinate with the shop for accepted cash payments and still upload proof/acknowledgment.</p>
+                    <h4 class="mb-1"><i class="fas fa-credit-card"></i> PayMongo</h4>
+                    <p class="text-muted mb-0">Use PayMongo-supported digital channels then submit your proof of payment.</p>
                 </div>
             </div>
         </div>
@@ -213,6 +215,7 @@ function payment_badge_class($status)
                             <th>Order #</th>
                             <th>Shop</th>
                             <th>Amount</th>
+                            <th>Payment Method</th>
                             <th>Payment Status</th>
                             <th>Submitted</th>
                             <th>Action</th>
@@ -224,6 +227,7 @@ function payment_badge_class($status)
                                 <td><?php echo htmlspecialchars($payment['order_number']); ?></td>
                                 <td><?php echo htmlspecialchars($payment['shop_name'] ?? '-'); ?></td>
                                 <td>₱<?php echo number_format((float) ($payment['amount'] ?? 0), 2); ?></td>
+                                <td><?php echo htmlspecialchars($payment_method_labels[$payment['payment_method'] ?? ''] ?? 'Not specified'); ?></td>
                                 <td>
                                     <span class="badge <?php echo payment_badge_class($payment['status'] ?? 'pending'); ?>">
                                         <?php echo htmlspecialchars(ucfirst($payment['status'] ?? 'pending')); ?>

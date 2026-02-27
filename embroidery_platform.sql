@@ -499,6 +499,7 @@ CREATE TABLE `payments` (
   `shop_id` int(11) NOT NULL,
   `amount` decimal(10,2) DEFAULT NULL,
   `proof_file` varchar(255) NOT NULL,
+  `payment_method` varchar(50) DEFAULT NULL,
   `status` enum('pending','verified','rejected') DEFAULT 'pending',
   `verified_by` int(11) DEFAULT NULL,
   `verified_at` datetime DEFAULT NULL,

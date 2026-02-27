@@ -9,10 +9,12 @@ $client_id = $_SESSION['user']['id'];
 $success = null;
 $error = null;
 $downpayment_rate = 0.20;
+$payment_method_labels = payment_method_labels_map();
 
 if(isset($_POST['submit_payment'])) {
     $order_id = (int) ($_POST['order_id'] ?? 0);
     $proof_file = $_FILES['payment_proof'] ?? null;
+    $payment_method = sanitize($_POST['payment_method'] ?? '');
 
     $order_stmt = $pdo->prepare("
         SELECT o.id, o.order_number, o.price, o.payment_status, o.status, o.shop_id, s.shop_name, s.owner_id
@@ -39,6 +41,10 @@ if(isset($_POST['submit_payment'])) {
             $error = 'This order has already been marked as paid.';
         } elseif ($latest_status === 'pending') {
             $error = 'A payment proof is already pending verification.';
+            } elseif ($payment_method === '') {
+            $error = 'Please choose a payment method before submitting proof.';
+        } elseif (!array_key_exists($payment_method, array_column(payment_methods_for_submission(), null, 'code'))) {
+            $error = 'Selected payment method is not available for downpayment submission.';
         } elseif (!$proof_file || $proof_file['error'] !== UPLOAD_ERR_OK) {
             $error = 'Please upload a valid payment proof file.';
         } else {
@@ -59,15 +65,16 @@ if(isset($_POST['submit_payment'])) {
                 $downpayment_amount = round((float) $order['price'] * $downpayment_rate, 2);
 
                 $payment_stmt = $pdo->prepare("
-                    INSERT INTO payments (order_id, client_id, shop_id, amount, proof_file, status)
-                    VALUES (?, ?, ?, ?, ?, 'pending')
+                    INSERT INTO payments (order_id, client_id, shop_id, amount, proof_file, payment_method, status)
+                    VALUES (?, ?, ?, ?, ?, ?, 'pending')
                 ");
                 $payment_stmt->execute([
                     $order_id,
                     $client_id,
                     $order['shop_id'],
                     $downpayment_amount,
-                    $upload['filename']
+                    $upload['filename'],
+                    $payment_method
                 ]);
 
                 $order_update_stmt = $pdo->prepare("
@@ -866,7 +873,7 @@ function order_overview_label(array $order, array $fulfillment_by_order, array $
                             ? ($required_downpayment ?? 0.0)
                             : 0.0;
                         $balance_due = $amount_total !== null ? max(0, $amount_total - (float) $amount_paid) : null;
-                        $payment_method = $payment ? 'Uploaded proof of payment' : 'Not provided';
+                        $payment_method = $payment ? ($payment_method_labels[$payment['payment_method'] ?? ''] ?? 'Uploaded proof of payment') : 'Not provided';
                         $fulfillment = $fulfillment_by_order[$order['id']] ?? null;
                         $history = $fulfillment ? ($fulfillment_history_by_id[$fulfillment['id']] ?? []) : [];
                     ?>
@@ -1078,6 +1085,12 @@ function order_overview_label(array $order, array $fulfillment_by_order, array $
                             <?php echo csrf_field(); ?>
                             <input type="hidden" name="order_id" value="<?php echo $order['id']; ?>">
                             <div class="form-group">
+                                <label>Payment Method</label>
+                                <select name="payment_method" class="form-control js-payment-method-select" data-method-scope="payment_submission" required>
+                                    <option value="">Loading methods...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
                                 <label>Upload Downpayment Proof (JPG, PNG, PDF)</label>
                                 <input type="file" name="payment_proof" class="form-control" required>
                             </div>
@@ -1211,6 +1224,42 @@ function order_overview_label(array $order, array $fulfillment_by_order, array $
                 panel.classList.toggle('is-open');
             });
         });
+        (function hydratePaymentMethods() {
+            var selects = document.querySelectorAll('.js-payment-method-select');
+            if (!selects.length) {
+                return;
+            }
+
+            fetch('../api/payment_methods_api.php?scope=payment_submission')
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('Failed to load payment methods');
+                    }
+                    return response.json();
+                })
+                .then(function (payload) {
+                    var methods = Array.isArray(payload.data) ? payload.data : [];
+                    selects.forEach(function (selectEl) {
+                        selectEl.innerHTML = '';
+                        var defaultOption = document.createElement('option');
+                        defaultOption.value = '';
+                        defaultOption.textContent = 'Select a payment method';
+                        selectEl.appendChild(defaultOption);
+
+                        methods.forEach(function (method) {
+                            var option = document.createElement('option');
+                            option.value = method.code;
+                            option.textContent = method.label;
+                            selectEl.appendChild(option);
+                        });
+                    });
+                })
+                .catch(function () {
+                    selects.forEach(function (selectEl) {
+                        selectEl.innerHTML = '<option value="">Unable to load payment methods</option>';
+                    });
+                });
+        })();
     </script>
 </body>
 </html>

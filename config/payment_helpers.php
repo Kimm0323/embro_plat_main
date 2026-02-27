@@ -1,6 +1,28 @@
 <?php
 require_once __DIR__ . '/constants.php';
 
+function available_payment_methods(): array {
+    return [
+        ['code' => 'pickup_pay', 'label' => 'Pick Up Pay', 'description' => 'Settle your order when you pick it up from the shop.'],
+        ['code' => 'cod', 'label' => 'Cash on Delivery (COD)', 'description' => 'Pay in cash upon delivery.'],
+        ['code' => 'paymongo', 'label' => 'PayMongo', 'description' => 'Pay using supported PayMongo channels and upload proof for verification.'],
+    ];
+}
+
+function payment_methods_for_submission(): array {
+    return array_values(array_filter(
+        available_payment_methods(),
+        static fn(array $method): bool => !in_array($method['code'], ['pickup_pay', 'cod'], true)
+    ));
+}
+
+function payment_method_labels_map(): array {
+    $map = [];
+    foreach (available_payment_methods() as $method) {
+        $map[$method['code']] = $method['label'];
+    }
+    return $map;
+}
 function payment_status_transitions(): array {
     return [
         'unpaid' => ['pending'],
@@ -93,6 +115,15 @@ function ensure_payment_receipt(PDO $pdo, int $payment_id, int $issued_by, strin
     }
 
     return $receipt;
+}
+
+function ensure_payments_payment_method_column(PDO $pdo): void {
+    if (!table_exists($pdo, 'payments') || column_exists($pdo, 'payments', 'payment_method')) {
+        return;
+    }
+
+    $positionClause = column_exists($pdo, 'payments', 'proof_file') ? ' AFTER proof_file' : '';
+    $pdo->exec("ALTER TABLE payments ADD COLUMN payment_method VARCHAR(50) DEFAULT NULL{$positionClause}");
 }
 
 function payment_hold_status(string $order_status, string $payment_status): array {
