@@ -24,6 +24,7 @@ require_once 'config/db.php';
                 <li><a href="#features" class="nav-link">Features</a></li>
                 <li><a href="#roles" class="nav-link">Roles</a></li>
                 <li><a href="#about" class="nav-link">About</a></li>
+                <li><a href="hiring_shops.php" class="nav-link">Hiring Shops</a></li>
                 <?php if(isset($_SESSION['user'])): ?>
                     <?php 
                     $dashboard_url = '';
@@ -196,6 +197,25 @@ require_once 'config/db.php';
         </div>
     </section>
 
+    <section class="section" id="quick-actions">
+        <div class="container">
+            <div class="quick-action-panel">
+                <div>
+                    <h2>Quick Actions for Hiring & Applications</h2>
+                    <p class="text-muted mb-0">Need work or need talent? Jump straight into the hiring flow in one click.</p>
+                </div>
+                <div class="quick-action-buttons">
+                    <a href="hiring_shops.php" class="btn btn-primary">
+                        <i class="fas fa-briefcase"></i> View Hiring Shops
+                    </a>
+                    <a href="auth/register.php?type=client" class="btn btn-outline-primary">
+                        <i class="fas fa-user-plus"></i> Create Applicant Account
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Footer -->
     <footer class="footer">
         <div class="container">
@@ -203,5 +223,9 @@ require_once 'config/db.php';
             <small class="text-muted">Professional platform connecting embroidery service providers with customers worldwide.</small>
         </div>
     </footer>
+    <a href="hiring_shops.php" class="floating-hiring-cta" aria-label="Need a job? Apply now">
+        <span class="floating-hiring-text">Need a job?</span>
+        <span class="floating-hiring-pill">Apply Now</span>
+    </a>
 </body>
 </html>
