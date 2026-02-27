@@ -1,7 +1,7 @@
 <?php
 session_start();
 require_once '../config/db.php';
-require_role(['staff','employee']);
+require_role(['staff','employee','hr']);
 
 $employee_id = $_SESSION['user']['id'];
 $success = '';

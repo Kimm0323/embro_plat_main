@@ -10,6 +10,9 @@ $shop_stmt->execute([$owner_id]);
 $shop = $shop_stmt->fetch();
 $shop_posts = [];
 
+$pending_notice = $_SESSION['owner_pending_notice'] ?? '';
+unset($_SESSION['owner_pending_notice']);
+
 function build_work_post_description(string $embroidery_size, string $canvas_used, string $description): ?string {
     $metadata_lines = [
         'Embroidery Size: ' . $embroidery_size,
@@ -271,6 +274,9 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             $shop = $shop_stmt->fetch();
             $success = 'Business information submitted successfully.';
             $shop_posts = [];
+
+            $pending_notice = $_SESSION['owner_pending_notice'] ?? '';
+            unset($_SESSION['owner_pending_notice']);
             } elseif ($action === 'submit_work_post') {
             $post_title = sanitize($_POST['post_title'] ?? '');
             $post_description = sanitize($_POST['post_description'] ?? '');
@@ -402,6 +408,10 @@ $shop_posts = $posts_stmt->fetchAll(PDO::FETCH_ASSOC);
             <h2>Shop Profile</h2>
             <p class="text-muted">Business information submission requirements.</p>
         </div>
+
+        <?php if($pending_notice): ?>
+            <div class="alert alert-warning"><?php echo htmlspecialchars($pending_notice); ?></div>
+        <?php endif; ?>
 
         <?php if($error): ?>
             <div class="alert alert-danger"><?php echo $error; ?></div>

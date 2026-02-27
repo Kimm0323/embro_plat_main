@@ -33,7 +33,6 @@ require_once 'config/db.php';
                         case 'owner': $dashboard_url = 'owner/dashboard.php'; break;
                         case 'hr': $dashboard_url = 'staff/dashboard.php'; break;
                         case 'staff': $dashboard_url = 'staff/dashboard.php'; break;
-                        case 'staff': $dashboard_url = 'staff/dashboard.php'; break;
                         case 'client': $dashboard_url = 'client/search_discovery.php'; break;
                         default: $dashboard_url = 'index.php'; break;
                     }

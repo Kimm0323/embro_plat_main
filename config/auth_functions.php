@@ -67,7 +67,22 @@ function require_role($roles)
         header("Location: /auth/login.php");
         exit;
     }
+     $userStatus = $_SESSION['user']['status'] ?? null;
+    if ($userRole === 'owner' && $userStatus !== 'active') {
+        $currentPath = $_SERVER['PHP_SELF'] ?? '';
+        $allowedPendingOwnerPages = [
+            '/owner/shop_profile.php',
+            '/owner/create_shop.php',
+        ];
+
+        if (!in_array($currentPath, $allowedPendingOwnerPages, true)) {
+            $_SESSION['owner_pending_notice'] = 'Please complete your shop profile and wait for admin verification before accessing business modules.';
+            header('Location: /owner/shop_profile.php');
+            exit;
+        }
+    }
 }
+
 
 /**
  * Redirect to the appropriate dashboard based on the user's role.
@@ -76,12 +91,18 @@ function require_role($roles)
  * @param string $base_path
  */
 function redirect_based_on_role($role, $base_path = '..') {
+     $sessionStatus = $_SESSION['user']['status'] ?? null;
+
     switch ($role) {
         case 'sys_admin':
             header("Location: {$base_path}/sys_admin/dashboard.php");
             break;
         case 'owner':
-            header("Location: {$base_path}/owner/dashboard.php");
+           if ($sessionStatus !== 'active') {
+                header("Location: {$base_path}/owner/shop_profile.php");
+            } else {
+                header("Location: {$base_path}/owner/dashboard.php");
+            }
             break;
         case 'hr':
             header("Location: {$base_path}/hr/dashboard.php");

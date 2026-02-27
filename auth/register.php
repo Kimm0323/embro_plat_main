@@ -137,7 +137,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
                     
 
                 $success = $user_status === 'pending'
-                        ? "Registration successful! Your account is pending approval."
+                        ? "Registration successful! Please complete your shop profile after login. Your account will remain pending until admin verification."
                         : "Registration successful! You can now log in.";
                         }
             } catch(PDOException $e) {

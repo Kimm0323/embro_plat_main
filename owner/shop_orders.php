@@ -36,6 +36,7 @@ $active_staff_stmt = $pdo->prepare("
     FROM shop_staffs se
     JOIN users u ON se.user_id = u.id
     WHERE se.shop_id = ? AND se.status = 'active'
+     AND se.staff_role IN ('staff', 'hr')
     ORDER BY u.fullname ASC
 ");
 $active_staff_stmt->execute([$shop_id]);
@@ -215,6 +216,7 @@ if(isset($_POST['assign_order'])) {
                     ) as active_orders 
                 FROM shop_staffs se 
                 WHERE se.shop_id = ? AND se.user_id = ? AND se.status = 'active'
+                 AND se.staff_role IN ('staff', 'hr')
             ");
             $staff_stmt->execute([$shop_id, $staff_id]);
             $staff = $staff_stmt->fetch();
