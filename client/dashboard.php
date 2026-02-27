@@ -72,6 +72,26 @@ $posts_stmt = $pdo->query("
     LIMIT 6
 ");
 $latest_posts = $posts_stmt->fetchAll();
+
+
+$hiring_stmt = $pdo->query("
+    SELECT hp.title,
+           hp.description,
+           hp.expires_at,
+           hp.created_at,
+           s.id AS shop_id,
+           s.shop_name,
+           s.address,
+           s.rating
+    FROM hiring_posts hp
+    JOIN shops s ON hp.shop_id = s.id
+    WHERE hp.status = 'live'
+      AND s.status = 'active'
+      AND (hp.expires_at IS NULL OR hp.expires_at >= NOW())
+    ORDER BY hp.created_at DESC
+    LIMIT 6
+");
+$hiring_posts = $hiring_stmt->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -189,6 +209,29 @@ $latest_posts = $posts_stmt->fetchAll();
         .post-actions {
             margin-top: auto;
         }
+
+        .hiring-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
+        }
+        .hiring-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .hiring-meta {
+            color: #64748b;
+            font-size: 0.9rem;
+            display: grid;
+            gap: 6px;
+        }
+
         .stats-grid {
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 1rem;
@@ -350,6 +393,48 @@ $latest_posts = $posts_stmt->fetchAll();
                     <i class="fas fa-images fa-3x text-muted mb-3"></i>
                     <h4>No Posts Yet</h4>
                     <p class="text-muted">Shop owners have not posted any updates yet.</p>
+                </div>
+            <?php endif; ?>
+        </div>
+
+         <div class="card">
+            <div class="d-flex justify-between align-center">
+                <div>
+                    <h3>Hiring Openings</h3>
+                    <p class="text-muted mb-0">Current HR hiring posts from active shops.</p>
+                </div>
+                <a href="../hiring_shops.php" class="btn btn-outline-primary">View All Hiring Posts</a>
+            </div>
+            <?php if(!empty($hiring_posts)): ?>
+                <div class="hiring-list">
+                    <?php foreach($hiring_posts as $hiring): ?>
+                        <div class="hiring-card">
+                            <h4><?php echo htmlspecialchars($hiring['title']); ?></h4>
+                            <small>
+                                <i class="fas fa-store"></i> <?php echo htmlspecialchars($hiring['shop_name']); ?>
+                                · <?php echo date('M d, Y', strtotime($hiring['created_at'])); ?>
+                            </small>
+                            <?php if(!empty($hiring['description'])): ?>
+                                <p class="text-muted mb-0"><?php echo nl2br(htmlspecialchars($hiring['description'])); ?></p>
+                            <?php endif; ?>
+                            <div class="hiring-meta">
+                                <?php if(!empty($hiring['address'])): ?>
+                                    <span><i class="fas fa-location-dot"></i> <?php echo htmlspecialchars($hiring['address']); ?></span>
+                                <?php endif; ?>
+                                <span><i class="fas fa-star"></i> Rating: <?php echo number_format((float) ($hiring['rating'] ?? 0), 1); ?>/5</span>
+                                <span><i class="fas fa-calendar"></i> Expires: <?php echo !empty($hiring['expires_at']) ? date('M d, Y', strtotime($hiring['expires_at'])) : 'No expiry'; ?></span>
+                            </div>
+                            <div class="post-actions">
+                                <a href="shop_details.php?shop_id=<?php echo (int) $hiring['shop_id']; ?>" class="btn btn-outline btn-sm">View shop</a>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php else: ?>
+                <div class="text-center p-4">
+                    <i class="fas fa-briefcase fa-3x text-muted mb-3"></i>
+                    <h4>No Hiring Posts Yet</h4>
+                    <p class="text-muted">Please check back soon for open positions.</p>
                 </div>
             <?php endif; ?>
         </div>
