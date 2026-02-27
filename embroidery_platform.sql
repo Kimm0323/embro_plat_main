@@ -279,6 +279,8 @@ CREATE TABLE `community_post_comments` (
   `commenter_role` enum('client','shop') NOT NULL,
   `shop_id` int(11) DEFAULT NULL,
   `comment_text` text NOT NULL,
+  `negotiated_price` decimal(10,2) DEFAULT NULL,
+  `negotiated_quantity` int(11) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 

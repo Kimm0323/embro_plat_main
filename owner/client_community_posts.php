@@ -9,6 +9,8 @@ $form_error = '';
 $form_success = '';
 $selected_view_post = null;
 $community_comments_table_exists = table_exists($pdo, 'community_post_comments');
+$comment_offer_price_exists = $community_comments_table_exists && column_exists($pdo, 'community_post_comments', 'negotiated_price');
+$comment_offer_quantity_exists = $community_comments_table_exists && column_exists($pdo, 'community_post_comments', 'negotiated_quantity');
 
 $shop_stmt = $pdo->prepare("SELECT id, shop_name FROM shops WHERE owner_id = ?");
 $shop_stmt->execute([$owner_id]);
@@ -21,6 +23,8 @@ if (!$shop) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accept_request'])) {
     $post_id = (int) ($_POST['post_id'] ?? 0);
+     $offer_price = trim((string) ($_POST['offer_price'] ?? ''));
+    $offer_quantity = trim((string) ($_POST['offer_quantity'] ?? ''));
 
     if ($post_id <= 0) {
         $form_error = 'Unable to process the selected request.';
@@ -33,10 +37,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accept_request'])) {
             $form_error = 'The selected community request no longer exists.';
         } elseif (($selected_post['status'] ?? '') !== 'open') {
             $form_error = 'This request has already been handled by another shop.';
-             } elseif (!isset($selected_post['preferred_price']) || (float) $selected_post['preferred_price'] <= 0) {
-            $form_error = 'This request has no valid client price set.';
         } else {
-            try {
+           $final_price = $offer_price !== '' ? (float) $offer_price : (float) ($selected_post['preferred_price'] ?? 0);
+            $final_quantity = $offer_quantity !== '' ? (int) $offer_quantity : (int) ($selected_post['desired_quantity'] ?? 1);
+
+            if ($final_price <= 0) {
+                $form_error = 'Please enter a valid negotiated price before accepting this request.';
+            } elseif ($final_quantity <= 0) {
+                $form_error = 'Please enter a valid negotiated quantity before accepting this request.';
+            }
+
+            if ($form_error === '') {
+                try {
                 $pdo->beginTransaction();
 
                 $update_stmt = $pdo->prepare("UPDATE client_community_posts SET status = 'accepted', updated_at = NOW() WHERE id = ? AND status = 'open'");
@@ -66,8 +78,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accept_request'])) {
                     (int) $shop['id'],
                     !empty($selected_post['category']) ? $selected_post['category'] : 'Community Request',
                     $selected_post['description'] ?? null,
-                    !empty($selected_post['desired_quantity']) ? (int) $selected_post['desired_quantity'] : 1,
-                    (float) $selected_post['preferred_price'],
+                    $final_quantity,
+                    $final_price,
                     'Converted from community post: ' . ($selected_post['title'] ?? 'Untitled request')
                 ]);
 
@@ -84,22 +96,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accept_request'])) {
                      $order_id,
                     'community_post_accepted',
                     sprintf(
-                        '%s accepted your request "%s" at your posted budget of ₱%s. Order #%s is now in your orders list for review.',
+                        '%s accepted your request "%s" with a negotiated offer of ₱%s for qty %d. Order #%s is now in your orders list for review.',
                         $shop['shop_name'],
                         $selected_post['title'],
-                          number_format((float) $selected_post['preferred_price'], 2),
+                          number_format($final_price, 2),
+                        $final_quantity,
                         $order_number
                     )
                 );
 
-                 $form_success = 'Request accepted and converted to a new order using the client posted price and quantity.';
-            } catch (Throwable $e) {
-                if ($pdo->inTransaction()) {
-                    $pdo->rollBack();
+                $form_success = 'Request accepted and converted to a new order using the negotiated price and quantity.';
+                } catch (Throwable $e) {
+                    if ($pdo->inTransaction()) {
+                        $pdo->rollBack();
+                    }
+                    $form_error = $e instanceof RuntimeException
+                        ? $e->getMessage()
+                        : 'Unable to convert this community request into an order right now.';
                 }
-                $form_error = $e instanceof RuntimeException
-                    ? $e->getMessage()
-                    : 'Unable to convert this community request into an order right now.';
             }
         }
     }
@@ -108,11 +122,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['accept_request'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_shop_comment'])) {
     $post_id = (int) ($_POST['post_id'] ?? 0);
     $comment_text = sanitize($_POST['comment_text'] ?? '');
+     $offered_price = trim((string) ($_POST['offered_price'] ?? ''));
+    $offered_quantity = trim((string) ($_POST['offered_quantity'] ?? ''));
 
     if (!$community_comments_table_exists) {
         $form_error = 'Shop comments are unavailable because the community_post_comments table is missing.';
-    } elseif ($post_id <= 0 || $comment_text === '') {
-        $form_error = 'Please enter a comment before posting your service suggestion.';
+    } elseif ($post_id <= 0 || $comment_text === '' || $offered_price === '' || $offered_quantity === '') {
+        $form_error = 'Please include your comment, negotiated price, and quantity before posting your offer.';
+    } elseif (!is_numeric($offered_price) || (float) $offered_price <= 0) {
+        $form_error = 'Please enter a valid negotiated price.';
+    } elseif (!ctype_digit($offered_quantity) || (int) $offered_quantity <= 0) {
+        $form_error = 'Please enter a valid negotiated quantity.';
     } else {
         $post_exists_stmt = $pdo->prepare('SELECT id FROM client_community_posts WHERE id = ? LIMIT 1');
         $post_exists_stmt->execute([$post_id]);
@@ -120,16 +140,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_shop_comment']
         if (!$post_exists_stmt->fetchColumn()) {
             $form_error = 'The selected community post is no longer available.';
         } else {
-            $insert_comment_stmt = $pdo->prepare('
-                INSERT INTO community_post_comments (post_id, commenter_user_id, commenter_role, shop_id, comment_text, created_at)
-                VALUES (?, ?, "shop", ?, ?, NOW())
-            ');
-            $insert_comment_stmt->execute([
-                $post_id,
-                $owner_id,
-                (int) $shop['id'],
-                $comment_text,
-            ]);
+           if ($comment_offer_price_exists && $comment_offer_quantity_exists) {
+                $insert_comment_stmt = $pdo->prepare('
+                    INSERT INTO community_post_comments
+                        (post_id, commenter_user_id, commenter_role, shop_id, comment_text, negotiated_price, negotiated_quantity, created_at)
+                    VALUES (?, ?, "shop", ?, ?, ?, ?, NOW())
+                ');
+                $insert_comment_stmt->execute([
+                    $post_id,
+                    $owner_id,
+                    (int) $shop['id'],
+                    $comment_text,
+                    (float) $offered_price,
+                    (int) $offered_quantity,
+                ]);
+            } else {
+                $insert_comment_stmt = $pdo->prepare('
+                    INSERT INTO community_post_comments (post_id, commenter_user_id, commenter_role, shop_id, comment_text, created_at)
+                    VALUES (?, ?, "shop", ?, ?, NOW())
+                ');
+                $insert_comment_stmt->execute([
+                    $post_id,
+                    $owner_id,
+                    (int) $shop['id'],
+                    sprintf(
+                        "%s\n\nNegotiated offer: ₱%s, Qty %d",
+                        $comment_text,
+                        number_format((float) $offered_price, 2, '.', ''),
+                        (int) $offered_quantity
+                    ),
+                ]);
+            }
             $form_success = 'Your shop suggestion has been posted successfully.';
         }
     }
@@ -177,6 +218,8 @@ $posts_stmt = $pdo->query("
     ORDER BY ccp.created_at DESC
     LIMIT 12
 ");
+$community_posts = $posts_stmt->fetchAll();
+
 $post_comments_map = [];
 if ($community_comments_table_exists && !empty($community_posts)) {
     $post_ids = array_map(static function (array $post): int {
@@ -184,9 +227,14 @@ if ($community_comments_table_exists && !empty($community_posts)) {
     }, $community_posts);
     $placeholders = implode(',', array_fill(0, count($post_ids), '?'));
 
+    $comment_select = $comment_offer_price_exists && $comment_offer_quantity_exists
+        ? 'c.negotiated_price, c.negotiated_quantity'
+        : 'NULL AS negotiated_price, NULL AS negotiated_quantity';
+
     $comments_stmt = $pdo->prepare("\n        SELECT c.post_id,
                c.commenter_role,
                c.comment_text,
+               {$comment_select},
                c.created_at,
                u.fullname AS commenter_name,
                s.id AS shop_id,
@@ -202,7 +250,6 @@ if ($community_comments_table_exists && !empty($community_posts)) {
         $post_comments_map[(int) $comment_row['post_id']][] = $comment_row;
     }
 }
-$community_posts = $posts_stmt->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -369,6 +416,13 @@ $community_posts = $posts_stmt->fetchAll();
                                     <div class="comment-item">
                                         <strong><?php echo htmlspecialchars($shop_comment['shop_name'] ?? ($shop_comment['commenter_name'] ?? 'Shop')); ?></strong>
                                         <p class="mb-2 mt-1"><?php echo nl2br(htmlspecialchars($shop_comment['comment_text'])); ?></p>
+                                        <?php if (!empty($shop_comment['negotiated_price']) || !empty($shop_comment['negotiated_quantity'])): ?>
+                                            <p class="small text-muted mb-2">
+                                                <i class="fas fa-handshake"></i>
+                                                Offer: ₱<?php echo number_format((float) ($shop_comment['negotiated_price'] ?? 0), 2); ?>
+                                                · Qty <?php echo (int) ($shop_comment['negotiated_quantity'] ?? 0); ?>
+                                            </p>
+                                        <?php endif; ?>
                                         <?php if (!empty($shop_comment['shop_id'])): ?>
                                             <a href="../client/place_order.php?shop_id=<?php echo (int) $shop_comment['shop_id']; ?>" class="btn btn-primary btn-sm">
                                                 <i class="fas fa-cart-plus"></i> Make Order
@@ -383,6 +437,10 @@ $community_posts = $posts_stmt->fetchAll();
                                     <input type="hidden" name="post_id" value="<?php echo (int) $post['id']; ?>">
                                     <label class="mb-1">Suggest your shop service</label>
                                     <textarea name="comment_text" class="form-control" rows="2" required placeholder="Describe why your shop is a good fit and your service offer."></textarea>
+                                    <div class="d-flex" style="gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                                        <input type="number" name="offered_price" class="form-control" min="1" step="0.01" required placeholder="Offer price (₱)">
+                                        <input type="number" name="offered_quantity" class="form-control" min="1" step="1" required placeholder="Offer quantity">
+                                    </div>
                                     <button type="submit" name="submit_shop_comment" class="btn btn-outline-primary btn-sm mt-2">
                                         <i class="fas fa-comment"></i> Post shop comment
                                     </button>
@@ -396,6 +454,8 @@ $community_posts = $posts_stmt->fetchAll();
                             <form method="POST" class="d-flex" style="gap: 0.75rem; flex-wrap: wrap; align-items: center;">
                                 <?php echo csrf_field(); ?>
                                 <input type="hidden" name="post_id" value="<?php echo (int) $post['id']; ?>">
+                                <input type="number" name="offer_price" class="form-control form-control-sm" min="1" step="0.01" placeholder="Final price (₱)">
+                                <input type="number" name="offer_quantity" class="form-control form-control-sm" min="1" step="1" placeholder="Final qty">
                                 <button type="submit" name="accept_request" class="btn btn-primary btn-sm">
                                     <i class="fas fa-check"></i> Accept Request as new order
                                 </button>
