@@ -2141,6 +2141,7 @@ postToCommunityBtn.addEventListener('click', () => {
         title: generatedTitle,
         category: 'Request',
         description: `I created this design in the editor and I would like feedback/quotes from shop owners.\n\nCanvas: ${state.canvasType} (${state.canvasColor})\nPlacement: ${state.placementMethod}\nHoop preset: ${state.hoopPreset}\nThread color: ${state.threadColor}\nElements: ${elementSummary}`,
+        design_preview: canvas.toDataURL('image/png'),
         generatedAt: new Date().toISOString()
     };
 

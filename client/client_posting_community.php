@@ -15,6 +15,38 @@ $community_table_exists = table_exists($pdo, 'client_community_posts');
 $community_price_exists = $community_table_exists && column_exists($pdo, 'client_community_posts', 'preferred_price');
 $community_comments_table_exists = table_exists($pdo, 'community_post_comments');
 
+function save_base64_design_preview(string $data_url, int $client_id): array {
+    $parts = explode(',', $data_url, 2);
+    if (count($parts) !== 2 || strpos($parts[0], 'data:image/') !== 0) {
+        return ['success' => false, 'error' => 'Design preview format is invalid.'];
+    }
+
+    if (!preg_match('/^data:image\/(png|jpeg|jpg|gif);base64$/i', $parts[0], $matches)) {
+        return ['success' => false, 'error' => 'Unsupported design preview image type.'];
+    }
+
+    $binary = base64_decode($parts[1], true);
+    if ($binary === false) {
+        return ['success' => false, 'error' => 'Unable to decode the design preview image.'];
+    }
+
+    if (strlen($binary) > MAX_FILE_SIZE) {
+        return ['success' => false, 'error' => 'Design preview exceeds the 5 MB upload limit.'];
+    }
+
+    $extension = strtolower($matches[1] === 'jpeg' ? 'jpg' : $matches[1]);
+    $safe_prefix = preg_replace('/[^a-z0-9_-]+/i', '_', 'community_post');
+    $filename = $client_id . '_' . uniqid($safe_prefix . '_', true) . '.' . $extension;
+    $target_dir = media_upload_dir('community_posts');
+    $destination = $target_dir . '/' . $filename;
+
+    if (file_put_contents($destination, $binary) === false) {
+        return ['success' => false, 'error' => 'Failed to save design preview image.'];
+    }
+
+    return ['success' => true, 'path' => media_public_path('community_posts', $filename)];
+}
+
 if (!$community_table_exists) {
     $form_error = 'Community posts are unavailable because the database schema is missing the client_community_posts table. Please import the latest embroidery_platform.sql.';
  } elseif (!$community_price_exists) {
@@ -32,6 +64,7 @@ if ($community_table_exists && $community_price_exists && $_SERVER['REQUEST_METH
     $preferred_price = trim($_POST['preferred_price'] ?? '');
     $desired_quantity = trim($_POST['desired_quantity'] ?? '');
     $target_date = trim($_POST['target_date'] ?? '');
+    $design_preview = trim($_POST['design_preview'] ?? '');
     $image_path = null;
 
 
@@ -59,6 +92,15 @@ if ($community_table_exists && $community_price_exists && $_SERVER['REQUEST_METH
         }
     }
 
+    if ($form_error === '' && $image_path === null && $design_preview !== '') {
+        $preview_upload = save_base64_design_preview($design_preview, $client_id);
+        if (!$preview_upload['success']) {
+            $form_error = $preview_upload['error'];
+        } else {
+            $image_path = $preview_upload['path'];
+        }
+    }
+
     if ($form_error === '') {
         $insert_stmt = $pdo->prepare("
             INSERT INTO client_community_posts
@@ -79,40 +121,6 @@ if ($community_table_exists && $community_price_exists && $_SERVER['REQUEST_METH
         $form_success = 'Your post is now live for shop owners to review.';
     }
 }
-
-if ($community_table_exists && $community_comments_table_exists && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_client_comment'])) {
-    $post_id = (int) ($_POST['post_id'] ?? 0);
-    $comment_text = sanitize($_POST['comment_text'] ?? '');
-    $recommended_shop_id = (int) ($_POST['recommended_shop_id'] ?? 0);
-
-    if ($post_id <= 0 || $comment_text === '') {
-        $comment_error = 'Please provide a comment before submitting your recommendation.';
-    } else {
-        $post_exists_stmt = $pdo->prepare('SELECT id FROM client_community_posts WHERE id = ? AND client_id = ? LIMIT 1');
-        $post_exists_stmt->execute([$post_id, $client_id]);
-        $post_exists = $post_exists_stmt->fetchColumn();
-
-        if (!$post_exists) {
-            $comment_error = 'The selected post is unavailable for commenting.';
-        } else {
-            $insert_comment_stmt = $pdo->prepare('
-                INSERT INTO community_post_comments (post_id, commenter_user_id, commenter_role, shop_id, comment_text, created_at)
-                VALUES (?, ?, "client", ?, ?, NOW())
-            ');
-            $insert_comment_stmt->execute([
-                $post_id,
-                $client_id,
-                $recommended_shop_id > 0 ? $recommended_shop_id : null,
-                $comment_text,
-            ]);
-
-            $comment_success = 'Client recommendation posted successfully.';
-        }
-    }
-}
-
-$shop_options_stmt = $pdo->query('SELECT id, shop_name FROM shops ORDER BY shop_name ASC LIMIT 200');
-$shop_options = $shop_options_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 if ($community_table_exists && $community_price_exists) {
     $client_posts_stmt = $pdo->prepare("
@@ -256,6 +264,7 @@ if ($community_comments_table_exists && !empty($client_posts)) {
                 <?php endif; ?>
                 <form method="POST" class="post-form" enctype="multipart/form-data">
                     <?php echo csrf_field(); ?>
+                    <input type="hidden" id="design_preview" name="design_preview" value="">
                     <div class="form-grid">
                         <div>
                             <label for="title">Post title</label>
@@ -323,56 +332,13 @@ if ($community_comments_table_exists && !empty($client_posts)) {
                                 </div>
 
                                  <div class="comment-section">
-                                    <h5 class="mb-2"><i class="fas fa-user-friends text-primary"></i> Client comments (shop recommendations)</h5>
+                                    <h5 class="mb-2"><i class="fas fa-store text-primary"></i> Shop comments (service suggestions)</h5>
                                     <?php
                                         $post_comments = $post_comments_map[(int) $post['id']] ?? [];
-                                        $client_comments = array_values(array_filter($post_comments, static function (array $item): bool {
-                                            return ($item['commenter_role'] ?? '') === 'client';
-                                        }));
                                         $shop_comments = array_values(array_filter($post_comments, static function (array $item): bool {
                                             return ($item['commenter_role'] ?? '') === 'shop';
                                         }));
                                     ?>
-                                    <?php if (empty($client_comments)): ?>
-                                        <p class="text-muted small">No client recommendations yet.</p>
-                                    <?php else: ?>
-                                        <?php foreach ($client_comments as $client_comment): ?>
-                                            <div class="comment-item">
-                                                <strong><?php echo htmlspecialchars($client_comment['commenter_name'] ?? 'Client'); ?></strong>
-                                                <?php if (!empty($client_comment['shop_name'])): ?>
-                                                    <span class="badge badge-primary">Recommended: <?php echo htmlspecialchars($client_comment['shop_name']); ?></span>
-                                                <?php endif; ?>
-                                                <p class="mb-1 mt-1"><?php echo nl2br(htmlspecialchars($client_comment['comment_text'])); ?></p>
-                                            </div>
-                                        <?php endforeach; ?>
-                                    <?php endif; ?>
-
-                                    <?php if ($community_comments_table_exists): ?>
-                                        <form method="POST" class="post-form mt-2">
-                                            <?php echo csrf_field(); ?>
-                                            <input type="hidden" name="post_id" value="<?php echo (int) $post['id']; ?>">
-                                            <div class="form-grid">
-                                                <div>
-                                                    <label>Recommend a shop (optional)</label>
-                                                    <select name="recommended_shop_id" class="form-control">
-                                                        <option value="">Select a shop</option>
-                                                        <?php foreach ($shop_options as $shop_option): ?>
-                                                            <option value="<?php echo (int) $shop_option['id']; ?>"><?php echo htmlspecialchars($shop_option['shop_name']); ?></option>
-                                                        <?php endforeach; ?>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <label class="mt-2">Add your recommendation</label>
-                                            <textarea name="comment_text" class="form-control" rows="2" required placeholder="Recommend a shop, quality notes, and why you suggest them."></textarea>
-                                            <button type="submit" name="submit_client_comment" class="btn btn-outline-primary btn-sm mt-2">
-                                                <i class="fas fa-comment"></i> Submit client comment
-                                            </button>
-                                        </form>
-                                    <?php endif; ?>
-                                </div>
-
-                                <div class="comment-section">
-                                    <h5 class="mb-2"><i class="fas fa-store text-primary"></i> Shop comments (service suggestions)</h5>
                                     <?php if (empty($shop_comments)): ?>
                                         <p class="text-muted small">No shop suggestions yet.</p>
                                     <?php else: ?>
@@ -414,6 +380,7 @@ if ($community_comments_table_exists && !empty($client_posts)) {
         const titleField = document.getElementById('title');
         const descriptionField = document.getElementById('description');
         const priceField = document.getElementById('preferred_price');
+        const previewField = document.getElementById('design_preview');
 
         if (titleField && draft.title) {
             titleField.value = draft.title;
@@ -424,7 +391,10 @@ if ($community_comments_table_exists && !empty($client_posts)) {
         if (priceField && draft.preferred_price) {
             priceField.value = draft.preferred_price;
         }
-
+        if (previewField && draft.design_preview) {
+            previewField.value = draft.design_preview;
+        }
+        
         localStorage.removeItem('embroider_community_post_draft');
     } catch (error) {
         console.warn('Unable to prefill community draft from design editor.', error);
