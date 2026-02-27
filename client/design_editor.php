@@ -276,6 +276,9 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             display: grid;
             place-items: center;
         }
+        .preview-shell.show-canvas-3d {
+            perspective: none;
+        }
         .preview-model {
             width: 190px;
             height: 140px;
@@ -390,6 +393,22 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             background: linear-gradient(160deg, rgba(255, 255, 255, 0.18), transparent 42%, rgba(15, 23, 42, 0.08));
             pointer-events: none;
         }
+        .canvas-3d-container {
+            width: 240px;
+            height: 160px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid rgba(15, 23, 42, 0.2);
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
+            background: linear-gradient(140deg, #dbeafe, #bfdbfe);
+            display: none;
+        }
+        .preview-shell.show-canvas-3d .canvas-3d-container {
+            display: block;
+        }
+        .preview-shell.show-canvas-3d .preview-model {
+            display: none;
+        }
         .upload-area {
             border: 1px dashed #94a3b8;
             border-radius: 12px;
@@ -426,7 +445,7 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                             <option value="cap-baseball">Cap (Baseball Cap)</option>
                             <option value="cap-bucket">Cap (Bucket Hat)</option>
                             <option value="tote-bag">Tote Bag</option>
-                            <option value="plain-canvas">Canvas</option>
+                            <option value="plain-canvas">Canvas (3D Rotatable)</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -509,13 +528,14 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                         <strong>3D Item Preview</strong>
                         <small class="text-muted" id="modelRotationValue">-20°</small>
                     </div>
-                    <div class="preview-shell mt-2">
+                    <div id="previewShell" class="preview-shell mt-2">
                        <div id="previewModel" class="preview-model" aria-label="Rotatable 3D preview model">
                             <div id="previewModelSurface" class="preview-model-surface"></div>
                         </div>
+                        <div id="canvas3dPreview" class="canvas-3d-container" aria-label="3D rotatable canvas preview"></div>
                     </div>
                     <div class="slider-row">
-                        <input type="range" id="modelRotation" min="-180" max="180" step="5" value="-20">
+                       <input type="range" id="modelRotation" min="0" max="360" step="5" value="340">
                         <span>Rotate</span>
                     </div>
                 </div>
@@ -626,8 +646,7 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                         <button class="btn btn-outline" id="exportJsonBtn"><i class="fas fa-file-code"></i> Design JSON</button>
                         <button class="btn btn-outline" id="exportPngBtn"><i class="fas fa-image"></i> PNG Proof</button>
                         <button class="btn btn-outline" id="postToCommunityBtn"><i class="fas fa-paper-plane"></i> Post to Owner Community</button>
-                       <button class="btn btn-outline" id="goToProofingBtn"><i class="fas fa-arrow-right"></i> Design Proofing</button>
-                        <button class="btn btn-outline" id="getQuoteBtn"><i class="fas fa-file-invoice-dollar"></i> Get Price Quote</button>
+                       <button class="btn btn-outline" id="goToProofingQuoteBtn"><i class="fas fa-arrow-right"></i> Design Proofing &amp; Price Quotation</button>
                     </div>
                     <div class="version-list" id="versionList"></div>
                 </div>
@@ -641,6 +660,7 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
         </div>
     </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 const canvas = document.getElementById('designCanvas');
 const ctx = canvas.getContext('2d');
@@ -684,7 +704,7 @@ const canvasType = document.getElementById('canvasType');
 const canvasColor = document.getElementById('canvasColor');
 const placementMethod = document.getElementById('placementMethod');
 const logoSliderControls = document.getElementById('logoSliderControls');
-const goToProofingBtn = document.getElementById('goToProofingBtn');
+const goToProofingQuoteBtn = document.getElementById('goToProofingQuoteBtn');;
 const canvasColorPalette = document.getElementById('canvasColorPalette');
 const threadColorPalette = document.getElementById('threadColorPalette');
 const canvasColorCurrentLabel = document.getElementById('canvasColorCurrentLabel');
@@ -693,9 +713,63 @@ const canvasColorDropdown = document.getElementById('canvasColorDropdown');
 const threadColorDropdown = document.getElementById('threadColorDropdown');
 const modelRotation = document.getElementById('modelRotation');
 const modelRotationValue = document.getElementById('modelRotationValue');
+const previewShell = document.getElementById('previewShell');
 const previewModel = document.getElementById('previewModel');
 const previewModelSurface = document.getElementById('previewModelSurface');
-const getQuoteBtn = document.getElementById('getQuoteBtn');
+const canvas3dPreview = document.getElementById('canvas3dPreview');
+
+let canvas3dRenderer = null;
+let canvas3dScene = null;
+let canvas3dCamera = null;
+let canvas3dMesh = null;
+let canvas3dTexture = null;
+
+function initCanvas3DPreview() {
+    if (!canvas3dPreview || canvas3dRenderer || typeof THREE === 'undefined') return;
+    canvas3dScene = new THREE.Scene();
+    canvas3dCamera = new THREE.PerspectiveCamera(50, canvas3dPreview.clientWidth / canvas3dPreview.clientHeight, 0.1, 1000);
+    canvas3dCamera.position.z = 2.2;
+
+    canvas3dRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    canvas3dRenderer.setPixelRatio(window.devicePixelRatio || 1);
+    canvas3dRenderer.setSize(canvas3dPreview.clientWidth, canvas3dPreview.clientHeight);
+    canvas3dPreview.appendChild(canvas3dRenderer.domElement);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    canvas3dScene.add(ambientLight);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
+    directionalLight.position.set(1.5, 2.2, 2.3);
+    canvas3dScene.add(directionalLight);
+
+    canvas3dTexture = new THREE.CanvasTexture(canvas);
+    canvas3dTexture.needsUpdate = true;
+    const material = new THREE.MeshStandardMaterial({ map: canvas3dTexture, color: 0xffffff, metalness: 0.1, roughness: 0.7 });
+    const geometry = new THREE.BoxGeometry(1.5, 1.05, 0.07);
+    canvas3dMesh = new THREE.Mesh(geometry, material);
+    canvas3dScene.add(canvas3dMesh);
+    renderCanvas3DPreview();
+
+    window.addEventListener('resize', () => {
+        if (!canvas3dRenderer || !canvas3dCamera || !canvas3dPreview) return;
+        const width = canvas3dPreview.clientWidth;
+        const height = canvas3dPreview.clientHeight;
+        canvas3dRenderer.setSize(width, height);
+        canvas3dCamera.aspect = width / height;
+        canvas3dCamera.updateProjectionMatrix();
+        renderCanvas3DPreview();
+    });
+}
+
+function renderCanvas3DPreview() {
+    if (!canvas3dRenderer || !canvas3dScene || !canvas3dCamera || !canvas3dMesh) return;
+    const rotationInRadians = (state.modelRotation * Math.PI) / 180;
+    canvas3dMesh.rotation.y = rotationInRadians;
+    canvas3dMesh.rotation.x = 0.15;
+    if (canvas3dTexture) {
+        canvas3dTexture.needsUpdate = true;
+    }
+    canvas3dRenderer.render(canvas3dScene, canvas3dCamera);
+}
 
 
 const presets = {
@@ -785,6 +859,10 @@ function updateTextInputByPlacement() {
 function updatePreviewModel() {
     if (!previewModel || !previewModelSurface) return;
     const canvasTypeGroup = getCanvasTypeGroup(state.canvasType);
+    const useCanvas3DPreview = state.canvasType === 'plain-canvas';
+    if (previewShell) {
+        previewShell.classList.toggle('show-canvas-3d', useCanvas3DPreview);
+    }
     previewModel.style.backgroundColor = state.canvasColor;
     previewModel.style.setProperty('--model-rotation', `${state.modelRotation}deg`);
     previewModel.classList.remove(
@@ -802,9 +880,14 @@ function updatePreviewModel() {
         'type-tote-bag',
         'type-plain-canvas'
     );
+
     previewModel.classList.add(`is-${canvasTypeGroup}`);
     previewModel.classList.add(`type-${state.canvasType}`);
     previewModelSurface.style.backgroundImage = `url(${canvas.toDataURL('image/png')})`;
+    if (useCanvas3DPreview) {
+        initCanvas3DPreview();
+        renderCanvas3DPreview();
+    }
     if (modelRotationValue) {
         modelRotationValue.textContent = `${state.modelRotation}°`;
     }
@@ -2027,15 +2110,9 @@ exportPngBtn.addEventListener('click', () => {
     link.click();
 });
 
-goToProofingBtn.addEventListener('click', () => {
-    window.location.href = 'design_proofing.php?from_design_editor=1';
+goToProofingQuoteBtn.addEventListener('click', () => {
+    window.location.href = 'design_proofing.php?from_design_editor=1&next=pricing_quotation';
 });
-
-if (getQuoteBtn) {
-    getQuoteBtn.addEventListener('click', () => {
-        window.location.href = 'pricing_quotation.php?from_design_editor=1';
-    });
-}
 
 if (modelRotation) {
     modelRotation.addEventListener('input', () => {
