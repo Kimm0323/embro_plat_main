@@ -847,17 +847,53 @@ function createCanvas3DModel(canvasTypeValue) {
         rightHandle.position.x = 0.22;
         modelGroup.add(leftHandle, rightHandle);
     } else if (typeGroup === 'tshirt') {
-        bodyGeometry = new THREE.BoxGeometry(1.22, 0.95, 0.2, 8, 5, 2);
-        frontGeometry = new THREE.PlaneGeometry(0.9, 0.72, 1, 1);
-        frontOffset = 0.105;
+        const shirtShape = new THREE.Shape();
+        shirtShape.moveTo(-0.42, -0.62);
+        shirtShape.lineTo(0.42, -0.62);
+        shirtShape.lineTo(0.42, 0.35);
+        shirtShape.lineTo(0.66, 0.18);
+        shirtShape.lineTo(0.5, 0.52);
+        shirtShape.lineTo(0.24, 0.43);
+        shirtShape.quadraticCurveTo(0.08, 0.58, 0, 0.58);
+        shirtShape.quadraticCurveTo(-0.08, 0.58, -0.24, 0.43);
+        shirtShape.lineTo(-0.5, 0.52);
+        shirtShape.lineTo(-0.66, 0.18);
+        shirtShape.lineTo(-0.42, 0.35);
+        shirtShape.lineTo(-0.42, -0.62);
 
-        const leftSleeve = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.32, 0.2, 1, 1, 1), bodyMaterial.clone());
-        leftSleeve.position.set(-0.72, 0.16, 0);
-        leftSleeve.rotation.z = 0.35;
-        const rightSleeve = leftSleeve.clone();
-        rightSleeve.position.x = 0.72;
-        rightSleeve.rotation.z = -0.35;
-        modelGroup.add(leftSleeve, rightSleeve);
+        const shirtDepth = 0.11;
+        bodyGeometry = new THREE.ExtrudeGeometry(shirtShape, {
+            depth: shirtDepth,
+            bevelEnabled: true,
+            bevelThickness: 0.01,
+            bevelSize: 0.012,
+            bevelSegments: 2
+        });
+        bodyGeometry.center();
+
+        frontGeometry = new THREE.PlaneGeometry(0.7, 0.86, 1, 1);
+        frontOffset = shirtDepth * 0.5 + 0.01;
+
+        const collarMaterial = bodyMaterial.clone();
+        collarMaterial.color = new THREE.Color(state.canvasColor).offsetHSL(0, 0, 0.08);
+        const collarOuter = new THREE.Mesh(
+            new THREE.TorusGeometry(0.12, 0.018, 20, 48, Math.PI * 1.05),
+            collarMaterial
+        );
+        collarOuter.rotation.x = Math.PI;
+        collarOuter.position.set(0, 0.5, frontOffset - 0.006);
+
+        const collarInner = new THREE.Mesh(
+            new THREE.TorusGeometry(0.08, 0.012, 16, 36, Math.PI * 1.02),
+            new THREE.MeshStandardMaterial({
+                color: 0xf1f5f9,
+                metalness: 0,
+                roughness: 1
+            })
+        );
+        collarInner.rotation.x = Math.PI;
+        collarInner.position.set(0, 0.5, frontOffset - 0.004);
+        modelGroup.add(collarOuter, collarInner);
     } else {
         bodyGeometry = new THREE.BoxGeometry(1.45, 1.02, 0.08, 4, 4, 2);
         frontGeometry = new THREE.PlaneGeometry(1.34, 0.92, 1, 1);
