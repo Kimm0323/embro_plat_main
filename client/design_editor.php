@@ -267,8 +267,8 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             margin-bottom: 14px;
             padding: 14px;
             border-radius: 12px;
-            border: 1px solid #dbeafe;
-            background: radial-gradient(circle at 15% 10%, #eff6ff, #dbeafe 65%, #bfdbfe);
+            border: none;
+            background: transparent;
         }
         .preview-shell {
             perspective: 900px;
@@ -283,10 +283,10 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             width: 190px;
             height: 140px;
             border-radius: 20px;
-            border: 1px solid rgba(15, 23, 42, 0.22);
-            background: linear-gradient(145deg, rgba(255,255,255,0.75), rgba(148, 163, 184, 0.22));
+            border: none;
+            background: transparent;
             transform: rotateY(var(--model-rotation, -20deg)) rotateX(8deg);
-            box-shadow: 0 20px 35px rgba(15, 23, 42, 0.18);
+            box-shadow: none;
             transition: transform 0.25s ease;
             position: relative;
             overflow: hidden;
@@ -387,10 +387,9 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             overflow: hidden;
         }
         .preview-model::after {
-            content: '';
+            content: none;
             position: absolute;
            inset: 0;
-            background: linear-gradient(160deg, rgba(255, 255, 255, 0.18), transparent 42%, rgba(15, 23, 42, 0.08));
             pointer-events: none;
         }
         .canvas-3d-container {
@@ -398,9 +397,9 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             height: 160px;
             border-radius: 12px;
             overflow: hidden;
-            border: 1px solid rgba(15, 23, 42, 0.2);
-            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
-            background: linear-gradient(140deg, #dbeafe, #bfdbfe);
+           border: none;
+            box-shadow: none;
+            background: transparent;
             display: none;
         }
         .preview-shell.show-canvas-3d .canvas-3d-container {
