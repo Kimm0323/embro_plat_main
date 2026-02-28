@@ -725,6 +725,88 @@ let canvas3dTexture = null;
 let canvas3dModelGroup = null;
 let canvas3dSurfaceMesh = null;
 let canvas3dCurrentType = null;
+const previewTextureCanvas = document.createElement('canvas');
+previewTextureCanvas.width = 1024;
+previewTextureCanvas.height = 1024;
+const previewTextureCtx = previewTextureCanvas.getContext('2d');
+
+function getCanvasGuideBounds() {
+    const hoop = getHoopDimensions();
+    const hoopX = (canvas.width - hoop.width) / 2;
+    const hoopY = (canvas.height - hoop.height) / 2;
+
+    if (state.canvasType.startsWith('cap')) {
+        const capWidth = hoop.width + 150;
+        const capHeight = hoop.height * 0.72;
+        const centerY = hoopY + hoop.height * 0.58;
+        return {
+            x: canvas.width / 2 - capWidth * 0.5,
+            y: centerY - capHeight * 0.5,
+            width: capWidth,
+            height: capHeight * 1.05
+        };
+    }
+
+    if (state.canvasType === 'tote-bag') {
+        const bagWidth = hoop.width + 180;
+        const bagHeight = hoop.height + 120;
+        const bagX = (canvas.width - bagWidth) / 2;
+        const bagY = Math.max(24, hoopY - 40);
+        return {
+            x: bagX,
+            y: bagY,
+            width: bagWidth,
+            height: bagHeight
+        };
+    }
+
+    if (state.canvasType === 'plain-canvas') {
+        const areaWidth = hoop.width + 220;
+        const areaHeight = hoop.height + 180;
+        const areaX = (canvas.width - areaWidth) / 2;
+        const areaY = (canvas.height - areaHeight) / 2;
+        return {
+            x: areaX,
+            y: areaY,
+            width: areaWidth,
+            height: areaHeight
+        };
+    }
+
+    const shirtCenterX = canvas.width / 2;
+    const shirtTop = Math.max(18, hoopY - 86);
+    const shirtWidth = Math.min(canvas.width - 64, hoop.width + 220);
+    const shirtHeight = Math.min(canvas.height - shirtTop - 18, hoop.height + 210);
+    return {
+        x: shirtCenterX - shirtWidth / 2,
+        y: shirtTop,
+        width: shirtWidth,
+        height: shirtHeight
+    };
+}
+
+function updatePreviewTextureCanvas() {
+    if (!previewTextureCtx) return;
+    previewTextureCtx.clearRect(0, 0, previewTextureCanvas.width, previewTextureCanvas.height);
+
+    const bounds = getCanvasGuideBounds();
+    const cropPadding = 22;
+    const sx = Math.max(0, Math.floor(bounds.x - cropPadding));
+    const sy = Math.max(0, Math.floor(bounds.y - cropPadding));
+    const sw = Math.min(canvas.width - sx, Math.ceil(bounds.width + cropPadding * 2));
+    const sh = Math.min(canvas.height - sy, Math.ceil(bounds.height + cropPadding * 2));
+
+    const destPadding = 56;
+    const availableWidth = previewTextureCanvas.width - destPadding * 2;
+    const availableHeight = previewTextureCanvas.height - destPadding * 2;
+    const scale = Math.min(availableWidth / sw, availableHeight / sh);
+    const dw = sw * scale;
+    const dh = sh * scale;
+    const dx = (previewTextureCanvas.width - dw) / 2;
+    const dy = (previewTextureCanvas.height - dh) / 2;
+
+    previewTextureCtx.drawImage(canvas, sx, sy, sw, sh, dx, dy, dw, dh);
+}
 
 function createCanvas3DModel(canvasTypeValue) {
     if (typeof THREE === 'undefined') return null;
@@ -786,7 +868,7 @@ function createCanvas3DModel(canvasTypeValue) {
     modelGroup.add(bodyMesh);
 
     if (!canvas3dTexture) {
-        canvas3dTexture = new THREE.CanvasTexture(canvas);
+        canvas3dTexture = new THREE.CanvasTexture(previewTextureCanvas);
         if (THREE.SRGBColorSpace) {
             canvas3dTexture.colorSpace = THREE.SRGBColorSpace;
         } else if (THREE.sRGBEncoding) {
@@ -832,7 +914,7 @@ function initCanvas3DPreview() {
     rimLight.position.set(-1.8, 1.4, -1.2);
     canvas3dScene.add(rimLight);
 
-    canvas3dTexture = new THREE.CanvasTexture(canvas);
+    canvas3dTexture = new THREE.CanvasTexture(previewTextureCanvas);
      if (THREE.SRGBColorSpace) {
         canvas3dTexture.colorSpace = THREE.SRGBColorSpace;
     } else if (THREE.sRGBEncoding) {
@@ -875,6 +957,7 @@ function renderCanvas3DPreview() {
     });
     
     if (canvas3dTexture) {
+        updatePreviewTextureCanvas();
         canvas3dTexture.needsUpdate = true;
     }
     canvas3dRenderer.render(canvas3dScene, canvas3dCamera);
@@ -992,7 +1075,8 @@ function updatePreviewModel() {
 
     previewModel.classList.add(`is-${canvasTypeGroup}`);
     previewModel.classList.add(`type-${state.canvasType}`);
-    previewModelSurface.style.backgroundImage = `url(${canvas.toDataURL('image/png')})`;
+    updatePreviewTextureCanvas();
+    previewModelSurface.style.backgroundImage = `url(${previewTextureCanvas.toDataURL('image/png')})`;
     if (useCanvas3DPreview) {
         initCanvas3DPreview();
         renderCanvas3DPreview();
