@@ -721,8 +721,96 @@ const canvas3dPreview = document.getElementById('canvas3dPreview');
 let canvas3dRenderer = null;
 let canvas3dScene = null;
 let canvas3dCamera = null;
-let canvas3dMesh = null;
 let canvas3dTexture = null;
+let canvas3dModelGroup = null;
+let canvas3dSurfaceMesh = null;
+let canvas3dCurrentType = null;
+
+function createCanvas3DModel(canvasTypeValue) {
+    if (typeof THREE === 'undefined') return null;
+    const typeGroup = getCanvasTypeGroup(canvasTypeValue);
+    const modelGroup = new THREE.Group();
+
+    const bodyMaterial = new THREE.MeshStandardMaterial({
+        color: state.canvasColor,
+        metalness: 0.06,
+        roughness: 0.82
+    });
+
+    let bodyGeometry;
+    let frontGeometry;
+    let frontOffset = 0.055;
+
+    if (typeGroup === 'cap') {
+        bodyGeometry = new THREE.SphereGeometry(0.75, 64, 48, Math.PI * 0.12, Math.PI * 0.76, Math.PI * 0.24, Math.PI * 0.6);
+        frontGeometry = new THREE.SphereGeometry(0.72, 64, 48, Math.PI * 0.22, Math.PI * 0.56, Math.PI * 0.3, Math.PI * 0.42);
+        frontOffset = 0.038;
+
+        const brimGeometry = new THREE.CylinderGeometry(0.52, 0.2, 0.08, 36, 1, false, Math.PI * 0.3, Math.PI * 0.4);
+        brimGeometry.rotateX(Math.PI / 2);
+        brimGeometry.rotateZ(Math.PI);
+        const brim = new THREE.Mesh(brimGeometry, bodyMaterial.clone());
+        brim.position.set(0, -0.34, 0.35);
+        modelGroup.add(brim);
+    } else if (typeGroup === 'tote-bag') {
+        bodyGeometry = new THREE.BoxGeometry(1.05, 1.32, 0.22, 6, 6, 2);
+        frontGeometry = new THREE.PlaneGeometry(0.86, 1.04, 1, 1);
+        frontOffset = 0.112;
+
+        const handleGeometry = new THREE.TorusGeometry(0.26, 0.025, 18, 48, Math.PI);
+        const leftHandle = new THREE.Mesh(handleGeometry, bodyMaterial.clone());
+        leftHandle.rotation.z = Math.PI;
+        leftHandle.position.set(-0.22, 0.7, 0);
+        const rightHandle = leftHandle.clone();
+        rightHandle.position.x = 0.22;
+        modelGroup.add(leftHandle, rightHandle);
+    } else if (typeGroup === 'tshirt') {
+        bodyGeometry = new THREE.BoxGeometry(1.22, 0.95, 0.2, 8, 5, 2);
+        frontGeometry = new THREE.PlaneGeometry(0.9, 0.72, 1, 1);
+        frontOffset = 0.105;
+
+        const leftSleeve = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.32, 0.2, 1, 1, 1), bodyMaterial.clone());
+        leftSleeve.position.set(-0.72, 0.16, 0);
+        leftSleeve.rotation.z = 0.35;
+        const rightSleeve = leftSleeve.clone();
+        rightSleeve.position.x = 0.72;
+        rightSleeve.rotation.z = -0.35;
+        modelGroup.add(leftSleeve, rightSleeve);
+    } else {
+        bodyGeometry = new THREE.BoxGeometry(1.45, 1.02, 0.08, 4, 4, 2);
+        frontGeometry = new THREE.PlaneGeometry(1.34, 0.92, 1, 1);
+        frontOffset = 0.045;
+    }
+
+    const bodyMesh = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    modelGroup.add(bodyMesh);
+
+    if (!canvas3dTexture) {
+        canvas3dTexture = new THREE.CanvasTexture(canvas);
+        if (THREE.SRGBColorSpace) {
+            canvas3dTexture.colorSpace = THREE.SRGBColorSpace;
+        } else if (THREE.sRGBEncoding) {
+            canvas3dTexture.encoding = THREE.sRGBEncoding;
+        }
+    }
+    const surfaceMaterial = new THREE.MeshStandardMaterial({
+        map: canvas3dTexture,
+        transparent: true,
+        metalness: 0.02,
+        roughness: 0.88
+    });
+    canvas3dSurfaceMesh = new THREE.Mesh(frontGeometry, surfaceMaterial);
+    canvas3dSurfaceMesh.position.z = frontOffset;
+    if (typeGroup === 'cap') {
+        canvas3dSurfaceMesh.position.y = -0.02;
+    }
+    if (typeGroup === 'tote-bag') {
+        canvas3dSurfaceMesh.position.y = -0.04;
+    }
+    modelGroup.add(canvas3dSurfaceMesh);
+
+    return modelGroup;
+}
 
 function initCanvas3DPreview() {
     if (!canvas3dPreview || canvas3dRenderer || typeof THREE === 'undefined') return;
@@ -740,13 +828,17 @@ function initCanvas3DPreview() {
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
     directionalLight.position.set(1.5, 2.2, 2.3);
     canvas3dScene.add(directionalLight);
+    const rimLight = new THREE.DirectionalLight(0xbcd7ff, 0.35);
+    rimLight.position.set(-1.8, 1.4, -1.2);
+    canvas3dScene.add(rimLight);
 
     canvas3dTexture = new THREE.CanvasTexture(canvas);
+     if (THREE.SRGBColorSpace) {
+        canvas3dTexture.colorSpace = THREE.SRGBColorSpace;
+    } else if (THREE.sRGBEncoding) {
+        canvas3dTexture.encoding = THREE.sRGBEncoding;
+    }
     canvas3dTexture.needsUpdate = true;
-    const material = new THREE.MeshStandardMaterial({ map: canvas3dTexture, color: 0xffffff, metalness: 0.1, roughness: 0.7 });
-    const geometry = new THREE.BoxGeometry(1.5, 1.05, 0.07);
-    canvas3dMesh = new THREE.Mesh(geometry, material);
-    canvas3dScene.add(canvas3dMesh);
     renderCanvas3DPreview();
 
     window.addEventListener('resize', () => {
@@ -761,10 +853,27 @@ function initCanvas3DPreview() {
 }
 
 function renderCanvas3DPreview() {
-    if (!canvas3dRenderer || !canvas3dScene || !canvas3dCamera || !canvas3dMesh) return;
+   if (!canvas3dRenderer || !canvas3dScene || !canvas3dCamera) return;
+    if (!canvas3dModelGroup || canvas3dCurrentType !== state.canvasType) {
+        if (canvas3dModelGroup) {
+            canvas3dScene.remove(canvas3dModelGroup);
+        }
+        canvas3dModelGroup = createCanvas3DModel(state.canvasType);
+        canvas3dCurrentType = state.canvasType;
+        if (!canvas3dModelGroup) return;
+        canvas3dScene.add(canvas3dModelGroup);
+    }
+
     const rotationInRadians = (state.modelRotation * Math.PI) / 180;
-    canvas3dMesh.rotation.y = rotationInRadians;
-    canvas3dMesh.rotation.x = 0.15;
+     canvas3dModelGroup.rotation.y = rotationInRadians;
+    canvas3dModelGroup.rotation.x = 0.14;
+
+    canvas3dModelGroup.traverse(node => {
+        if (node.isMesh && node.material && node !== canvas3dSurfaceMesh && node.material.color) {
+            node.material.color.set(state.canvasColor);
+        }
+    });
+    
     if (canvas3dTexture) {
         canvas3dTexture.needsUpdate = true;
     }
@@ -859,7 +968,7 @@ function updateTextInputByPlacement() {
 function updatePreviewModel() {
     if (!previewModel || !previewModelSurface) return;
     const canvasTypeGroup = getCanvasTypeGroup(state.canvasType);
-    const useCanvas3DPreview = state.canvasType === 'plain-canvas';
+    const useCanvas3DPreview = typeof THREE !== 'undefined';
     if (previewShell) {
         previewShell.classList.toggle('show-canvas-3d', useCanvas3DPreview);
     }
