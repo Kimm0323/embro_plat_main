@@ -275,6 +275,9 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             height: 170px;
             display: grid;
             place-items: center;
+            border-radius: 14px;
+            border: 1px solid #e2e8f0;
+            background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
         }
         .preview-shell.show-canvas-3d {
             perspective: none;
@@ -283,10 +286,10 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             width: 190px;
             height: 140px;
             border-radius: 20px;
-            border: none;
-            background: transparent;
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            background: #e2e8f0;
             transform: rotateY(var(--model-rotation, -20deg)) rotateX(8deg);
-            box-shadow: none;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
             transition: transform 0.25s ease;
             position: relative;
             overflow: hidden;
@@ -380,6 +383,7 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             inset: 10px;
             border-radius: 12px;
             border: 1px solid rgba(15, 23, 42, 0.2);
+            background-color: rgba(255, 255, 255, 0.3);
             background-size: 100% 100%;
             background-position: center;
             background-repeat: no-repeat;
@@ -1155,10 +1159,7 @@ function updateTextInputByPlacement() {
 function updatePreviewModel() {
     if (!previewModel || !previewModelSurface) return;
     const canvasTypeGroup = getCanvasTypeGroup(state.canvasType);
-    const useCanvas3DPreview = typeof THREE !== 'undefined';
-    if (previewShell) {
-        previewShell.classList.toggle('show-canvas-3d', useCanvas3DPreview);
-    }
+    let useCanvas3DPreview = false;
     previewModel.style.backgroundColor = state.canvasColor;
     previewModel.style.setProperty('--model-rotation', `${state.modelRotation}deg`);
     previewModel.classList.remove(
@@ -1181,9 +1182,13 @@ function updatePreviewModel() {
     previewModel.classList.add(`type-${state.canvasType}`);
     updatePreviewTextureCanvas();
     previewModelSurface.style.backgroundImage = `url(${previewTextureCanvas.toDataURL('image/png')})`;
-    if (useCanvas3DPreview) {
+    if (typeof THREE !== 'undefined') {
         initCanvas3DPreview();
         renderCanvas3DPreview();
+        useCanvas3DPreview = !!canvas3dRenderer;
+    }
+    if (previewShell) {
+        previewShell.classList.toggle('show-canvas-3d', useCanvas3DPreview);
     }
     if (modelRotationValue) {
         modelRotationValue.textContent = `${state.modelRotation}°`;
