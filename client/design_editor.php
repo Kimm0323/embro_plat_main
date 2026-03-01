@@ -822,17 +822,47 @@ function createCanvas3DModel(canvasTypeValue) {
     let frontGeometry;
     let frontOffset = 0.055;
 
-    if (typeGroup === 'cap') {
-        bodyGeometry = new THREE.SphereGeometry(0.75, 64, 48, Math.PI * 0.12, Math.PI * 0.76, Math.PI * 0.24, Math.PI * 0.6);
-        frontGeometry = new THREE.SphereGeometry(0.72, 64, 48, Math.PI * 0.22, Math.PI * 0.56, Math.PI * 0.3, Math.PI * 0.42);
-        frontOffset = 0.038;
 
-        const brimGeometry = new THREE.CylinderGeometry(0.52, 0.2, 0.08, 36, 1, false, Math.PI * 0.3, Math.PI * 0.4);
-        brimGeometry.rotateX(Math.PI / 2);
-        brimGeometry.rotateZ(Math.PI);
-        const brim = new THREE.Mesh(brimGeometry, bodyMaterial.clone());
-        brim.position.set(0, -0.34, 0.35);
-        modelGroup.add(brim);
+    if (typeGroup === 'cap') {
+        if (modelType === 'cap-bucket') {
+            const bucketShape = new THREE.Shape();
+            bucketShape.moveTo(-0.48, -0.54);
+            bucketShape.lineTo(0.48, -0.54);
+            bucketShape.lineTo(0.36, 0.42);
+            bucketShape.lineTo(-0.36, 0.42);
+            bucketShape.lineTo(-0.48, -0.54);
+
+            bodyGeometry = new THREE.ExtrudeGeometry(bucketShape, {
+                depth: 0.4,
+                bevelEnabled: true,
+                bevelThickness: 0.02,
+                bevelSize: 0.02,
+                bevelSegments: 2
+            });
+            bodyGeometry.center();
+
+            frontGeometry = new THREE.PlaneGeometry(0.62, 0.62, 1, 1);
+            frontOffset = 0.215;
+
+            const brim = new THREE.Mesh(
+                new THREE.TorusGeometry(0.56, 0.06, 20, 70),
+                bodyMaterial.clone()
+            );
+            brim.rotation.x = Math.PI / 2;
+            brim.position.set(0, -0.38, 0);
+            modelGroup.add(brim);
+        } else {
+            bodyGeometry = new THREE.SphereGeometry(0.75, 64, 48, Math.PI * 0.12, Math.PI * 0.76, Math.PI * 0.24, Math.PI * 0.6);
+            frontGeometry = new THREE.SphereGeometry(0.72, 64, 48, Math.PI * 0.22, Math.PI * 0.56, Math.PI * 0.3, Math.PI * 0.42);
+            frontOffset = 0.038;
+
+            const brimGeometry = new THREE.CylinderGeometry(0.52, 0.2, 0.08, 36, 1, false, Math.PI * 0.3, Math.PI * 0.4);
+            brimGeometry.rotateX(Math.PI / 2);
+            brimGeometry.rotateZ(Math.PI);
+            const brim = new THREE.Mesh(brimGeometry, bodyMaterial.clone());
+            brim.position.set(0, -0.34, 0.35);
+            modelGroup.add(brim);
+        }
     } else if (typeGroup === 'tote-bag') {
         bodyGeometry = new THREE.BoxGeometry(1.05, 1.32, 0.22, 6, 6, 2);
         frontGeometry = new THREE.PlaneGeometry(0.86, 1.04, 1, 1);
@@ -847,18 +877,29 @@ function createCanvas3DModel(canvasTypeValue) {
         modelGroup.add(leftHandle, rightHandle);
     } else if (typeGroup === 'tshirt') {
         const shirtShape = new THREE.Shape();
-        shirtShape.moveTo(-0.42, -0.62);
-        shirtShape.lineTo(0.42, -0.62);
-        shirtShape.lineTo(0.42, 0.35);
-        shirtShape.lineTo(0.66, 0.18);
-        shirtShape.lineTo(0.5, 0.52);
-        shirtShape.lineTo(0.24, 0.43);
-        shirtShape.quadraticCurveTo(0.08, 0.58, 0, 0.58);
-        shirtShape.quadraticCurveTo(-0.08, 0.58, -0.24, 0.43);
-        shirtShape.lineTo(-0.5, 0.52);
-        shirtShape.lineTo(-0.66, 0.18);
-        shirtShape.lineTo(-0.42, 0.35);
-        shirtShape.lineTo(-0.42, -0.62);
+        if (modelType === 'tshirt-tank') {
+            shirtShape.moveTo(-0.35, -0.62);
+            shirtShape.lineTo(0.35, -0.62);
+            shirtShape.lineTo(0.35, 0.28);
+            shirtShape.quadraticCurveTo(0.3, 0.56, 0.14, 0.54);
+            shirtShape.quadraticCurveTo(0.06, 0.36, 0, 0.36);
+            shirtShape.quadraticCurveTo(-0.06, 0.36, -0.14, 0.54);
+            shirtShape.quadraticCurveTo(-0.3, 0.56, -0.35, 0.28);
+            shirtShape.lineTo(-0.35, -0.62);
+        } else {
+            shirtShape.moveTo(-0.42, -0.62);
+            shirtShape.lineTo(0.42, -0.62);
+            shirtShape.lineTo(0.42, 0.35);
+            shirtShape.lineTo(0.66, 0.18);
+            shirtShape.lineTo(0.5, 0.52);
+            shirtShape.lineTo(0.24, 0.43);
+            shirtShape.quadraticCurveTo(0.08, 0.58, 0, 0.58);
+            shirtShape.quadraticCurveTo(-0.08, 0.58, -0.24, 0.43);
+            shirtShape.lineTo(-0.5, 0.52);
+            shirtShape.lineTo(-0.66, 0.18);
+            shirtShape.lineTo(-0.42, 0.35);
+            shirtShape.lineTo(-0.42, -0.62);
+        }
 
         const shirtDepth = 0.11;
         bodyGeometry = new THREE.ExtrudeGeometry(shirtShape, {
@@ -870,29 +911,57 @@ function createCanvas3DModel(canvasTypeValue) {
         });
         bodyGeometry.center();
 
-        frontGeometry = new THREE.PlaneGeometry(0.7, 0.86, 1, 1);
+        frontGeometry = new THREE.PlaneGeometry(modelType === 'tshirt-tank' ? 0.56 : 0.7, 0.86, 1, 1);
         frontOffset = shirtDepth * 0.5 + 0.01;
 
         const collarMaterial = bodyMaterial.clone();
         collarMaterial.color = new THREE.Color(state.canvasColor).offsetHSL(0, 0, 0.08);
-        const collarOuter = new THREE.Mesh(
-            new THREE.TorusGeometry(0.12, 0.018, 20, 48, Math.PI * 1.05),
-            collarMaterial
-        );
+       const collarRadius = modelType === 'tshirt-vneck' ? 0.14 : 0.12;
+        const collarTube = modelType === 'tshirt-polo' ? 0.016 : 0.018;
+        const collarOuter = new THREE.Mesh(new THREE.TorusGeometry(collarRadius, collarTube, 20, 48, Math.PI * 1.05), collarMaterial);
         collarOuter.rotation.x = Math.PI;
         collarOuter.position.set(0, 0.5, frontOffset - 0.006);
 
-        const collarInner = new THREE.Mesh(
-            new THREE.TorusGeometry(0.08, 0.012, 16, 36, Math.PI * 1.02),
-            new THREE.MeshStandardMaterial({
-                color: 0xf1f5f9,
-                metalness: 0,
-                roughness: 1
-            })
-        );
+        const collarInner = new THREE.Mesh(new THREE.TorusGeometry(collarRadius * 0.66, 0.012, 16, 36, Math.PI * 1.02), new THREE.MeshStandardMaterial({
+            color: 0xf1f5f9,
+            metalness: 0,
+            roughness: 1
+        }));
         collarInner.rotation.x = Math.PI;
         collarInner.position.set(0, 0.5, frontOffset - 0.004);
         modelGroup.add(collarOuter, collarInner);
+
+        if (modelType === 'tshirt-vneck') {
+            const vNeckCut = new THREE.Mesh(
+                new THREE.ConeGeometry(0.13, 0.18, 3),
+                new THREE.MeshStandardMaterial({
+                    color: 0xf1f5f9,
+                    metalness: 0,
+                    roughness: 1
+                })
+            );
+            vNeckCut.rotation.z = Math.PI;
+            vNeckCut.position.set(0, 0.46, frontOffset - 0.006);
+            modelGroup.add(vNeckCut);
+        }
+
+        if (modelType === 'tshirt-polo') {
+            const placket = new THREE.Mesh(
+                new THREE.PlaneGeometry(0.08, 0.2),
+                new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.01, roughness: 0.9 })
+            );
+            placket.position.set(0, 0.38, frontOffset + 0.004);
+            modelGroup.add(placket);
+        }
+
+        if (modelType === 'tshirt-pocket') {
+            const pocket = new THREE.Mesh(
+                new THREE.PlaneGeometry(0.16, 0.16),
+                new THREE.MeshStandardMaterial({ color: state.canvasColor, metalness: 0.03, roughness: 0.85 })
+            );
+            pocket.position.set(-0.17, 0.23, frontOffset + 0.006);
+            modelGroup.add(pocket);
+        }
     } else {
         bodyGeometry = new THREE.BoxGeometry(1.45, 1.02, 0.08, 4, 4, 2);
         frontGeometry = new THREE.PlaneGeometry(1.34, 0.92, 1, 1);
