@@ -1006,12 +1006,14 @@ function createCanvas3DModel(canvasTypeValue) {
 function initCanvas3DPreview() {
     if (!canvas3dPreview || canvas3dRenderer || typeof THREE === 'undefined') return;
     canvas3dScene = new THREE.Scene();
-    canvas3dCamera = new THREE.PerspectiveCamera(50, canvas3dPreview.clientWidth / canvas3dPreview.clientHeight, 0.1, 1000);
+    const initialWidth = canvas3dPreview.clientWidth || 240;
+    const initialHeight = canvas3dPreview.clientHeight || 160;
+    canvas3dCamera = new THREE.PerspectiveCamera(50, initialWidth / initialHeight, 0.1, 1000);
     canvas3dCamera.position.z = 2.2;
 
     canvas3dRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     canvas3dRenderer.setPixelRatio(window.devicePixelRatio || 1);
-    canvas3dRenderer.setSize(canvas3dPreview.clientWidth, canvas3dPreview.clientHeight);
+    canvas3dRenderer.setSize(initialWidth, initialHeight);
     canvas3dPreview.appendChild(canvas3dRenderer.domElement);
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
@@ -1043,8 +1045,18 @@ function initCanvas3DPreview() {
     });
 }
 
+function resizeCanvas3DRenderer() {
+    if (!canvas3dRenderer || !canvas3dCamera || !canvas3dPreview) return;
+    const width = canvas3dPreview.clientWidth || 240;
+    const height = canvas3dPreview.clientHeight || 160;
+    canvas3dRenderer.setSize(width, height);
+    canvas3dCamera.aspect = width / height;
+    canvas3dCamera.updateProjectionMatrix();
+}
+
 function renderCanvas3DPreview() {
    if (!canvas3dRenderer || !canvas3dScene || !canvas3dCamera) return;
+   resizeCanvas3DRenderer();
     if (!canvas3dModelGroup || canvas3dCurrentType !== state.canvasType) {
         if (canvas3dModelGroup) {
             canvas3dScene.remove(canvas3dModelGroup);
@@ -1185,11 +1197,13 @@ function updatePreviewModel() {
     previewModelSurface.style.backgroundImage = `url(${previewTextureCanvas.toDataURL('image/png')})`;
     if (typeof THREE !== 'undefined') {
         initCanvas3DPreview();
-        renderCanvas3DPreview();
         useCanvas3DPreview = !!canvas3dRenderer;
     }
     if (previewShell) {
         previewShell.classList.toggle('show-canvas-3d', useCanvas3DPreview);
+    }
+    if (useCanvas3DPreview) {
+        renderCanvas3DPreview();
     }
     if (modelRotationValue) {
         modelRotationValue.textContent = `${state.modelRotation}°`;
