@@ -41,13 +41,27 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             border-radius: 14px;
             padding: 16px;
             margin-bottom: 16px;
+            min-height: 320px;
         }
-        .editor-canvas-wrapper canvas {
+        .editor-canvas-wrapper canvas,
+        .editor-three-canvas {
             width: 100%;
             height: auto;
             border-radius: 12px;
             border: 1px solid #e2e8f0;
             background: #ffffff;
+        }
+        .editor-three-canvas {
+            display: none;
+            aspect-ratio: 900 / 620;
+            min-height: 260px;
+            overflow: hidden;
+        }
+        .editor-canvas-wrapper.is-3d-mode #designCanvas {
+            display: none;
+        }
+        .editor-canvas-wrapper.is-3d-mode .editor-three-canvas {
+            display: block;
         }
         .status-pill {
             display: inline-flex;
@@ -518,8 +532,9 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                     </div>
                 </div>
 
-                <div class="editor-canvas-wrapper">
+                <div class="editor-canvas-wrapper" id="editorCanvasWrapper">
                     <canvas id="designCanvas" width="900" height="620"></canvas>
+                    <div id="designThreeCanvas" class="editor-three-canvas" aria-label="Three.js design canvas"></div>
                 </div>
 
                 <div class="preview-stage">
@@ -716,6 +731,8 @@ const previewShell = document.getElementById('previewShell');
 const previewModel = document.getElementById('previewModel');
 const previewModelSurface = document.getElementById('previewModelSurface');
 const canvas3dPreview = document.getElementById('canvas3dPreview');
+const editorCanvasWrapper = document.getElementById('editorCanvasWrapper');
+const designThreeCanvas = document.getElementById('designThreeCanvas');
 
 let canvas3dRenderer = null;
 let canvas3dScene = null;
@@ -724,6 +741,12 @@ let canvas3dTexture = null;
 let canvas3dModelGroup = null;
 let canvas3dSurfaceMesh = null;
 let canvas3dCurrentType = null;
+let designThreeRenderer = null;
+let designThreeScene = null;
+let designThreeCamera = null;
+let designThreePlane = null;
+let designThreeTexture = null;
+
 const previewTextureCanvas = document.createElement('canvas');
 previewTextureCanvas.width = 1024;
 previewTextureCanvas.height = 1024;
@@ -1419,6 +1442,63 @@ function drawCanvas() {
     });
 }
 
+
+function initDesignThreeCanvas() {
+    if (!editorCanvasWrapper || !designThreeCanvas || typeof THREE === 'undefined') return;
+    editorCanvasWrapper.classList.add('is-3d-mode');
+
+    if (designThreeRenderer) return;
+
+    designThreeScene = new THREE.Scene();
+    designThreeCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+    designThreeCamera.position.z = 2;
+
+    designThreeRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    designThreeRenderer.setPixelRatio(window.devicePixelRatio || 1);
+    designThreeCanvas.appendChild(designThreeRenderer.domElement);
+
+    designThreeTexture = new THREE.CanvasTexture(canvas);
+    if (THREE.SRGBColorSpace) {
+        designThreeTexture.colorSpace = THREE.SRGBColorSpace;
+    } else if (THREE.sRGBEncoding) {
+        designThreeTexture.encoding = THREE.sRGBEncoding;
+    }
+
+    const planeGeometry = new THREE.PlaneGeometry(2, 2 * (canvas.height / canvas.width));
+    const planeMaterial = new THREE.MeshBasicMaterial({ map: designThreeTexture });
+    designThreePlane = new THREE.Mesh(planeGeometry, planeMaterial);
+    designThreeScene.add(designThreePlane);
+
+    updateDesignThreeCanvasSize();
+    window.addEventListener('resize', updateDesignThreeCanvasSize);
+}
+
+function updateDesignThreeCanvasSize() {
+    if (!designThreeRenderer || !designThreeCanvas) return;
+    const width = designThreeCanvas.clientWidth || designThreeCanvas.offsetWidth;
+    const height = designThreeCanvas.clientHeight || Math.round(width * (canvas.height / canvas.width));
+    if (!width || !height) return;
+    designThreeRenderer.setSize(width, height, false);
+}
+
+function renderDesignThreeCanvas() {
+    if (!editorCanvasWrapper || !designThreeCanvas) return;
+
+    if (typeof THREE === 'undefined') {
+        editorCanvasWrapper.classList.remove('is-3d-mode');
+        return;
+    }
+
+    initDesignThreeCanvas();
+    if (!designThreeRenderer || !designThreeScene || !designThreeCamera) return;
+
+    if (designThreeTexture) {
+        designThreeTexture.needsUpdate = true;
+    }
+
+    designThreeRenderer.render(designThreeScene, designThreeCamera);
+}
+
 function getTextFont(element) {
     const isItalic = element.fontItalic ? 'italic' : 'normal';
     const isBold = element.fontWeight || 'normal';
@@ -1828,6 +1908,7 @@ function renderVersions() {
 
 function render() {
     drawCanvas();
+     renderDesignThreeCanvas();
     updatePreviewModel();
     renderLayerList();
     validateSafeArea();
