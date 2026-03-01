@@ -813,6 +813,7 @@ function updatePreviewTextureCanvas() {
 
 function createCanvas3DModel(canvasTypeValue) {
     if (typeof THREE === 'undefined') return null;
+    const modelType = canvasTypeValue || state.canvasType;
     const typeGroup = getCanvasTypeGroup(canvasTypeValue);
     const modelGroup = new THREE.Group();
 
