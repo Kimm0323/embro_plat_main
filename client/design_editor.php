@@ -713,8 +713,30 @@ const modelAssetByCanvasType = {
 
 const supportedCanvasTypes = new Set(Object.keys(modelAssetByCanvasType));
 
+const canvasTypeAliases = {
+    tshirt: 'tshirt-crew',
+    't-shirt': 'tshirt-crew',
+    shirt: 'tshirt-crew',
+    tee: 'tshirt-crew',
+    cap: 'cap-baseball',
+    hat: 'cap-baseball',
+    bag: 'tote-bag',
+    tote: 'tote-bag',
+    'tote bag': 'tote-bag',
+    canvas: 'plain-canvas',
+    plain: 'plain-canvas',
+    'plain-canvas': 'plain-canvas'
+};
+
 function getSupportedCanvasType(canvasTypeValue) {
-    return supportedCanvasTypes.has(canvasTypeValue) ? canvasTypeValue : 'tshirt-crew';
+    if (supportedCanvasTypes.has(canvasTypeValue)) {
+        return canvasTypeValue;
+    }
+    const normalizedCanvasType = String(canvasTypeValue || '').trim().toLowerCase();
+    if (canvasTypeAliases[normalizedCanvasType]) {
+        return canvasTypeAliases[normalizedCanvasType];
+    }
+    return 'tshirt-crew';
 }
 
 function getModelAssetKeyForCanvasType(canvasTypeValue) {
@@ -1997,7 +2019,10 @@ safeAreaToggle.addEventListener('change', () => {
 });
 
 canvasType.addEventListener('change', () => {
-    state.canvasType = canvasType.value;
+    state.canvasType = getSupportedCanvasType(canvasType.value);
+    if (canvasType.value !== state.canvasType) {
+        canvasType.value = state.canvasType;
+    }
     syncPlacementOptions();
     pushHistory();
     render();
