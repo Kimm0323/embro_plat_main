@@ -665,6 +665,7 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
     </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script>
 const canvas = document.getElementById('designCanvas');
 const ctx = canvas.getContext('2d');
@@ -729,6 +730,8 @@ let canvas3dTexture = null;
 let canvas3dModelGroup = null;
 let canvas3dSurfaceMesh = null;
 let canvas3dCurrentType = null;
+let canvas3dAssetLoading = false;
+const canvas3dModelAssets = {};
 const previewTextureCanvas = document.createElement('canvas');
 previewTextureCanvas.width = 1024;
 previewTextureCanvas.height = 1024;
@@ -812,186 +815,119 @@ function updatePreviewTextureCanvas() {
     previewTextureCtx.drawImage(canvas, sx, sy, sw, sh, dx, dy, dw, dh);
 }
 
+
+const modelAssetByTypeGroup = {
+    tshirt: '../assets/models/tshirt.glb',
+    cap: '../assets/models/cap.glb',
+    'tote-bag': '../assets/models/bag.glb'
+};
+
+   function cloneModelScene(scene) {
+    return scene.clone(true);
+}
+
+function normalizeModelTransform(modelRoot, typeGroup) {
+    const targetHeightByType = {
+        tshirt: 1.65,
+        cap: 1.18,
+        'tote-bag': 1.6
+    };
+    const box = new THREE.Box3().setFromObject(modelRoot);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    if (size.y > 0) {
+        const targetHeight = targetHeightByType[typeGroup] || 1.4;
+        const uniformScale = targetHeight / size.y;
+        modelRoot.scale.setScalar(uniformScale);
+    }
+    modelRoot.position.sub(center.multiplyScalar(modelRoot.scale.x));
+    if (typeGroup === 'tshirt') {
+        modelRoot.position.y = -0.08;
+    } else if (typeGroup === 'cap') {
+        modelRoot.position.y = -0.16;
+    } else if (typeGroup === 'tote-bag') {
+        modelRoot.position.y = -0.04;
+    }
+}
+
+function getSurfaceGeometryByTypeGroup(typeGroup) {
+     if (typeGroup === 'cap') {
+        return {
+            geometry: new THREE.PlaneGeometry(0.56, 0.42, 1, 1),
+            position: { x: 0, y: -0.02, z: 0.48 }
+        };
+    }
+    if (typeGroup === 'tote-bag') {
+        return {
+            geometry: new THREE.PlaneGeometry(0.8, 1.0, 1, 1),
+            position: { x: 0, y: -0.02, z: 0.16 }
+        };
+    }
+    if (typeGroup === 'tshirt') {
+        return {
+            geometry: new THREE.PlaneGeometry(0.66, 0.82, 1, 1),
+            position: { x: 0, y: -0.04, z: 0.11 }
+        };
+    }
+    return {
+        geometry: new THREE.PlaneGeometry(1.34, 0.92, 1, 1),
+        position: { x: 0, y: 0, z: 0.045 }
+    };
+}
+
+function loadCanvas3DAssets() {
+    if (canvas3dAssetLoading || typeof THREE === 'undefined' || !THREE.GLTFLoader) return;
+    canvas3dAssetLoading = true;
+    const loader = new THREE.GLTFLoader();
+
+    Object.entries(modelAssetByTypeGroup).forEach(([typeGroup, assetPath]) => {
+        loader.load(
+            assetPath,
+            gltf => {
+                canvas3dModelAssets[typeGroup] = gltf.scene;
+                if (canvas3dCurrentType && getCanvasTypeGroup(canvas3dCurrentType) === typeGroup) {
+                    canvas3dCurrentType = null;
+                    renderCanvas3DPreview();
+                }
+            },
+            undefined,
+            () => {
+                canvas3dModelAssets[typeGroup] = null;
+            }
+        );
+    });
+}
+
 function createCanvas3DModel(canvasTypeValue) {
     if (typeof THREE === 'undefined') return null;
-    const modelType = canvasTypeValue || state.canvasType;
     const typeGroup = getCanvasTypeGroup(canvasTypeValue);
     const modelGroup = new THREE.Group();
 
-    const bodyMaterial = new THREE.MeshStandardMaterial({
-        color: state.canvasColor,
-       metalness: 0.015,
-        roughness: 0.92
-    });
-
-    let bodyGeometry;
-    let frontGeometry;
-    let frontOffset = 0.055;
-
-
-    if (typeGroup === 'cap') {
-        if (modelType === 'cap-bucket') {
-            const bucketShape = new THREE.Shape();
-            bucketShape.moveTo(-0.48, -0.54);
-            bucketShape.lineTo(0.48, -0.54);
-            bucketShape.lineTo(0.36, 0.42);
-            bucketShape.lineTo(-0.36, 0.42);
-            bucketShape.lineTo(-0.48, -0.54);
-
-            bodyGeometry = new THREE.ExtrudeGeometry(bucketShape, {
-                depth: 0.4,
-                bevelEnabled: true,
-                bevelThickness: 0.02,
-                bevelSize: 0.02,
-                bevelSegments: 2
-            });
-            bodyGeometry.center();
-
-            frontGeometry = new THREE.PlaneGeometry(0.62, 0.62, 1, 1);
-            frontOffset = 0.215;
-
-            const brim = new THREE.Mesh(
-                new THREE.TorusGeometry(0.56, 0.06, 20, 70),
-                bodyMaterial.clone()
-            );
-            brim.rotation.x = Math.PI / 2;
-            brim.position.set(0, -0.38, 0);
-            modelGroup.add(brim);
-        } else {
-            bodyGeometry = new THREE.SphereGeometry(0.75, 64, 48, Math.PI * 0.12, Math.PI * 0.76, Math.PI * 0.24, Math.PI * 0.6);
-            frontGeometry = new THREE.SphereGeometry(0.72, 64, 48, Math.PI * 0.22, Math.PI * 0.56, Math.PI * 0.3, Math.PI * 0.42);
-            frontOffset = 0.038;
-
-            const brimGeometry = new THREE.CylinderGeometry(0.52, 0.2, 0.08, 36, 1, false, Math.PI * 0.3, Math.PI * 0.4);
-            brimGeometry.rotateX(Math.PI / 2);
-            brimGeometry.rotateZ(Math.PI);
-            const brim = new THREE.Mesh(brimGeometry, bodyMaterial.clone());
-            brim.position.set(0, -0.34, 0.35);
-            modelGroup.add(brim);
-        }
-    } else if (typeGroup === 'tote-bag') {
-        bodyGeometry = new THREE.BoxGeometry(1.05, 1.32, 0.22, 6, 6, 2);
-        frontGeometry = new THREE.PlaneGeometry(0.86, 1.04, 1, 1);
-        frontOffset = 0.112;
-
-        const handleGeometry = new THREE.TorusGeometry(0.26, 0.025, 18, 48, Math.PI);
-        const leftHandle = new THREE.Mesh(handleGeometry, bodyMaterial.clone());
-        leftHandle.rotation.z = Math.PI;
-        leftHandle.position.set(-0.22, 0.7, 0);
-        const rightHandle = leftHandle.clone();
-        rightHandle.position.x = 0.22;
-        modelGroup.add(leftHandle, rightHandle);
-    } else if (typeGroup === 'tshirt') {
-        const shirtShape = new THREE.Shape();
-        if (modelType === 'tshirt-tank') {
-            shirtShape.moveTo(-0.35, -0.62);
-            shirtShape.lineTo(0.35, -0.62);
-            shirtShape.lineTo(0.35, 0.28);
-            shirtShape.quadraticCurveTo(0.3, 0.56, 0.14, 0.54);
-            shirtShape.quadraticCurveTo(0.06, 0.36, 0, 0.36);
-            shirtShape.quadraticCurveTo(-0.06, 0.36, -0.14, 0.54);
-            shirtShape.quadraticCurveTo(-0.3, 0.56, -0.35, 0.28);
-            shirtShape.lineTo(-0.35, -0.62);
-        } else {
-           shirtShape.moveTo(-0.39, -0.66);
-            shirtShape.quadraticCurveTo(-0.16, -0.76, 0, -0.76);
-            shirtShape.quadraticCurveTo(0.16, -0.76, 0.39, -0.66);
-            shirtShape.lineTo(0.41, 0.22);
-            shirtShape.quadraticCurveTo(0.58, 0.22, 0.69, 0.08);
-            shirtShape.quadraticCurveTo(0.63, 0.29, 0.47, 0.48);
-            shirtShape.quadraticCurveTo(0.26, 0.44, 0.2, 0.48);
-            shirtShape.quadraticCurveTo(0.08, 0.58, 0, 0.57);
-            shirtShape.quadraticCurveTo(-0.08, 0.58, -0.2, 0.48);
-            shirtShape.quadraticCurveTo(-0.26, 0.44, -0.47, 0.48);
-            shirtShape.quadraticCurveTo(-0.63, 0.29, -0.69, 0.08);
-            shirtShape.quadraticCurveTo(-0.58, 0.22, -0.41, 0.22);
-            shirtShape.lineTo(-0.39, -0.66);
-        }
-
-        const shirtDepth = 0.16;
-        bodyGeometry = new THREE.ExtrudeGeometry(shirtShape, {
-            depth: shirtDepth,
-            steps: 2,
-            bevelEnabled: true,
-            bevelThickness: 0.022,
-            bevelSize: 0.022,
-            bevelSegments: 4,
-            curveSegments: 28
+    const modelAsset = canvas3dModelAssets[typeGroup];
+    if (modelAsset) {
+        const clonedScene = cloneModelScene(modelAsset);
+        clonedScene.traverse(node => {
+            if (node.isMesh && node.material) {
+                node.material = node.material.clone();
+                if (node.material.color) {
+                    node.material.color.set(state.canvasColor);
+                }
+            }
         });
-        bodyGeometry.center();
-
-       frontGeometry = new THREE.PlaneGeometry(modelType === 'tshirt-tank' ? 0.56 : 0.68, 0.9, 24, 32);
-        const frontPositions = frontGeometry.attributes.position;
-        for (let i = 0; i < frontPositions.count; i += 1) {
-            const x = frontPositions.getX(i);
-            const y = frontPositions.getY(i);
-            const chestCurve = (1 - Math.min(1, Math.abs(x) / 0.34)) * 0.028;
-            const torsoCurve = (1 - Math.min(1, Math.abs(y) / 0.45)) * 0.016;
-            frontPositions.setZ(i, chestCurve + torsoCurve);
-        }
-        frontPositions.needsUpdate = true;
-        frontGeometry.computeVertexNormals();
-        frontOffset = shirtDepth * 0.5 + 0.004;
-
-        const collarMaterial = bodyMaterial.clone();
-        collarMaterial.color = new THREE.Color(state.canvasColor).offsetHSL(0, 0, 0.04);
-        const collarRadius = modelType === 'tshirt-vneck' ? 0.138 : 0.124;
-        const collarTube = modelType === 'tshirt-polo' ? 0.018 : 0.02;
-        const collarOuter = new THREE.Mesh(new THREE.TorusGeometry(collarRadius, collarTube, 20, 64, Math.PI * 1.08), collarMaterial);
-        collarOuter.rotation.x = Math.PI;
-        collarOuter.position.set(0, 0.5, frontOffset - 0.005);
-
-        const collarInner = new THREE.Mesh(new THREE.TorusGeometry(collarRadius * 0.68, 0.014, 16, 48, Math.PI * 1.06), new THREE.MeshStandardMaterial({
-            color: 0x111827,
-            metalness: 0,
-            roughness: 1
-        }));
-        collarInner.rotation.x = Math.PI;
-        collarInner.position.set(0, 0.5, frontOffset - 0.004);
-        modelGroup.add(collarOuter, collarInner);
-
-        if (modelType === 'tshirt-vneck') {
-            const vNeckCut = new THREE.Mesh(
-                new THREE.ConeGeometry(0.13, 0.18, 3),
-                new THREE.MeshStandardMaterial({
-                    color: 0xf1f5f9,
-                    metalness: 0,
-                    roughness: 1
-                })
-            );
-            vNeckCut.rotation.z = Math.PI;
-            vNeckCut.position.set(0, 0.46, frontOffset - 0.006);
-            modelGroup.add(vNeckCut);
-        }
-
-        if (modelType === 'tshirt-polo') {
-            const placket = new THREE.Mesh(
-                new THREE.PlaneGeometry(0.08, 0.2),
-                new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.01, roughness: 0.9 })
-            );
-            placket.position.set(0, 0.38, frontOffset + 0.004);
-            modelGroup.add(placket);
-        }
-
-        if (modelType === 'tshirt-pocket') {
-            const pocket = new THREE.Mesh(
-                new THREE.PlaneGeometry(0.16, 0.16),
-                new THREE.MeshStandardMaterial({ color: state.canvasColor, metalness: 0.03, roughness: 0.85 })
-            );
-             pocket.position.set(-0.17, 0.23, frontOffset + 0.008);
-            modelGroup.add(pocket);
-        }
-
-        modelGroup.scale.set(1.22, 1.22, 1.18);
-        modelGroup.position.y = -0.04;
+       normalizeModelTransform(clonedScene, typeGroup);
+        modelGroup.add(clonedScene);
     } else {
-        bodyGeometry = new THREE.BoxGeometry(1.45, 1.02, 0.08, 4, 4, 2);
-        frontGeometry = new THREE.PlaneGeometry(1.34, 0.92, 1, 1);
-        frontOffset = 0.045;
+        const bodyMesh = new THREE.Mesh(
+            new THREE.BoxGeometry(1.45, 1.02, 0.08, 4, 4, 2),
+            new THREE.MeshStandardMaterial({
+                color: state.canvasColor,
+                metalness: 0.015,
+                roughness: 0.92
+            })
+        );
+        modelGroup.add(bodyMesh);
     }
 
-    const bodyMesh = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    modelGroup.add(bodyMesh);
 
     if (!canvas3dTexture) {
         canvas3dTexture = new THREE.CanvasTexture(previewTextureCanvas);
@@ -1007,14 +943,9 @@ function createCanvas3DModel(canvasTypeValue) {
         metalness: 0.02,
         roughness: 0.88
     });
-    canvas3dSurfaceMesh = new THREE.Mesh(frontGeometry, surfaceMaterial);
-    canvas3dSurfaceMesh.position.z = frontOffset;
-    if (typeGroup === 'cap') {
-        canvas3dSurfaceMesh.position.y = -0.02;
-    }
-    if (typeGroup === 'tote-bag') {
-        canvas3dSurfaceMesh.position.y = -0.04;
-    }
+    const surfaceSpec = getSurfaceGeometryByTypeGroup(typeGroup);
+    canvas3dSurfaceMesh = new THREE.Mesh(surfaceSpec.geometry, surfaceMaterial);
+    canvas3dSurfaceMesh.position.set(surfaceSpec.position.x, surfaceSpec.position.y, surfaceSpec.position.z);
     modelGroup.add(canvas3dSurfaceMesh);
 
     return modelGroup;
@@ -1052,6 +983,7 @@ function initCanvas3DPreview() {
         canvas3dTexture.encoding = THREE.sRGBEncoding;
     }
     canvas3dTexture.needsUpdate = true;
+    loadCanvas3DAssets();
     renderCanvas3DPreview();
 
     window.addEventListener('resize', () => {
