@@ -449,7 +449,6 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                             <option value="cap-baseball">Cap (Baseball Cap)</option>
                             <option value="cap-bucket">Cap (Bucket Hat)</option>
                             <option value="tote-bag">Tote Bag</option>
-                            <option value="plain-canvas">Canvas (3D Rotatable)</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -816,11 +815,22 @@ function updatePreviewTextureCanvas() {
 }
 
 
-const modelAssetByTypeGroup = {
-    tshirt: '../assets/models/tshirt.glb',
-    cap: '../assets/models/cap.glb',
+const modelAssetByCanvasType = {
+    'tshirt-crew': '../assets/models/tshirt.glb',
+    'tshirt-vneck': '../assets/models/tshirt.glb',
+    'tshirt-polo': '../assets/models/tshirt.glb',
+    'tshirt-tank': '../assets/models/tshirt.glb',
+    'tshirt-pocket': '../assets/models/tshirt.glb',
+    'cap-baseball': '../assets/models/cap.glb',
+    'cap-bucket': '../assets/models/cap.glb',
     'tote-bag': '../assets/models/bag.glb'
 };
+
+const supportedCanvasTypes = new Set(Object.keys(modelAssetByCanvasType));
+
+function getSupportedCanvasType(canvasTypeValue) {
+    return supportedCanvasTypes.has(canvasTypeValue) ? canvasTypeValue : 'tshirt-crew';
+}
 
    function cloneModelScene(scene) {
     return scene.clone(true);
@@ -880,19 +890,19 @@ function loadCanvas3DAssets() {
     canvas3dAssetLoading = true;
     const loader = new THREE.GLTFLoader();
 
-    Object.entries(modelAssetByTypeGroup).forEach(([typeGroup, assetPath]) => {
+    Object.entries(modelAssetByCanvasType).forEach(([canvasType, assetPath]) => {
         loader.load(
             assetPath,
             gltf => {
-                canvas3dModelAssets[typeGroup] = gltf.scene;
-                if (canvas3dCurrentType && getCanvasTypeGroup(canvas3dCurrentType) === typeGroup) {
+                canvas3dModelAssets[canvasType] = gltf.scene;
+                if (canvas3dCurrentType === canvasType) {
                     canvas3dCurrentType = null;
                     renderCanvas3DPreview();
                 }
             },
             undefined,
             () => {
-                canvas3dModelAssets[typeGroup] = null;
+                 canvas3dModelAssets[canvasType] = null;
             }
         );
     });
@@ -903,7 +913,10 @@ function createCanvas3DModel(canvasTypeValue) {
     const typeGroup = getCanvasTypeGroup(canvasTypeValue);
     const modelGroup = new THREE.Group();
 
-    const modelAsset = canvas3dModelAssets[typeGroup];
+    const modelAsset = canvas3dModelAssets[canvasTypeValue];
+    if (!modelAsset) {
+        return null;
+    }
     if (modelAsset) {
         const clonedScene = cloneModelScene(modelAsset);
         clonedScene.traverse(node => {
@@ -916,16 +929,7 @@ function createCanvas3DModel(canvasTypeValue) {
         });
        normalizeModelTransform(clonedScene, typeGroup);
         modelGroup.add(clonedScene);
-    } else {
-        const bodyMesh = new THREE.Mesh(
-            new THREE.BoxGeometry(1.45, 1.02, 0.08, 4, 4, 2),
-            new THREE.MeshStandardMaterial({
-                color: state.canvasColor,
-                metalness: 0.015,
-                roughness: 0.92
-            })
-        );
-        modelGroup.add(bodyMesh);
+    
     }
 
 
@@ -1083,20 +1087,15 @@ const placementOptionsByCanvasType = {
         { value: 'upper-center', label: 'Upper Center' },
         { value: 'bottom-center', label: 'Bottom Center' }
     ],
-    'plain-canvas': [
-        { value: 'center', label: 'Center' },
-        { value: 'top-left', label: 'Top Left' },
-        { value: 'top-right', label: 'Top Right' },
-        { value: 'bottom-left', label: 'Bottom Left' },
-        { value: 'bottom-right', label: 'Bottom Right' }
-    ]
+    
 };
 
 function getCanvasTypeGroup(canvasTypeValue = state.canvasType) {
+    canvasTypeValue = getSupportedCanvasType(canvasTypeValue);
     if ((canvasTypeValue || '').startsWith('tshirt')) return 'tshirt';
     if ((canvasTypeValue || '').startsWith('cap')) return 'cap';
     if (canvasTypeValue === 'tote-bag') return 'tote-bag';
-    return 'plain-canvas';
+     return 'tshirt';
 }
 
 function getPlacementOptions(canvasTypeValue = state.canvasType) {
@@ -1147,7 +1146,7 @@ function updatePreviewModel() {
     previewModel.classList.add(`type-${state.canvasType}`);
     updatePreviewTextureCanvas();
     previewModelSurface.style.backgroundImage = `url(${previewTextureCanvas.toDataURL('image/png')})`;
-    if (typeof THREE !== 'undefined') {
+    if (typeof THREE !== 'undefined' && modelAssetByCanvasType[state.canvasType]) {
         initCanvas3DPreview();
         useCanvas3DPreview = !!canvas3dRenderer;
     }
@@ -1300,6 +1299,7 @@ function loadState() {
     }
     const parsed = JSON.parse(saved);
     Object.assign(state, parsed);
+    state.canvasType = getSupportedCanvasType(state.canvasType);
     state.modelRotation = Number(parsed.modelRotation ?? state.modelRotation ?? -20);
      state.elements = normalizeElements(state.elements);
     state.history = [];
@@ -1307,7 +1307,7 @@ function loadState() {
     hoopPreset.value = state.hoopPreset || 'M';
     threadColor.value = state.threadColor || '#1d4ed8';
     safeAreaToggle.value = state.showSafeArea ? 'on' : 'off';
-    canvasType.value = state.canvasType || 'tshirt-crew';
+    canvasType.value = state.canvasType;
     if (modelRotation) modelRotation.value = String(state.modelRotation ?? -20);
      normalizeCanvasColorState();
     syncPlacementOptions();
@@ -1359,7 +1359,7 @@ function restoreFromHistory(entry) {
     state.hoopPreset = restored.hoopPreset;
     state.threadColor = restored.threadColor;
     state.showSafeArea = restored.showSafeArea;
-     state.canvasType = restored.canvasType || 'tshirt-crew';
+    state.canvasType = getSupportedCanvasType(restored.canvasType);
     state.canvasColor = normalizeCanvasColor(restored.canvasColor);
     state.placementMethod = restored.placementMethod || 'center-chest';
     state.modelRotation = Number(restored.modelRotation ?? state.modelRotation ?? -20);
@@ -1839,7 +1839,7 @@ function renderVersions() {
             state.hoopPreset = version.data.hoopPreset;
             state.threadColor = version.data.threadColor;
             state.showSafeArea = version.data.showSafeArea;
-            state.canvasType = version.data.canvasType || 'tshirt-crew';
+            state.canvasType = getSupportedCanvasType(version.data.canvasType);
             state.canvasColor = normalizeCanvasColor(version.data.canvasColor);
             state.placementMethod = version.data.placementMethod || 'center-chest';
             state.selectedId = null;
