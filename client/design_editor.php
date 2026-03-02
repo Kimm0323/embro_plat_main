@@ -309,7 +309,7 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
     </style>
 </head>
 <body>
-    <?php require_once __DIR__ . '/includes/customer_navbar.php'; ?>>
+    <?php require_once __DIR__ . '/includes/customer_navbar.php'; ?>
 
     <div class="container">
         <div class="dashboard-header">
@@ -813,9 +813,26 @@ function getSurfaceGeometryByTypeGroup(typeGroup) {
 }
 
 function loadCanvas3DAssets() {
-    if (canvas3dAssetLoading || typeof THREE === 'undefined' || !THREE.GLTFLoader) return;
+    if (canvas3dAssetLoading || typeof THREE === 'undefined') return;
+
+    const GLTFLoaderClass =
+        (typeof THREE !== 'undefined' && THREE.GLTFLoader)
+        || (typeof GLTFLoader !== 'undefined' ? GLTFLoader : null);
+
+    if (!GLTFLoaderClass) {
+        Object.keys(modelAssetByCanvasTypeGroup).forEach(assetKey => {
+            if (typeof canvas3dModelAssets[assetKey] === 'undefined') {
+                canvas3dModelAssets[assetKey] = null;
+            }
+        });
+        if (canvas3dCurrentType) {
+            renderCanvas3DPreview();
+        }
+        return;
+    }
+    
     canvas3dAssetLoading = true;
-    const loader = new THREE.GLTFLoader();
+    const loader = new GLTFLoaderClass();
 
     Object.entries(modelAssetByCanvasTypeGroup).forEach(([assetKey, assetPath]) => {
         loader.load(
