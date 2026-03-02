@@ -271,130 +271,12 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             background: transparent;
         }
         .preview-shell {
-            perspective: 900px;
             height: 340px;
             display: grid;
             place-items: center;
             border-radius: 14px;
             border: 1px solid #e2e8f0;
             background: linear-gradient(180deg, #5d9de0 0%, #4a8fd6 100%);
-        }
-        .preview-shell.show-canvas-3d {
-            perspective: none;
-        }
-        .preview-model {
-            width: 190px;
-            height: 140px;
-            border-radius: 20px;
-            border: 1px solid rgba(15, 23, 42, 0.12);
-            background: #e2e8f0;
-            transform: rotateY(var(--model-rotation, -20deg)) rotateX(8deg);
-            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
-            transition: transform 0.25s ease;
-            position: relative;
-            overflow: hidden;
-        }
-        .preview-model.is-tshirt {
-            width: 210px;
-            height: 152px;
-            border-radius: 26px 26px 20px 20px;
-        }
-        .preview-model.type-tshirt-vneck::before {
-            clip-path: polygon(0 0, 100% 0, 68% 100%, 32% 100%);
-            opacity: 0.55;
-        }
-        .preview-model.type-tshirt-polo::before {
-            border-radius: 0 0 10px 10px;
-            height: 34px;
-            top: 4px;
-        }
-        .preview-model.type-tshirt-pocket .preview-model-surface::after {
-            content: '';
-            position: absolute;
-            width: 28px;
-            height: 24px;
-            left: 28%;
-            top: 30%;
-            border: 1px solid rgba(15, 23, 42, 0.4);
-            border-radius: 2px;
-            background: rgba(255, 255, 255, 0.08);
-        }
-        .preview-model.type-tshirt-tank {
-            border-radius: 20px;
-        }
-        .preview-model.type-tshirt-tank::before {
-            width: 78px;
-            top: 12px;
-            border-radius: 0 0 24px 24px;
-        }
-        .preview-model.is-tshirt::before {
-            content: '';
-            position: absolute;
-            left: 50%;
-            top: 6px;
-            width: 56px;
-            height: 28px;
-            transform: translateX(-50%);
-            border-radius: 0 0 16px 16px;
-            border: 1px solid rgba(15, 23, 42, 0.2);
-            background: rgba(255, 255, 255, 0.3);
-        }
-        .preview-model.is-cap {
-            width: 200px;
-            height: 120px;
-            border-radius: 90px 90px 54px 54px;
-        }
-        .preview-model.is-cap .preview-model-surface {
-            inset: 14px 24px 34px;
-            border-radius: 54px 54px 24px 24px;
-        }
-        .preview-model.type-cap-bucket {
-            border-radius: 40px 40px 22px 22px;
-        }
-        .preview-model.type-cap-bucket .preview-model-surface {
-            inset: 18px 20px 30px;
-            border-radius: 36px 36px 18px 18px;
-        }
-        .preview-model.is-tote-bag {
-            width: 186px;
-            height: 170px;
-            border-radius: 16px;
-        }
-        .preview-model.is-tote-bag::before {
-            content: '';
-            position: absolute;
-            left: 50%;
-            top: -20px;
-            width: 92px;
-            height: 48px;
-            transform: translateX(-50%);
-            border: 5px solid rgba(15, 23, 42, 0.35);
-            border-bottom: 0;
-            border-radius: 56px 56px 0 0;
-            opacity: 0.45;
-        }
-        .preview-model.is-plain-canvas {
-            width: 206px;
-            height: 146px;
-            border-radius: 8px;
-        }
-        .preview-model-surface {
-            position: absolute;
-            inset: 10px;
-            border-radius: 12px;
-            border: 1px solid rgba(15, 23, 42, 0.2);
-            background-color: rgba(255, 255, 255, 0.3);
-            background-size: 100% 100%;
-            background-position: center;
-            background-repeat: no-repeat;
-            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
-            overflow: hidden;
-        }
-        .preview-model::after {
-            content: none;
-            position: absolute;
-           inset: 0;
-            pointer-events: none;
         }
         .canvas-3d-container {
             width: 100%;
@@ -405,13 +287,13 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
            border: none;
             box-shadow: none;
             background: transparent;
-            display: none;
-        }
-        .preview-shell.show-canvas-3d .canvas-3d-container {
             display: block;
         }
-        .preview-shell.show-canvas-3d .preview-model {
-            display: none;
+       .preview-3d-status {
+            margin-top: 8px;
+            text-align: center;
+            color: #e2e8f0;
+            font-size: 0.8rem;
         }
         .upload-area {
             border: 1px dashed #94a3b8;
@@ -532,11 +414,9 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
                         <small class="text-muted" id="modelRotationValue">-20°</small>
                     </div>
                     <div id="previewShell" class="preview-shell mt-2">
-                       <div id="previewModel" class="preview-model" aria-label="Rotatable 3D preview model">
-                            <div id="previewModelSurface" class="preview-model-surface"></div>
-                        </div>
                         <div id="canvas3dPreview" class="canvas-3d-container" aria-label="3D rotatable canvas preview"></div>
                     </div>
+                    <small id="preview3dStatus" class="preview-3d-status">Loading 3D model...</small>
                     <div class="slider-row">
                        <input type="range" id="modelRotation" min="0" max="360" step="5" value="340">
                         <span>Rotate</span>
@@ -718,9 +598,8 @@ const threadColorDropdown = document.getElementById('threadColorDropdown');
 const modelRotation = document.getElementById('modelRotation');
 const modelRotationValue = document.getElementById('modelRotationValue');
 const previewShell = document.getElementById('previewShell');
-const previewModel = document.getElementById('previewModel');
-const previewModelSurface = document.getElementById('previewModelSurface');
 const canvas3dPreview = document.getElementById('canvas3dPreview');
+const preview3dStatus = document.getElementById('preview3dStatus');
 
 let canvas3dRenderer = null;
 let canvas3dScene = null;
@@ -1121,41 +1000,24 @@ function updateTextInputByPlacement() {
 }
 
 function updatePreviewModel() {
-    if (!previewModel || !previewModelSurface) return;
-    const canvasTypeGroup = getCanvasTypeGroup(state.canvasType);
-    let useCanvas3DPreview = false;
-    previewModel.style.backgroundColor = state.canvasColor;
-    previewModel.style.setProperty('--model-rotation', `${state.modelRotation}deg`);
-    previewModel.classList.remove(
-        'is-tshirt',
-        'is-cap',
-        'is-tote-bag',
-        'is-plain-canvas',
-        'type-tshirt-crew',
-        'type-tshirt-vneck',
-        'type-tshirt-polo',
-        'type-tshirt-tank',
-        'type-tshirt-pocket',
-        'type-cap-baseball',
-        'type-cap-bucket',
-        'type-tote-bag',
-        'type-plain-canvas'
-    );
-
-    previewModel.classList.add(`is-${canvasTypeGroup}`);
-    previewModel.classList.add(`type-${state.canvasType}`);
+    const has3DModel = typeof THREE !== 'undefined' && !!modelAssetByCanvasType[state.canvasType];
     updatePreviewTextureCanvas();
-    previewModelSurface.style.backgroundImage = `url(${previewTextureCanvas.toDataURL('image/png')})`;
-    if (typeof THREE !== 'undefined' && modelAssetByCanvasType[state.canvasType]) {
+
+    if (has3DModel) {
         initCanvas3DPreview();
-        useCanvas3DPreview = !!canvas3dRenderer;
-    }
-    if (previewShell) {
-        previewShell.classList.toggle('show-canvas-3d', useCanvas3DPreview);
-    }
-    if (useCanvas3DPreview) {
         renderCanvas3DPreview();
     }
+
+    if (preview3dStatus) {
+        if (!has3DModel) {
+            preview3dStatus.textContent = 'No 3D model available for this item type.';
+        } else if (!canvas3dModelAssets[state.canvasType]) {
+            preview3dStatus.textContent = 'Loading 3D model...';
+        } else {
+            preview3dStatus.textContent = '3D model preview active';
+        }
+    }
+    
     if (modelRotationValue) {
         modelRotationValue.textContent = `${state.modelRotation}°`;
     }
