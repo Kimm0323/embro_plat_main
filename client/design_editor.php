@@ -263,38 +263,6 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             color: #1e293b;
             font-weight: 500;
         }
-         .preview-stage {
-            margin-bottom: 14px;
-            padding: 14px;
-            border-radius: 12px;
-            border: none;
-            background: transparent;
-        }
-        .preview-shell {
-            height: 340px;
-            display: grid;
-            place-items: center;
-            border-radius: 14px;
-            border: 1px solid #e2e8f0;
-            background: linear-gradient(180deg, #5d9de0 0%, #4a8fd6 100%);
-        }
-        .canvas-3d-container {
-            width: 100%;
-            max-width: 420px;
-            height: 300px;
-            border-radius: 12px;
-            overflow: hidden;
-           border: none;
-            box-shadow: none;
-            background: transparent;
-            display: block;
-        }
-       .preview-3d-status {
-            margin-top: 8px;
-            text-align: center;
-            color: #e2e8f0;
-            font-size: 0.8rem;
-        }
         .upload-area {
             border: 1px dashed #94a3b8;
             border-radius: 12px;
@@ -314,7 +282,7 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
     <div class="container">
         <div class="dashboard-header">
             <h2>Design Customization Editor</h2>
-            <p class="text-muted">Build embroidery-ready layouts with rotatable preview, placement controls, color tools, and proofing workflow.</p>
+            <p class="text-muted">Build embroidery-ready layouts with placement controls, color tools, and proofing workflow.</p>
         </div>
 
         <div class="editor-layout">
@@ -406,21 +374,6 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
 
                 <div class="editor-canvas-wrapper">
                     <canvas id="designCanvas" width="900" height="620"></canvas>
-                </div>
-
-                <div class="preview-stage">
-                    <div class="d-flex justify-between align-center">
-                        <strong>3D Item Preview</strong>
-                        <small class="text-muted" id="modelRotationValue">-20°</small>
-                    </div>
-                    <div id="previewShell" class="preview-shell mt-2">
-                        <div id="canvas3dPreview" class="canvas-3d-container" aria-label="3D rotatable canvas preview"></div>
-                    </div>
-                    <small id="preview3dStatus" class="preview-3d-status">Loading 3D model...</small>
-                    <div class="slider-row">
-                       <input type="range" id="modelRotation" min="0" max="360" step="5" value="340">
-                        <span>Rotate</span>
-                    </div>
                 </div>
 
                 <div class="d-flex justify-between align-center mt-3">
@@ -542,9 +495,6 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             </div>
         </div>
     </div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script>
 const canvas = document.getElementById('designCanvas');
 const ctx = canvas.getContext('2d');
@@ -595,484 +545,6 @@ const canvasColorCurrentLabel = document.getElementById('canvasColorCurrentLabel
 const threadColorCurrentLabel = document.getElementById('threadColorCurrentLabel');
 const canvasColorDropdown = document.getElementById('canvasColorDropdown');
 const threadColorDropdown = document.getElementById('threadColorDropdown');
-const modelRotation = document.getElementById('modelRotation');
-const modelRotationValue = document.getElementById('modelRotationValue');
-const previewShell = document.getElementById('previewShell');
-const canvas3dPreview = document.getElementById('canvas3dPreview');
-const preview3dStatus = document.getElementById('preview3dStatus');
-
-let canvas3dRenderer = null;
-let canvas3dScene = null;
-let canvas3dCamera = null;
-let canvas3dTexture = null;
-let canvas3dModelGroup = null;
-let canvas3dSurfaceMesh = null;
-let canvas3dCurrentType = null;
-let canvas3dAssetLoading = false;
-const canvas3dModelAssets = {};
-const previewTextureCanvas = document.createElement('canvas');
-previewTextureCanvas.width = 1024;
-previewTextureCanvas.height = 1024;
-const previewTextureCtx = previewTextureCanvas.getContext('2d');
-
-let guide3dRenderer = null;
-let guide3dScene = null;
-let guide3dCamera = null;
-let guide3dModel = null;
-let guide3dCurrentType = null;
-const guide3dRenderSize = 700;
-
-function getCanvasGuideBounds() {
-    const hoop = getHoopDimensions();
-    const hoopX = (canvas.width - hoop.width) / 2;
-    const hoopY = (canvas.height - hoop.height) / 2;
-
-    if (state.canvasType.startsWith('cap')) {
-        const capWidth = hoop.width + 150;
-        const capHeight = hoop.height * 0.72;
-        const centerY = hoopY + hoop.height * 0.58;
-        return {
-            x: canvas.width / 2 - capWidth * 0.5,
-            y: centerY - capHeight * 0.5,
-            width: capWidth,
-            height: capHeight * 1.05
-        };
-    }
-
-    if (state.canvasType === 'tote-bag') {
-        const bagWidth = hoop.width + 180;
-        const bagHeight = hoop.height + 120;
-        const bagX = (canvas.width - bagWidth) / 2;
-        const bagY = Math.max(24, hoopY - 40);
-        return {
-            x: bagX,
-            y: bagY,
-            width: bagWidth,
-            height: bagHeight
-        };
-    }
-
-    if (state.canvasType === 'plain-canvas') {
-        const areaWidth = hoop.width + 220;
-        const areaHeight = hoop.height + 180;
-        const areaX = (canvas.width - areaWidth) / 2;
-        const areaY = (canvas.height - areaHeight) / 2;
-        return {
-            x: areaX,
-            y: areaY,
-            width: areaWidth,
-            height: areaHeight
-        };
-    }
-
-    const shirtCenterX = canvas.width / 2;
-    const shirtTop = Math.max(18, hoopY - 86);
-    const shirtWidth = Math.min(canvas.width - 64, hoop.width + 220);
-    const shirtHeight = Math.min(canvas.height - shirtTop - 18, hoop.height + 210);
-    return {
-        x: shirtCenterX - shirtWidth / 2,
-        y: shirtTop,
-        width: shirtWidth,
-        height: shirtHeight
-    };
-}
-
-function updatePreviewTextureCanvas() {
-    if (!previewTextureCtx) return;
-    previewTextureCtx.clearRect(0, 0, previewTextureCanvas.width, previewTextureCanvas.height);
-
-    const bounds = getCanvasGuideBounds();
-    const cropPadding = 22;
-    const sx = Math.max(0, Math.floor(bounds.x - cropPadding));
-    const sy = Math.max(0, Math.floor(bounds.y - cropPadding));
-    const sw = Math.min(canvas.width - sx, Math.ceil(bounds.width + cropPadding * 2));
-    const sh = Math.min(canvas.height - sy, Math.ceil(bounds.height + cropPadding * 2));
-
-    const destPadding = 56;
-    const availableWidth = previewTextureCanvas.width - destPadding * 2;
-    const availableHeight = previewTextureCanvas.height - destPadding * 2;
-    const scale = Math.min(availableWidth / sw, availableHeight / sh);
-    const dw = sw * scale;
-    const dh = sh * scale;
-    const dx = (previewTextureCanvas.width - dw) / 2;
-    const dy = (previewTextureCanvas.height - dh) / 2;
-
-    previewTextureCtx.drawImage(canvas, sx, sy, sw, sh, dx, dy, dw, dh);
-}
-
-
-const modelAssetByCanvasTypeGroup = {
-    tshirt: '../assets/models/tshirt.glb',
-    cap: '../assets/models/cap.glb',
-    'tote-bag': '../assets/models/bag.glb'
-};
-
-const modelAssetByCanvasType = {
-    'tshirt-crew': modelAssetByCanvasTypeGroup.tshirt,
-    'tshirt-vneck': modelAssetByCanvasTypeGroup.tshirt,
-    'tshirt-polo': modelAssetByCanvasTypeGroup.tshirt,
-    'tshirt-tank': modelAssetByCanvasTypeGroup.tshirt,
-    'tshirt-pocket': modelAssetByCanvasTypeGroup.tshirt,
-    'cap-baseball': modelAssetByCanvasTypeGroup.cap,
-    'cap-bucket': modelAssetByCanvasTypeGroup.cap,
-    'tote-bag': modelAssetByCanvasTypeGroup['tote-bag']
-};
-
-const supportedCanvasTypes = new Set(Object.keys(modelAssetByCanvasType));
-
-const canvasTypeAliases = {
-    tshirt: 'tshirt-crew',
-    't-shirt': 'tshirt-crew',
-    shirt: 'tshirt-crew',
-    tee: 'tshirt-crew',
-    cap: 'cap-baseball',
-    hat: 'cap-baseball',
-    bag: 'tote-bag',
-    tote: 'tote-bag',
-    'tote bag': 'tote-bag',
-    canvas: 'plain-canvas',
-    plain: 'plain-canvas',
-    'plain-canvas': 'plain-canvas'
-};
-
-function getSupportedCanvasType(canvasTypeValue) {
-    if (supportedCanvasTypes.has(canvasTypeValue)) {
-        return canvasTypeValue;
-    }
-    const normalizedCanvasType = String(canvasTypeValue || '').trim().toLowerCase();
-    if (canvasTypeAliases[normalizedCanvasType]) {
-        return canvasTypeAliases[normalizedCanvasType];
-    }
-    return 'tshirt-crew';
-}
-
-function getModelAssetKeyForCanvasType(canvasTypeValue) {
-    const canvasTypeGroup = getCanvasTypeGroup(canvasTypeValue);
-    return modelAssetByCanvasTypeGroup[canvasTypeGroup] ? canvasTypeGroup : canvasTypeValue;
-}
-
-function getModelAssetPathForCanvasType(canvasTypeValue) {
-    const modelAssetKey = getModelAssetKeyForCanvasType(canvasTypeValue);
-    if (modelAssetByCanvasTypeGroup[modelAssetKey]) {
-        return modelAssetByCanvasTypeGroup[modelAssetKey];
-    }
-    return modelAssetByCanvasType[canvasTypeValue] || null;
-}
-
-   function cloneModelScene(scene) {
-    return scene.clone(true);
-}
-
-function normalizeModelTransform(modelRoot, typeGroup) {
-    const targetHeightByType = {
-        tshirt: 1.65,
-        cap: 1.18,
-        'tote-bag': 1.6
-    };
-    const box = new THREE.Box3().setFromObject(modelRoot);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-    if (size.y > 0) {
-        const targetHeight = targetHeightByType[typeGroup] || 1.4;
-        const uniformScale = targetHeight / size.y;
-        modelRoot.scale.setScalar(uniformScale);
-    }
-    modelRoot.position.sub(center.multiplyScalar(modelRoot.scale.x));
-    if (typeGroup === 'tshirt') {
-        modelRoot.position.y = -0.08;
-    } else if (typeGroup === 'cap') {
-        modelRoot.position.y = -0.16;
-    } else if (typeGroup === 'tote-bag') {
-        modelRoot.position.y = -0.04;
-    }
-}
-
-function getSurfaceGeometryByTypeGroup(typeGroup) {
-     if (typeGroup === 'cap') {
-        return {
-            geometry: new THREE.PlaneGeometry(0.56, 0.42, 1, 1),
-            position: { x: 0, y: -0.02, z: 0.48 }
-        };
-    }
-    if (typeGroup === 'tote-bag') {
-        return {
-            geometry: new THREE.PlaneGeometry(0.8, 1.0, 1, 1),
-            position: { x: 0, y: -0.02, z: 0.16 }
-        };
-    }
-    if (typeGroup === 'tshirt') {
-        return {
-            geometry: new THREE.PlaneGeometry(0.66, 0.82, 1, 1),
-            position: { x: 0, y: -0.04, z: 0.11 }
-        };
-    }
-    return {
-        geometry: new THREE.PlaneGeometry(1.34, 0.92, 1, 1),
-        position: { x: 0, y: 0, z: 0.045 }
-    };
-}
-
-function loadCanvas3DAssets() {
-    if (canvas3dAssetLoading || typeof THREE === 'undefined') return;
-
-    const GLTFLoaderClass =
-        (typeof THREE !== 'undefined' && THREE.GLTFLoader)
-        || (typeof GLTFLoader !== 'undefined' ? GLTFLoader : null);
-
-    if (!GLTFLoaderClass) {
-        Object.keys(modelAssetByCanvasTypeGroup).forEach(assetKey => {
-            if (typeof canvas3dModelAssets[assetKey] === 'undefined') {
-                canvas3dModelAssets[assetKey] = null;
-            }
-        });
-        if (canvas3dCurrentType) {
-            renderCanvas3DPreview();
-        }
-        return;
-    }
-    
-    canvas3dAssetLoading = true;
-    const loader = new GLTFLoaderClass();
-
-    Object.entries(modelAssetByCanvasTypeGroup).forEach(([assetKey, assetPath]) => {
-        loader.load(
-            assetPath,
-            gltf => {
-                canvas3dModelAssets[assetKey] = gltf.scene;
-                if (canvas3dCurrentType === assetKey) {
-                    canvas3dCurrentType = null;
-                    renderCanvas3DPreview();
-                }
-            },
-            undefined,
-            () => {
-                 canvas3dModelAssets[assetKey] = null;
-            }
-        );
-    });
-}
-
-function createCanvas3DModel(canvasTypeValue) {
-    if (typeof THREE === 'undefined') return null;
-    const typeGroup = getCanvasTypeGroup(canvasTypeValue);
-    const modelGroup = new THREE.Group();
-
-    const modelAssetKey = getModelAssetKeyForCanvasType(canvasTypeValue);
-    const modelAsset = canvas3dModelAssets[modelAssetKey];
-     if (typeof modelAsset === 'undefined') {
-        return null;
-    }
-    if (modelAsset) {
-        const clonedScene = cloneModelScene(modelAsset);
-        clonedScene.traverse(node => {
-            if (node.isMesh && node.material) {
-                node.material = node.material.clone();
-                if (node.material.color) {
-                    node.material.color.set(state.canvasColor);
-                }
-            }
-        });
-       normalizeModelTransform(clonedScene, typeGroup);
-        modelGroup.add(clonedScene);
-         } else {
-        const fallbackBodyByType = {
-            tshirt: new THREE.BoxGeometry(1.4, 1.6, 0.5),
-            cap: new THREE.SphereGeometry(0.62, 32, 24, 0, Math.PI * 2, 0, Math.PI * 0.62),
-            'tote-bag': new THREE.BoxGeometry(1.2, 1.45, 0.35)
-        };
-
-        const fallbackGeometry = fallbackBodyByType[typeGroup] || fallbackBodyByType.tshirt;
-        const fallbackBody = new THREE.Mesh(
-            fallbackGeometry,
-            new THREE.MeshStandardMaterial({
-                color: state.canvasColor,
-                metalness: 0.04,
-                roughness: 0.82
-            })
-        );
-
-        if (typeGroup === 'cap') {
-            fallbackBody.position.y = -0.12;
-        } else if (typeGroup === 'tote-bag') {
-            fallbackBody.position.y = -0.04;
-        }
-        modelGroup.add(fallbackBody);
-    }
-
-
-    if (!canvas3dTexture) {
-        canvas3dTexture = new THREE.CanvasTexture(previewTextureCanvas);
-        if (THREE.SRGBColorSpace) {
-            canvas3dTexture.colorSpace = THREE.SRGBColorSpace;
-        } else if (THREE.sRGBEncoding) {
-            canvas3dTexture.encoding = THREE.sRGBEncoding;
-        }
-    }
-    const surfaceMaterial = new THREE.MeshStandardMaterial({
-        map: canvas3dTexture,
-        transparent: true,
-        metalness: 0.02,
-        roughness: 0.88
-    });
-    const surfaceSpec = getSurfaceGeometryByTypeGroup(typeGroup);
-    canvas3dSurfaceMesh = new THREE.Mesh(surfaceSpec.geometry, surfaceMaterial);
-    canvas3dSurfaceMesh.position.set(surfaceSpec.position.x, surfaceSpec.position.y, surfaceSpec.position.z);
-    modelGroup.add(canvas3dSurfaceMesh);
-
-    return modelGroup;
-}
-
-function initGuide3DRenderer() {
-    if (guide3dRenderer || typeof THREE === 'undefined') return;
-    guide3dScene = new THREE.Scene();
-    guide3dCamera = new THREE.PerspectiveCamera(32, 1, 0.1, 1000);
-    guide3dCamera.position.set(0, 0.04, 2.9);
-
-    guide3dRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-    guide3dRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    guide3dRenderer.setSize(guide3dRenderSize, guide3dRenderSize);
-
-    const ambient = new THREE.AmbientLight(0xffffff, 0.8);
-    guide3dScene.add(ambient);
-    const key = new THREE.DirectionalLight(0xffffff, 1.1);
-    key.position.set(2.3, 2.4, 2.5);
-    guide3dScene.add(key);
-    const fill = new THREE.DirectionalLight(0xdbeafe, 0.45);
-    fill.position.set(-2.1, 1.2, 1.6);
-    guide3dScene.add(fill);
-}
-
-function drawModelGuideToCanvas() {
-    const canvasTypeGroup = getCanvasTypeGroup();
-    if (canvasTypeGroup === 'plain-canvas') return false;
-
-    const modelAssetKey = getModelAssetKeyForCanvasType(state.canvasType);
-    const modelAsset = canvas3dModelAssets[modelAssetKey];
-    if (!modelAsset || typeof THREE === 'undefined') return false;
-
-    initGuide3DRenderer();
-    if (!guide3dRenderer || !guide3dScene || !guide3dCamera) return false;
-
-    if (!guide3dModel || guide3dCurrentType !== modelAssetKey) {
-        if (guide3dModel) {
-            guide3dScene.remove(guide3dModel);
-        }
-        const clonedScene = cloneModelScene(modelAsset);
-        clonedScene.traverse(node => {
-            if (node.isMesh && node.material) {
-                node.material = node.material.clone();
-                if (node.material.color) {
-                    node.material.color.set(state.canvasColor);
-                }
-            }
-        });
-        normalizeModelTransform(clonedScene, canvasTypeGroup);
-        guide3dModel = clonedScene;
-        guide3dCurrentType = modelAssetKey;
-        guide3dScene.add(guide3dModel);
-    }
-
-    guide3dModel.traverse(node => {
-        if (node.isMesh && node.material && node.material.color) {
-            node.material.color.set(state.canvasColor);
-        }
-    });
-    guide3dModel.rotation.y = 0;
-    guide3dModel.rotation.x = 0.06;
-
-    guide3dRenderer.render(guide3dScene, guide3dCamera);
-
-    const bounds = getCanvasGuideBounds();
-    ctx.drawImage(guide3dRenderer.domElement, bounds.x, bounds.y, bounds.width, bounds.height);
-    return true;
-}
-
-function initCanvas3DPreview() {
-    if (!canvas3dPreview || canvas3dRenderer || typeof THREE === 'undefined') return;
-    canvas3dScene = new THREE.Scene();
-    const initialWidth = canvas3dPreview.clientWidth || 420;
-    const initialHeight = canvas3dPreview.clientHeight || 300;
-    canvas3dCamera = new THREE.PerspectiveCamera(34, initialWidth / initialHeight, 0.1, 1000);
-    canvas3dCamera.position.set(0, 0.06, 2.85);
-
-    canvas3dRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    canvas3dRenderer.setPixelRatio(window.devicePixelRatio || 1);
-    canvas3dRenderer.setSize(initialWidth, initialHeight);
-    canvas3dPreview.appendChild(canvas3dRenderer.domElement);
-
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.74);
-    canvas3dScene.add(ambientLight);
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1.05);
-    keyLight.position.set(2.2, 2.6, 2.8);
-    canvas3dScene.add(keyLight);
-    const fillLight = new THREE.DirectionalLight(0xdbeafe, 0.45);
-    fillLight.position.set(-1.9, 1.1, 1.5);
-    canvas3dScene.add(fillLight);
-    const rimLight = new THREE.DirectionalLight(0xffffff, 0.32);
-    rimLight.position.set(-1.6, 1.7, -1.8);
-    canvas3dScene.add(rimLight);
-
-    canvas3dTexture = new THREE.CanvasTexture(previewTextureCanvas);
-     if (THREE.SRGBColorSpace) {
-        canvas3dTexture.colorSpace = THREE.SRGBColorSpace;
-    } else if (THREE.sRGBEncoding) {
-        canvas3dTexture.encoding = THREE.sRGBEncoding;
-    }
-    canvas3dTexture.needsUpdate = true;
-    loadCanvas3DAssets();
-    renderCanvas3DPreview();
-
-    window.addEventListener('resize', () => {
-        if (!canvas3dRenderer || !canvas3dCamera || !canvas3dPreview) return;
-        const width = canvas3dPreview.clientWidth;
-        const height = canvas3dPreview.clientHeight;
-        canvas3dRenderer.setSize(width, height);
-        canvas3dCamera.aspect = width / height;
-        canvas3dCamera.updateProjectionMatrix();
-        renderCanvas3DPreview();
-    });
-}
-
-function resizeCanvas3DRenderer() {
-    if (!canvas3dRenderer || !canvas3dCamera || !canvas3dPreview) return;
-    const width = canvas3dPreview.clientWidth || 420;
-    const height = canvas3dPreview.clientHeight || 300;
-    canvas3dRenderer.setSize(width, height);
-    canvas3dCamera.aspect = width / height;
-    canvas3dCamera.updateProjectionMatrix();
-}
-
-function renderCanvas3DPreview() {
-   if (!canvas3dRenderer || !canvas3dScene || !canvas3dCamera) return;
-   resizeCanvas3DRenderer();
-    const modelAssetKey = getModelAssetKeyForCanvasType(state.canvasType);
-
-    if (!canvas3dModelGroup || canvas3dCurrentType !== modelAssetKey) {
-        if (canvas3dModelGroup) {
-            canvas3dScene.remove(canvas3dModelGroup);
-        }
-        canvas3dModelGroup = createCanvas3DModel(state.canvasType);
-        canvas3dCurrentType = modelAssetKey;
-        if (!canvas3dModelGroup) return;
-        canvas3dScene.add(canvas3dModelGroup);
-    }
-
-    const rotationInRadians = (state.modelRotation * Math.PI) / 180;
-    canvas3dModelGroup.rotation.y = rotationInRadians;
-    canvas3dModelGroup.rotation.x = 0.08;
-
-    canvas3dModelGroup.traverse(node => {
-        if (node.isMesh && node.material && node !== canvas3dSurfaceMesh && node.material.color) {
-            node.material.color.set(state.canvasColor);
-        }
-    });
-    
-    if (canvas3dTexture) {
-        updatePreviewTextureCanvas();
-        canvas3dTexture.needsUpdate = true;
-    }
-    canvas3dRenderer.render(canvas3dScene, canvas3dCamera);
-}
 
 
 const presets = {
@@ -1095,8 +567,7 @@ const state = {
     placementMethod: placementMethod.value,
     versionCounter: 1,
     history: [],
-    future: [],
-    modelRotation: Number(modelRotation?.value || -20)
+    future: []
 };
 
 const storageKey = 'embroider_design_editor';
@@ -1155,31 +626,7 @@ function updateTextInputByPlacement() {
 }
 
 function updatePreviewModel() {
-    const modelAssetPath = getModelAssetPathForCanvasType(state.canvasType);
-    const modelAssetKey = getModelAssetKeyForCanvasType(state.canvasType);
-    const has3DModel = typeof THREE !== 'undefined' && !!modelAssetPath;
-    updatePreviewTextureCanvas();
-
-    if (has3DModel) {
-        initCanvas3DPreview();
-        renderCanvas3DPreview();
-    }
-
-    if (preview3dStatus) {
-        if (!has3DModel) {
-            preview3dStatus.textContent = 'No 3D model available for this item type.';
-         } else if (typeof canvas3dModelAssets[modelAssetKey] === 'undefined') {
-            preview3dStatus.textContent = 'Loading 3D model...';
-             } else if (canvas3dModelAssets[modelAssetKey] === null) {
-            preview3dStatus.textContent = '3D model failed to load. Showing fallback preview.';
-        } else {
-            preview3dStatus.textContent = '3D model preview active';
-        }
-    }
-
-    if (modelRotationValue) {
-        modelRotationValue.textContent = `${state.modelRotation}°`;
-    }
+    // 3D preview removed
 }
 
 function syncPlacementOptions(shouldPushHistory = false, shouldSaveState = false) {
@@ -1321,7 +768,6 @@ function loadState() {
     const parsed = JSON.parse(saved);
     Object.assign(state, parsed);
     state.canvasType = getSupportedCanvasType(state.canvasType);
-    state.modelRotation = Number(parsed.modelRotation ?? state.modelRotation ?? -20);
      state.elements = normalizeElements(state.elements);
     state.history = [];
     state.future = [];
@@ -1329,7 +775,6 @@ function loadState() {
     threadColor.value = state.threadColor || '#1d4ed8';
     safeAreaToggle.value = state.showSafeArea ? 'on' : 'off';
     canvasType.value = state.canvasType;
-    if (modelRotation) modelRotation.value = String(state.modelRotation ?? -20);
      normalizeCanvasColorState();
     syncPlacementOptions();
     rebuildImages();
@@ -1350,7 +795,6 @@ function saveState() {
         canvasType: state.canvasType,
         canvasColor: state.canvasColor,
         placementMethod: state.placementMethod,
-        modelRotation: state.modelRotation,
         versions: state.versions,
         versionCounter: state.versionCounter
     }));
@@ -1365,7 +809,6 @@ function pushHistory() {
          canvasType: state.canvasType,
         canvasColor: state.canvasColor,
         placementMethod: state.placementMethod,
-        modelRotation: state.modelRotation,
         selectedId: state.selectedId
     }));
     if (state.history.length > 30) {
@@ -1383,13 +826,11 @@ function restoreFromHistory(entry) {
     state.canvasType = getSupportedCanvasType(restored.canvasType);
     state.canvasColor = normalizeCanvasColor(restored.canvasColor);
     state.placementMethod = restored.placementMethod || 'center-chest';
-    state.modelRotation = Number(restored.modelRotation ?? state.modelRotation ?? -20);
     state.selectedId = restored.selectedId;
     hoopPreset.value = state.hoopPreset;
     threadColor.value = state.threadColor;
     safeAreaToggle.value = state.showSafeArea ? 'on' : 'off';
     canvasType.value = state.canvasType;
-    if (modelRotation) modelRotation.value = String(state.modelRotation ?? -20);
     normalizeCanvasColorState();
     syncPlacementOptions();
     rebuildImages();
@@ -2411,16 +1852,6 @@ goToProofingQuoteBtn.addEventListener('click', () => {
     window.location.href = 'design_proofing.php?from_design_editor=1&next=pricing_quotation';
 });
 
-if (modelRotation) {
-    modelRotation.addEventListener('input', () => {
-        state.modelRotation = Number(modelRotation.value || 0);
-        updatePreviewModel();
-    });
-    modelRotation.addEventListener('change', () => {
-        pushHistory();
-        saveState();
-    });
-}
 
 postToCommunityBtn.addEventListener('click', () => {
     if (!state.elements.length) {
