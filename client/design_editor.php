@@ -842,7 +842,7 @@ function createCanvas3DModel(canvasTypeValue) {
 
     const modelAssetKey = getModelAssetKeyForCanvasType(canvasTypeValue);
     const modelAsset = canvas3dModelAssets[modelAssetKey];
-    if (!modelAsset) {
+     if (typeof modelAsset === 'undefined') {
         return null;
     }
     if (modelAsset) {
@@ -857,7 +857,29 @@ function createCanvas3DModel(canvasTypeValue) {
         });
        normalizeModelTransform(clonedScene, typeGroup);
         modelGroup.add(clonedScene);
-    
+         } else {
+        const fallbackBodyByType = {
+            tshirt: new THREE.BoxGeometry(1.4, 1.6, 0.5),
+            cap: new THREE.SphereGeometry(0.62, 32, 24, 0, Math.PI * 2, 0, Math.PI * 0.62),
+            'tote-bag': new THREE.BoxGeometry(1.2, 1.45, 0.35)
+        };
+
+        const fallbackGeometry = fallbackBodyByType[typeGroup] || fallbackBodyByType.tshirt;
+        const fallbackBody = new THREE.Mesh(
+            fallbackGeometry,
+            new THREE.MeshStandardMaterial({
+                color: state.canvasColor,
+                metalness: 0.04,
+                roughness: 0.82
+            })
+        );
+
+        if (typeGroup === 'cap') {
+            fallbackBody.position.y = -0.12;
+        } else if (typeGroup === 'tote-bag') {
+            fallbackBody.position.y = -0.04;
+        }
+        modelGroup.add(fallbackBody);
     }
 
 
@@ -1129,8 +1151,10 @@ function updatePreviewModel() {
     if (preview3dStatus) {
         if (!has3DModel) {
             preview3dStatus.textContent = 'No 3D model available for this item type.';
-         } else if (!canvas3dModelAssets[modelAssetKey]) {
+         } else if (typeof canvas3dModelAssets[modelAssetKey] === 'undefined') {
             preview3dStatus.textContent = 'Loading 3D model...';
+             } else if (canvas3dModelAssets[modelAssetKey] === null) {
+            preview3dStatus.textContent = '3D model failed to load. Showing fallback preview.';
         } else {
             preview3dStatus.textContent = '3D model preview active';
         }
@@ -1460,7 +1484,7 @@ function drawCanvasGuide(hoopX, hoopY, hoopWidth, hoopHeight) {
     if (drawModelGuideToCanvas()) {
         return;
     }
-    
+
     if (state.canvasType.startsWith('cap')) {
         drawCapGuide(hoopX, hoopY, hoopWidth, hoopHeight);
         return;
