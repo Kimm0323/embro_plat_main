@@ -272,12 +272,12 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
         }
         .preview-shell {
             perspective: 900px;
-            height: 170px;
+            height: 340px;
             display: grid;
             place-items: center;
             border-radius: 14px;
             border: 1px solid #e2e8f0;
-            background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+            background: linear-gradient(180deg, #5d9de0 0%, #4a8fd6 100%);
         }
         .preview-shell.show-canvas-3d {
             perspective: none;
@@ -397,8 +397,9 @@ $unread_notifications = fetch_unread_notification_count($pdo, $client_id);
             pointer-events: none;
         }
         .canvas-3d-container {
-            width: 240px;
-            height: 160px;
+            width: 100%;
+            max-width: 420px;
+            height: 300px;
             border-radius: 12px;
             overflow: hidden;
            border: none;
@@ -819,8 +820,8 @@ function createCanvas3DModel(canvasTypeValue) {
 
     const bodyMaterial = new THREE.MeshStandardMaterial({
         color: state.canvasColor,
-        metalness: 0.06,
-        roughness: 0.82
+       metalness: 0.015,
+        roughness: 0.92
     });
 
     let bodyGeometry;
@@ -892,43 +893,56 @@ function createCanvas3DModel(canvasTypeValue) {
             shirtShape.quadraticCurveTo(-0.3, 0.56, -0.35, 0.28);
             shirtShape.lineTo(-0.35, -0.62);
         } else {
-            shirtShape.moveTo(-0.42, -0.62);
-            shirtShape.lineTo(0.42, -0.62);
-            shirtShape.lineTo(0.42, 0.35);
-            shirtShape.lineTo(0.66, 0.18);
-            shirtShape.lineTo(0.5, 0.52);
-            shirtShape.lineTo(0.24, 0.43);
-            shirtShape.quadraticCurveTo(0.08, 0.58, 0, 0.58);
-            shirtShape.quadraticCurveTo(-0.08, 0.58, -0.24, 0.43);
-            shirtShape.lineTo(-0.5, 0.52);
-            shirtShape.lineTo(-0.66, 0.18);
-            shirtShape.lineTo(-0.42, 0.35);
-            shirtShape.lineTo(-0.42, -0.62);
+           shirtShape.moveTo(-0.39, -0.66);
+            shirtShape.quadraticCurveTo(-0.16, -0.76, 0, -0.76);
+            shirtShape.quadraticCurveTo(0.16, -0.76, 0.39, -0.66);
+            shirtShape.lineTo(0.41, 0.22);
+            shirtShape.quadraticCurveTo(0.58, 0.22, 0.69, 0.08);
+            shirtShape.quadraticCurveTo(0.63, 0.29, 0.47, 0.48);
+            shirtShape.quadraticCurveTo(0.26, 0.44, 0.2, 0.48);
+            shirtShape.quadraticCurveTo(0.08, 0.58, 0, 0.57);
+            shirtShape.quadraticCurveTo(-0.08, 0.58, -0.2, 0.48);
+            shirtShape.quadraticCurveTo(-0.26, 0.44, -0.47, 0.48);
+            shirtShape.quadraticCurveTo(-0.63, 0.29, -0.69, 0.08);
+            shirtShape.quadraticCurveTo(-0.58, 0.22, -0.41, 0.22);
+            shirtShape.lineTo(-0.39, -0.66);
         }
 
-        const shirtDepth = 0.11;
+        const shirtDepth = 0.16;
         bodyGeometry = new THREE.ExtrudeGeometry(shirtShape, {
             depth: shirtDepth,
+            steps: 2,
             bevelEnabled: true,
-            bevelThickness: 0.01,
-            bevelSize: 0.012,
-            bevelSegments: 2
+            bevelThickness: 0.022,
+            bevelSize: 0.022,
+            bevelSegments: 4,
+            curveSegments: 28
         });
         bodyGeometry.center();
 
-        frontGeometry = new THREE.PlaneGeometry(modelType === 'tshirt-tank' ? 0.56 : 0.7, 0.86, 1, 1);
-        frontOffset = shirtDepth * 0.5 + 0.01;
+       frontGeometry = new THREE.PlaneGeometry(modelType === 'tshirt-tank' ? 0.56 : 0.68, 0.9, 24, 32);
+        const frontPositions = frontGeometry.attributes.position;
+        for (let i = 0; i < frontPositions.count; i += 1) {
+            const x = frontPositions.getX(i);
+            const y = frontPositions.getY(i);
+            const chestCurve = (1 - Math.min(1, Math.abs(x) / 0.34)) * 0.028;
+            const torsoCurve = (1 - Math.min(1, Math.abs(y) / 0.45)) * 0.016;
+            frontPositions.setZ(i, chestCurve + torsoCurve);
+        }
+        frontPositions.needsUpdate = true;
+        frontGeometry.computeVertexNormals();
+        frontOffset = shirtDepth * 0.5 + 0.004;
 
         const collarMaterial = bodyMaterial.clone();
-        collarMaterial.color = new THREE.Color(state.canvasColor).offsetHSL(0, 0, 0.08);
-       const collarRadius = modelType === 'tshirt-vneck' ? 0.14 : 0.12;
-        const collarTube = modelType === 'tshirt-polo' ? 0.016 : 0.018;
-        const collarOuter = new THREE.Mesh(new THREE.TorusGeometry(collarRadius, collarTube, 20, 48, Math.PI * 1.05), collarMaterial);
+        collarMaterial.color = new THREE.Color(state.canvasColor).offsetHSL(0, 0, 0.04);
+        const collarRadius = modelType === 'tshirt-vneck' ? 0.138 : 0.124;
+        const collarTube = modelType === 'tshirt-polo' ? 0.018 : 0.02;
+        const collarOuter = new THREE.Mesh(new THREE.TorusGeometry(collarRadius, collarTube, 20, 64, Math.PI * 1.08), collarMaterial);
         collarOuter.rotation.x = Math.PI;
-        collarOuter.position.set(0, 0.5, frontOffset - 0.006);
+        collarOuter.position.set(0, 0.5, frontOffset - 0.005);
 
-        const collarInner = new THREE.Mesh(new THREE.TorusGeometry(collarRadius * 0.66, 0.012, 16, 36, Math.PI * 1.02), new THREE.MeshStandardMaterial({
-            color: 0xf1f5f9,
+        const collarInner = new THREE.Mesh(new THREE.TorusGeometry(collarRadius * 0.68, 0.014, 16, 48, Math.PI * 1.06), new THREE.MeshStandardMaterial({
+            color: 0x111827,
             metalness: 0,
             roughness: 1
         }));
@@ -964,9 +978,12 @@ function createCanvas3DModel(canvasTypeValue) {
                 new THREE.PlaneGeometry(0.16, 0.16),
                 new THREE.MeshStandardMaterial({ color: state.canvasColor, metalness: 0.03, roughness: 0.85 })
             );
-            pocket.position.set(-0.17, 0.23, frontOffset + 0.006);
+             pocket.position.set(-0.17, 0.23, frontOffset + 0.008);
             modelGroup.add(pocket);
         }
+
+        modelGroup.scale.set(1.22, 1.22, 1.18);
+        modelGroup.position.y = -0.04;
     } else {
         bodyGeometry = new THREE.BoxGeometry(1.45, 1.02, 0.08, 4, 4, 2);
         frontGeometry = new THREE.PlaneGeometry(1.34, 0.92, 1, 1);
@@ -1006,23 +1023,26 @@ function createCanvas3DModel(canvasTypeValue) {
 function initCanvas3DPreview() {
     if (!canvas3dPreview || canvas3dRenderer || typeof THREE === 'undefined') return;
     canvas3dScene = new THREE.Scene();
-    const initialWidth = canvas3dPreview.clientWidth || 240;
-    const initialHeight = canvas3dPreview.clientHeight || 160;
-    canvas3dCamera = new THREE.PerspectiveCamera(50, initialWidth / initialHeight, 0.1, 1000);
-    canvas3dCamera.position.z = 2.2;
+    const initialWidth = canvas3dPreview.clientWidth || 420;
+    const initialHeight = canvas3dPreview.clientHeight || 300;
+    canvas3dCamera = new THREE.PerspectiveCamera(34, initialWidth / initialHeight, 0.1, 1000);
+    canvas3dCamera.position.set(0, 0.06, 2.85);
 
     canvas3dRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     canvas3dRenderer.setPixelRatio(window.devicePixelRatio || 1);
     canvas3dRenderer.setSize(initialWidth, initialHeight);
     canvas3dPreview.appendChild(canvas3dRenderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.74);
     canvas3dScene.add(ambientLight);
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
-    directionalLight.position.set(1.5, 2.2, 2.3);
-    canvas3dScene.add(directionalLight);
-    const rimLight = new THREE.DirectionalLight(0xbcd7ff, 0.35);
-    rimLight.position.set(-1.8, 1.4, -1.2);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.05);
+    keyLight.position.set(2.2, 2.6, 2.8);
+    canvas3dScene.add(keyLight);
+    const fillLight = new THREE.DirectionalLight(0xdbeafe, 0.45);
+    fillLight.position.set(-1.9, 1.1, 1.5);
+    canvas3dScene.add(fillLight);
+    const rimLight = new THREE.DirectionalLight(0xffffff, 0.32);
+    rimLight.position.set(-1.6, 1.7, -1.8);
     canvas3dScene.add(rimLight);
 
     canvas3dTexture = new THREE.CanvasTexture(previewTextureCanvas);
@@ -1047,8 +1067,8 @@ function initCanvas3DPreview() {
 
 function resizeCanvas3DRenderer() {
     if (!canvas3dRenderer || !canvas3dCamera || !canvas3dPreview) return;
-    const width = canvas3dPreview.clientWidth || 240;
-    const height = canvas3dPreview.clientHeight || 160;
+    const width = canvas3dPreview.clientWidth || 420;
+    const height = canvas3dPreview.clientHeight || 300;
     canvas3dRenderer.setSize(width, height);
     canvas3dCamera.aspect = width / height;
     canvas3dCamera.updateProjectionMatrix();
@@ -1068,8 +1088,8 @@ function renderCanvas3DPreview() {
     }
 
     const rotationInRadians = (state.modelRotation * Math.PI) / 180;
-     canvas3dModelGroup.rotation.y = rotationInRadians;
-    canvas3dModelGroup.rotation.x = 0.14;
+    canvas3dModelGroup.rotation.y = rotationInRadians;
+    canvas3dModelGroup.rotation.x = 0.08;
 
     canvas3dModelGroup.traverse(node => {
         if (node.isMesh && node.material && node !== canvas3dSurfaceMesh && node.material.color) {
