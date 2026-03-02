@@ -615,6 +615,13 @@ previewTextureCanvas.width = 1024;
 previewTextureCanvas.height = 1024;
 const previewTextureCtx = previewTextureCanvas.getContext('2d');
 
+let guide3dRenderer = null;
+let guide3dScene = null;
+let guide3dCamera = null;
+let guide3dModel = null;
+let guide3dCurrentType = null;
+const guide3dRenderSize = 700;
+
 function getCanvasGuideBounds() {
     const hoop = getHoopDimensions();
     const hoopX = (canvas.width - hoop.width) / 2;
@@ -874,6 +881,71 @@ function createCanvas3DModel(canvasTypeValue) {
     modelGroup.add(canvas3dSurfaceMesh);
 
     return modelGroup;
+}
+
+function initGuide3DRenderer() {
+    if (guide3dRenderer || typeof THREE === 'undefined') return;
+    guide3dScene = new THREE.Scene();
+    guide3dCamera = new THREE.PerspectiveCamera(32, 1, 0.1, 1000);
+    guide3dCamera.position.set(0, 0.04, 2.9);
+
+    guide3dRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    guide3dRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    guide3dRenderer.setSize(guide3dRenderSize, guide3dRenderSize);
+
+    const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+    guide3dScene.add(ambient);
+    const key = new THREE.DirectionalLight(0xffffff, 1.1);
+    key.position.set(2.3, 2.4, 2.5);
+    guide3dScene.add(key);
+    const fill = new THREE.DirectionalLight(0xdbeafe, 0.45);
+    fill.position.set(-2.1, 1.2, 1.6);
+    guide3dScene.add(fill);
+}
+
+function drawModelGuideToCanvas() {
+    const canvasTypeGroup = getCanvasTypeGroup();
+    if (canvasTypeGroup === 'plain-canvas') return false;
+
+    const modelAssetKey = getModelAssetKeyForCanvasType(state.canvasType);
+    const modelAsset = canvas3dModelAssets[modelAssetKey];
+    if (!modelAsset || typeof THREE === 'undefined') return false;
+
+    initGuide3DRenderer();
+    if (!guide3dRenderer || !guide3dScene || !guide3dCamera) return false;
+
+    if (!guide3dModel || guide3dCurrentType !== modelAssetKey) {
+        if (guide3dModel) {
+            guide3dScene.remove(guide3dModel);
+        }
+        const clonedScene = cloneModelScene(modelAsset);
+        clonedScene.traverse(node => {
+            if (node.isMesh && node.material) {
+                node.material = node.material.clone();
+                if (node.material.color) {
+                    node.material.color.set(state.canvasColor);
+                }
+            }
+        });
+        normalizeModelTransform(clonedScene, canvasTypeGroup);
+        guide3dModel = clonedScene;
+        guide3dCurrentType = modelAssetKey;
+        guide3dScene.add(guide3dModel);
+    }
+
+    guide3dModel.traverse(node => {
+        if (node.isMesh && node.material && node.material.color) {
+            node.material.color.set(state.canvasColor);
+        }
+    });
+    guide3dModel.rotation.y = 0;
+    guide3dModel.rotation.x = 0.06;
+
+    guide3dRenderer.render(guide3dScene, guide3dCamera);
+
+    const bounds = getCanvasGuideBounds();
+    ctx.drawImage(guide3dRenderer.domElement, bounds.x, bounds.y, bounds.width, bounds.height);
+    return true;
 }
 
 function initCanvas3DPreview() {
@@ -1385,6 +1457,10 @@ function getTextMetrics(element) {
 }
 
 function drawCanvasGuide(hoopX, hoopY, hoopWidth, hoopHeight) {
+    if (drawModelGuideToCanvas()) {
+        return;
+    }
+    
     if (state.canvasType.startsWith('cap')) {
         drawCapGuide(hoopX, hoopY, hoopWidth, hoopHeight);
         return;
