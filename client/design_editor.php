@@ -694,21 +694,40 @@ function updatePreviewTextureCanvas() {
 }
 
 
-const modelAssetByCanvasType = {
-    'tshirt-crew': '../assets/models/tshirt.glb',
-    'tshirt-vneck': '../assets/models/tshirt.glb',
-    'tshirt-polo': '../assets/models/tshirt.glb',
-    'tshirt-tank': '../assets/models/tshirt.glb',
-    'tshirt-pocket': '../assets/models/tshirt.glb',
-    'cap-baseball': '../assets/models/cap.glb',
-    'cap-bucket': '../assets/models/cap.glb',
+const modelAssetByCanvasTypeGroup = {
+    tshirt: '../assets/models/tshirt.glb',
+    cap: '../assets/models/cap.glb',
     'tote-bag': '../assets/models/bag.glb'
+};
+
+const modelAssetByCanvasType = {
+    'tshirt-crew': modelAssetByCanvasTypeGroup.tshirt,
+    'tshirt-vneck': modelAssetByCanvasTypeGroup.tshirt,
+    'tshirt-polo': modelAssetByCanvasTypeGroup.tshirt,
+    'tshirt-tank': modelAssetByCanvasTypeGroup.tshirt,
+    'tshirt-pocket': modelAssetByCanvasTypeGroup.tshirt,
+    'cap-baseball': modelAssetByCanvasTypeGroup.cap,
+    'cap-bucket': modelAssetByCanvasTypeGroup.cap,
+    'tote-bag': modelAssetByCanvasTypeGroup['tote-bag']
 };
 
 const supportedCanvasTypes = new Set(Object.keys(modelAssetByCanvasType));
 
 function getSupportedCanvasType(canvasTypeValue) {
     return supportedCanvasTypes.has(canvasTypeValue) ? canvasTypeValue : 'tshirt-crew';
+}
+
+function getModelAssetKeyForCanvasType(canvasTypeValue) {
+    const canvasTypeGroup = getCanvasTypeGroup(canvasTypeValue);
+    return modelAssetByCanvasTypeGroup[canvasTypeGroup] ? canvasTypeGroup : canvasTypeValue;
+}
+
+function getModelAssetPathForCanvasType(canvasTypeValue) {
+    const modelAssetKey = getModelAssetKeyForCanvasType(canvasTypeValue);
+    if (modelAssetByCanvasTypeGroup[modelAssetKey]) {
+        return modelAssetByCanvasTypeGroup[modelAssetKey];
+    }
+    return modelAssetByCanvasType[canvasTypeValue] || null;
 }
 
    function cloneModelScene(scene) {
@@ -769,19 +788,19 @@ function loadCanvas3DAssets() {
     canvas3dAssetLoading = true;
     const loader = new THREE.GLTFLoader();
 
-    Object.entries(modelAssetByCanvasType).forEach(([canvasType, assetPath]) => {
+    Object.entries(modelAssetByCanvasTypeGroup).forEach(([assetKey, assetPath]) => {
         loader.load(
             assetPath,
             gltf => {
-                canvas3dModelAssets[canvasType] = gltf.scene;
-                if (canvas3dCurrentType === canvasType) {
+                canvas3dModelAssets[assetKey] = gltf.scene;
+                if (canvas3dCurrentType === assetKey) {
                     canvas3dCurrentType = null;
                     renderCanvas3DPreview();
                 }
             },
             undefined,
             () => {
-                 canvas3dModelAssets[canvasType] = null;
+                 canvas3dModelAssets[assetKey] = null;
             }
         );
     });
@@ -792,7 +811,8 @@ function createCanvas3DModel(canvasTypeValue) {
     const typeGroup = getCanvasTypeGroup(canvasTypeValue);
     const modelGroup = new THREE.Group();
 
-    const modelAsset = canvas3dModelAssets[canvasTypeValue];
+    const modelAssetKey = getModelAssetKeyForCanvasType(canvasTypeValue);
+    const modelAsset = canvas3dModelAssets[modelAssetKey];
     if (!modelAsset) {
         return null;
     }
@@ -892,12 +912,14 @@ function resizeCanvas3DRenderer() {
 function renderCanvas3DPreview() {
    if (!canvas3dRenderer || !canvas3dScene || !canvas3dCamera) return;
    resizeCanvas3DRenderer();
-    if (!canvas3dModelGroup || canvas3dCurrentType !== state.canvasType) {
+    const modelAssetKey = getModelAssetKeyForCanvasType(state.canvasType);
+
+    if (!canvas3dModelGroup || canvas3dCurrentType !== modelAssetKey) {
         if (canvas3dModelGroup) {
             canvas3dScene.remove(canvas3dModelGroup);
         }
         canvas3dModelGroup = createCanvas3DModel(state.canvasType);
-        canvas3dCurrentType = state.canvasType;
+        canvas3dCurrentType = modelAssetKey;
         if (!canvas3dModelGroup) return;
         canvas3dScene.add(canvas3dModelGroup);
     }
@@ -1000,7 +1022,9 @@ function updateTextInputByPlacement() {
 }
 
 function updatePreviewModel() {
-    const has3DModel = typeof THREE !== 'undefined' && !!modelAssetByCanvasType[state.canvasType];
+    const modelAssetPath = getModelAssetPathForCanvasType(state.canvasType);
+    const modelAssetKey = getModelAssetKeyForCanvasType(state.canvasType);
+    const has3DModel = typeof THREE !== 'undefined' && !!modelAssetPath;
     updatePreviewTextureCanvas();
 
     if (has3DModel) {
@@ -1011,13 +1035,13 @@ function updatePreviewModel() {
     if (preview3dStatus) {
         if (!has3DModel) {
             preview3dStatus.textContent = 'No 3D model available for this item type.';
-        } else if (!canvas3dModelAssets[state.canvasType]) {
+         } else if (!canvas3dModelAssets[modelAssetKey]) {
             preview3dStatus.textContent = 'Loading 3D model...';
         } else {
             preview3dStatus.textContent = '3D model preview active';
         }
     }
-    
+
     if (modelRotationValue) {
         modelRotationValue.textContent = `${state.modelRotation}°`;
     }
