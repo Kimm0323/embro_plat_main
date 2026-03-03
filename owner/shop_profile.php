@@ -8,58 +8,10 @@ $owner_id = $_SESSION['user']['id'];
 $shop_stmt = $pdo->prepare("SELECT * FROM shops WHERE owner_id = ?");
 $shop_stmt->execute([$owner_id]);
 $shop = $shop_stmt->fetch();
-$shop_posts = [];
 
 $pending_notice = $_SESSION['owner_pending_notice'] ?? '';
 unset($_SESSION['owner_pending_notice']);
 
-function build_work_post_description(string $embroidery_size, string $canvas_used, string $description): ?string {
-    $metadata_lines = [
-        'Embroidery Size: ' . $embroidery_size,
-        'Canvas Used: ' . $canvas_used,
-    ];
-
-    $base_description = trim($description);
-    if ($base_description !== '') {
-        $metadata_lines[] = '';
-        $metadata_lines[] = $base_description;
-    }
-
-    return implode("\n", $metadata_lines);
-}
-
-function parse_work_post_description(?string $description): array {
-    $result = [
-        'embroidery_size' => '',
-        'canvas_used' => '',
-        'description' => trim((string) $description),
-    ];
-
-    if ($description === null || trim($description) === '') {
-        return $result;
-    }
-
-    $lines = preg_split('/\r\n|\r|\n/', $description);
-    if (!$lines) {
-        return $result;
-    }
-
-    $first_line = trim($lines[0] ?? '');
-    $second_line = trim($lines[1] ?? '');
-
-    if (str_starts_with($first_line, 'Embroidery Size: ') && str_starts_with($second_line, 'Canvas Used: ')) {
-        $result['embroidery_size'] = trim(substr($first_line, strlen('Embroidery Size: ')));
-        $result['canvas_used'] = trim(substr($second_line, strlen('Canvas Used: ')));
-
-        $remaining_lines = array_slice($lines, 2);
-        if (!empty($remaining_lines) && trim((string) $remaining_lines[0]) === '') {
-            array_shift($remaining_lines);
-        }
-        $result['description'] = trim(implode("\n", $remaining_lines));
-    }
-
-    return $result;
-}
 if(!$shop) {
     header("Location: create_shop.php");
     exit();
@@ -273,62 +225,9 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             $shop_stmt->execute([$owner_id]);
             $shop = $shop_stmt->fetch();
             $success = 'Business information submitted successfully.';
-            $shop_posts = [];
 
             $pending_notice = $_SESSION['owner_pending_notice'] ?? '';
             unset($_SESSION['owner_pending_notice']);
-            } elseif ($action === 'submit_work_post') {
-            $post_title = sanitize($_POST['post_title'] ?? '');
-            $post_description = sanitize($_POST['post_description'] ?? '');
-            $post_embroidery_size = sanitize($_POST['post_embroidery_size'] ?? '');
-            $post_canvas_used = sanitize($_POST['post_canvas_used'] ?? '');
-            $post_price = (float) ($_POST['post_price'] ?? 0);
-
-            if ($post_title === '') {
-                throw new RuntimeException('Work title is required.');
-            }
-
-            if ($post_price < 0) {
-                throw new RuntimeException('Starting price cannot be negative.');
-            }
-            if ($post_embroidery_size === '') {
-                throw new RuntimeException('Specific embroidery size is required.');
-            }
-
-            if ($post_canvas_used === '') {
-                throw new RuntimeException('Canvas used is required.');
-            }
-
-
-            if (empty($_FILES['post_image']['name'])) {
-                throw new RuntimeException('Please upload a work image.');
-            }
-
-            $upload_result = save_uploaded_media(
-                $_FILES['post_image'],
-                ['jpg', 'jpeg', 'png', 'webp'],
-                MAX_FILE_SIZE,
-                'portfolio',
-                'work_post',
-                (string) $shop['id']
-            );
-
-            if (!$upload_result['success']) {
-                throw new RuntimeException($upload_result['error']);
-            }
-
-            $insert_post_stmt = $pdo->prepare(
-                "INSERT INTO shop_portfolio (shop_id, title, description, price, image_path) VALUES (?, ?, ?, ?, ?)"
-            );
-            $insert_post_stmt->execute([
-                $shop['id'],
-                $post_title,
-                build_work_post_description($post_embroidery_size, $post_canvas_used, $post_description),
-                $post_price,
-                $upload_result['path'],
-            ]);
-
-            $success = 'Work posted successfully. It is now visible on the client dashboard.';
         }
     } catch(RuntimeException $e) {
         $error = $e->getMessage();
@@ -336,10 +235,6 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
          $error = 'Failed to submit business information: ' . $e->getMessage();
          }
 }
-
-$posts_stmt = $pdo->prepare("SELECT id, title, description, price, image_path, created_at FROM shop_portfolio WHERE shop_id = ? ORDER BY created_at DESC LIMIT 6");
-$posts_stmt->execute([$shop['id']]);
-$shop_posts = $posts_stmt->fetchAll(PDO::FETCH_ASSOC);
     
 ?>
 <!DOCTYPE html>
@@ -371,31 +266,6 @@ $shop_posts = $posts_stmt->fetchAll(PDO::FETCH_ASSOC);
             gap: 8px;
         }
 
-         .work-post-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(302px, 302px));
-            justify-content: center;
-            gap: 12px;
-            margin-top: 14px;
-        }
-
-        .work-post-card {
-            width: 302px;
-            min-height: 265px;
-            border: 1px solid var(--gray-200);
-            border-radius: var(--radius);
-            padding: 12px;
-            background: var(--bg-primary);
-        }
-
-        .work-post-card img {
-            width: 100%;
-            height: 130px;
-            object-fit: cover;
-            border-radius: 10px;
-            border: 1px solid var(--gray-200);
-            margin-bottom: 10px;
-        }
     </style>
 </head>
 <body>
@@ -564,79 +434,6 @@ $shop_posts = $posts_stmt->fetchAll(PDO::FETCH_ASSOC);
                     </button>
                 </div>
             </form>
-        </div>
-         <div class="card profile-card">
-            <form method="POST" enctype="multipart/form-data">
-                <?php echo csrf_field(); ?>
-                <input type="hidden" name="action" value="submit_work_post">
-
-                <h4 class="profile-section-title">Post Your Works</h4>
-                <p class="text-muted">Add your latest output so clients can discover it from their dashboard.</p>
-
-                <div class="profile-form-grid">
-                    <div class="form-group">
-                        <label>Work Title *</label>
-                        <input type="text" name="post_title" class="form-control" required placeholder="Custom Polo Logo Embroidery">
-                    </div>
-                    <div class="form-group">
-                        <label>Starting Price (₱)</label>
-                        <input type="number" name="post_price" class="form-control" min="0" step="0.01" value="0">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Description</label>
-                    <textarea name="post_description" class="form-control" rows="3" maxlength="255" placeholder="Share stitch type, fabric, turnaround, or package details."></textarea>
-                </div>
-
-                <div class="profile-form-grid">
-                    <div class="form-group">
-                        <label>Specific Embroidery Size *</label>
-                        <input type="text" name="post_embroidery_size" class="form-control" required placeholder="e.g. 4 x 4 inches">
-                    </div>
-                    <div class="form-group">
-                        <label>Canvas Used *</label>
-                        <input type="text" name="post_canvas_used" class="form-control" required placeholder="e.g. Cotton twill fabric">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Work Image *</label>
-                    <input type="file" name="post_image" class="form-control" accept=".jpg,.jpeg,.png,.webp" required>
-                </div>
-
-                <div class="text-center mt-3">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-image"></i> Publish Work Post
-                    </button>
-                </div>
-            </form>
-
-            <h5 class="profile-section-title">Latest Posted Works</h5>
-            <?php if(!empty($shop_posts)): ?>
-                <div class="work-post-grid">
-                    <?php foreach($shop_posts as $post): ?>
-                        <?php $post_details = parse_work_post_description($post['description'] ?? null); ?>
-                        <div class="work-post-card">
-                            <img src="../assets/uploads/<?php echo htmlspecialchars($post['image_path']); ?>" alt="<?php echo htmlspecialchars($post['title']); ?>">
-                            <h5 class="mb-1"><?php echo htmlspecialchars($post['title']); ?></h5>
-                            <small class="text-muted d-block mb-1"><?php echo date('M d, Y', strtotime($post['created_at'])); ?></small>
-                            <p class="mb-1"><strong>₱<?php echo number_format((float) $post['price'], 2); ?></strong></p>
-                            <?php if($post_details['embroidery_size'] !== ''): ?>
-                                <p class="mb-1"><strong>Embroidery Size:</strong> <?php echo htmlspecialchars($post_details['embroidery_size']); ?></p>
-                            <?php endif; ?>
-                            <?php if($post_details['canvas_used'] !== ''): ?>
-                                <p class="mb-1"><strong>Canvas Used:</strong> <?php echo htmlspecialchars($post_details['canvas_used']); ?></p>
-                            <?php endif; ?>
-                            <?php if($post_details['description'] !== ''): ?>
-                                <p class="text-muted mb-0"><?php echo nl2br(htmlspecialchars($post_details['description'])); ?></p>
-                            <?php endif; ?>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            <?php else: ?>
-                <p class="text-muted mb-0">No posted works yet. Publish your first post to appear on the client dashboard.</p>
-            <?php endif; ?>
         </div>
     </div>
     <script>
