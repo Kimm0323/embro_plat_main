@@ -246,6 +246,21 @@ $closed_roles = (int) $closed_stmt->fetchColumn();
         .alerts-card {
             grid-column: span 4;
         }
+        
+        .guidance-card {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .guidance-card .guidance-list {
+            margin: 0;
+            padding-left: 1.1rem;
+        }
+
+        .guidance-card .guidance-list li + li {
+            margin-top: 0.45rem;
+        }
 
         .form-grid {
             display: grid;
@@ -404,24 +419,6 @@ $closed_roles = (int) $closed_stmt->fetchColumn();
                     </div>
                     <button type="submit" name="hire_by_email" class="btn btn-primary">Hire candidate</button>
                 </form>
-            </div>
-
-            <div class="card channels-card">
-                <h2>Automation rules</h2>
-                <ul class="list">
-                    <li>Posts automatically expire once the end date has passed.</li>
-                    <li>Drafts stay hidden until you publish them.</li>
-                    <li>Closed roles remain visible for reporting.</li>
-                </ul>
-            </div>
-
-            <div class="card alerts-card">
-                <h2>Hiring pipeline notes</h2>
-                <ul class="list">
-                    <li>Keep job descriptions concise and updated.</li>
-                    <li>Set expiration dates for all time-bound roles.</li>
-                    <li>Review statuses weekly to avoid stale postings.</li>
-                </ul>
             </div>
 
             <div class="card workflow-card">
