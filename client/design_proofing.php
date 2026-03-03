@@ -443,7 +443,7 @@ $approvals_stmt = $pdo->prepare("
     LEFT JOIN design_versions dv ON dv.id = o.design_version_id
     LEFT JOIN design_projects dp ON dp.id = dv.project_id
     WHERE o.client_id = ?
-      AND o.status IN ('accepted', 'in_progress')
+      AND o.status IN ('pending', 'accepted', 'in_progress')
       AND o.design_approved = 0
       AND (
         (da.id IS NOT NULL AND da.status IN ('pending', 'revision'))
