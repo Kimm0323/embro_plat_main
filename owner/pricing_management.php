@@ -540,12 +540,6 @@ $shop_posts = $posts_stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <div class="pricing-helper">Design/Font: <?php echo htmlspecialchars($product['design_font'] ?? '—'); ?> | Status: <?php echo htmlspecialchars($inventory_states[$product['inventory_state'] ?? 'available'] ?? 'Available'); ?></div>
                                 <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
                                     <a class="btn btn-outline btn-sm" href="pricing_management.php?edit_product=<?php echo urlencode($product['id'] ?? ''); ?>"><i class="fas fa-pen"></i> Edit</a>
-                                    <form method="POST" style="display:inline;">
-                                        <?php echo csrf_field(); ?>
-                                        <input type="hidden" name="action" value="toggle_archive">
-                                        <input type="hidden" name="product_id" value="<?php echo htmlspecialchars($product['id'] ?? ''); ?>">
-                                        <button type="submit" class="btn btn-outline btn-sm"><i class="fas fa-box-archive"></i> Archive</button>
-                                    </form>
                                     <form method="POST" style="display:inline;" onsubmit="return confirm('Delete this product permanently?');">
                                         <?php echo csrf_field(); ?>
                                         <input type="hidden" name="action" value="delete_product">
@@ -558,32 +552,6 @@ $shop_posts = $posts_stmt->fetchAll(PDO::FETCH_ASSOC);
                     <?php endif; ?>
                 </div>
 
-                <div class="pricing-card">
-                    <h5>Archived Products (<?php echo count($archived_products); ?>)</h5>
-                    <?php if (empty($archived_products)): ?>
-                        <p class="pricing-helper mb-0">No archived products.</p>
-                    <?php else: ?>
-                        <?php foreach ($archived_products as $product): ?>
-                            <div class="pricing-card mb-2">
-                                <strong><?php echo htmlspecialchars($product['product_type'] ?? 'Product'); ?></strong>
-                                <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
-                                    <form method="POST" style="display:inline;">
-                                        <?php echo csrf_field(); ?>
-                                        <input type="hidden" name="action" value="toggle_archive">
-                                        <input type="hidden" name="product_id" value="<?php echo htmlspecialchars($product['id'] ?? ''); ?>">
-                                        <button type="submit" class="btn btn-outline btn-sm"><i class="fas fa-rotate-left"></i> Restore</button>
-                                    </form>
-                                    <form method="POST" style="display:inline;" onsubmit="return confirm('Delete this archived product permanently?');">
-                                        <?php echo csrf_field(); ?>
-                                        <input type="hidden" name="action" value="delete_product">
-                                        <input type="hidden" name="product_id" value="<?php echo htmlspecialchars($product['id'] ?? ''); ?>">
-                                        <button type="submit" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i> Delete</button>
-                                    </form>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
                 <hr style="margin: 24px 0;">
                 <h4><i class="fas fa-image"></i> Post Your Works</h4>
                 <p class="pricing-helper mb-3">Add your latest output so clients can discover it from their dashboard.</p>
