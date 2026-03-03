@@ -5,7 +5,7 @@ require_role('owner');
 
 $ownerId = $_SESSION['user']['id'];
 
-$shopStmt = $pdo->prepare("SELECT id, shop_name FROM shops WHERE owner_id = ?");
+$shopStmt = $pdo->prepare("SELECT id, shop_name, opening_time, closing_time FROM shops WHERE owner_id = ?");
 $shopStmt->execute([$ownerId]);
 $shop = $shopStmt->fetch();
 
@@ -25,11 +25,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $fullname = sanitize($_POST['fullname'] ?? '');
     $email = sanitize($_POST['email'] ?? '');
     $phone = sanitize($_POST['phone'] ?? '');
+    $openingTime = $_POST['opening_time'] ?? '';
+    $closingTime = $_POST['closing_time'] ?? '';
     $password = $_POST['password'] ?? '';
     $confirm = $_POST['confirm_password'] ?? '';
 
     if (!$fullname || !$email) {
         $message = 'Full name and email are required.';
+        $messageType = 'danger';
+        } elseif (($openingTime && !$closingTime) || (!$openingTime && $closingTime)) {
+        $message = 'Please provide both opening and closing time.';
+        $messageType = 'danger';
+    } elseif ($openingTime && $closingTime && strtotime($openingTime) >= strtotime($closingTime)) {
+        $message = 'Closing time must be later than opening time.';
         $messageType = 'danger';
     } elseif ($password && strlen($password) !== 8) {
         $message = 'Password must be exactly 8 characters.';
@@ -43,10 +51,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$hasLower || !$hasUpper || !$hasDigit || !$hasSpecial) {
             $message = 'Password must include at least one uppercase letter, one lowercase letter, one number, and one special character.';
             $messageType = 'danger';
+            } elseif ($password !== $confirm) {
+            $message = 'Passwords do not match.';
+            $messageType = 'danger';
         }
-    } elseif ($password && $password !== $confirm) {
-        $message = 'Passwords do not match.';
-        $messageType = 'danger';
     } else {
         try {
             $emailCheck = $pdo->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
@@ -59,6 +67,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $updateStmt = $pdo->prepare("UPDATE users SET fullname = ?, email = ?, phone = ? WHERE id = ?");
                 $updateStmt->execute([$fullname, $email, $phone, $ownerId]);
 
+                $shopUpdateStmt = $pdo->prepare("UPDATE shops SET opening_time = ?, closing_time = ? WHERE id = ?");
+                $shopUpdateStmt->execute([$openingTime ?: null, $closingTime ?: null, $shop['id']]);
+
                 if ($password) {
                     $hashed = password_hash($password, PASSWORD_DEFAULT);
                     $passStmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
@@ -68,6 +79,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['user']['fullname'] = $fullname;
                 $_SESSION['user']['email'] = $email;
                 $_SESSION['user']['phone'] = $phone;
+                $shop['opening_time'] = $openingTime ?: null;
+                $shop['closing_time'] = $closingTime ?: null;
                 $message = 'Profile updated successfully.';
             }
         } catch (PDOException $e) {
@@ -144,6 +157,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="form-group">
                         <label>Phone Number</label>
                         <input type="text" name="phone" class="form-control" value="<?php echo htmlspecialchars($profile['phone'] ?? ''); ?>">
+                    </div>
+
+                    <div class="row" style="display: flex; gap: 1rem;">
+                        <div class="form-group" style="flex: 1;">
+                            <label>Shop Opening Time</label>
+                            <input type="time" name="opening_time" class="form-control" value="<?php echo htmlspecialchars(substr($shop['opening_time'] ?? '', 0, 5)); ?>">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label>Shop Closing Time</label>
+                            <input type="time" name="closing_time" class="form-control" value="<?php echo htmlspecialchars(substr($shop['closing_time'] ?? '', 0, 5)); ?>">
+                        </div>
                     </div>
 
                     <div class="alert alert-info">
