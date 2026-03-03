@@ -147,7 +147,7 @@ foreach($raw_requests as $row) {
 
     $row['owner_request_status'] = $owner_request_status;
     $row['client_quote_status'] = $client_quote_status;
-    $row['owner_request_status'] = $owner_request_status;
+    $row['effective_quote_status'] = $effective_quote_status;
     $row['quote_comment'] = $details['price_quote_comment'] ?? '';
     $row['timeline_days'] = $details['owner_quote_update']['timeline_days'] ?? null;
     $row['owner_message'] = $details['owner_quote_update']['owner_message'] ?? '';
