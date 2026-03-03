@@ -327,6 +327,14 @@ if($schedule_entry && isset($active_staff_map[(int) $schedule_entry['staff_id']]
 
 $quote_details = !empty($order['quote_details']) ? json_decode($order['quote_details'], true) : null;
 $quote_breakdown = is_array($quote_details) ? ($quote_details['breakdown'] ?? []) : [];
+$selected_portfolio_id = is_array($quote_details) ? (int) ($quote_details['selected_portfolio_id'] ?? 0) : 0;
+$selected_portfolio = null;
+if($selected_portfolio_id > 0) {
+    $selected_portfolio_stmt = $pdo->prepare("SELECT id, title, image_path FROM shop_portfolio WHERE id = ? AND shop_id = ? LIMIT 1");
+    $selected_portfolio_stmt->execute([$selected_portfolio_id, $shop['id']]);
+    $selected_portfolio = $selected_portfolio_stmt->fetch();
+}
+
 $payment_status = $order['payment_status'] ?? 'unpaid';
 $payment_class = 'payment-' . $payment_status;
 $design_file_name = $order['design_file'] ?? null;
@@ -343,6 +351,8 @@ $latest_proof_file = $latest_proof['design_file'] ?? null;
 $latest_proof_url = $latest_proof_file ? '../' . $latest_proof_file : null;
 $latest_proof_extension = $latest_proof_file ? strtolower(pathinfo($latest_proof_file, PATHINFO_EXTENSION)) : '';
 $is_latest_proof_image = $latest_proof_file && in_array($latest_proof_extension, ALLOWED_IMAGE_TYPES, true);
+$posted_sample_image_path = !empty($selected_portfolio['image_path']) ? ltrim($selected_portfolio['image_path'], '/') : '';
+$posted_sample_image = $posted_sample_image_path !== '' ? '../assets/uploads/' . $posted_sample_image_path : null;
 $payment_hold = payment_hold_status($order['status'] ?? STATUS_PENDING, $payment_status);
 ?>
 <!DOCTYPE html>
@@ -649,6 +659,21 @@ $payment_hold = payment_hold_status($order['status'] ?? STATUS_PENDING, $payment
                         <img src="<?php echo htmlspecialchars($design_file); ?>" alt="Client design upload">
                     </div>
                 <?php endif; ?>
+                 <?php elseif($posted_sample_image): ?>
+                <div class="mt-3">
+                    <p class="mb-1"><strong>Posted work sample image</strong></p>
+                    <?php if(!empty($selected_portfolio['title'])): ?>
+                        <p class="text-muted mb-2"><?php echo htmlspecialchars($selected_portfolio['title']); ?></p>
+                    <?php endif; ?>
+                    <p>
+                        <a class="file-link" href="<?php echo htmlspecialchars($posted_sample_image); ?>" target="_blank" rel="noopener noreferrer">
+                            <i class="fas fa-file-download"></i> View posted work sample image
+                        </a>
+                    </p>
+                    <div class="design-preview">
+                        <img src="<?php echo htmlspecialchars($posted_sample_image); ?>" alt="Posted work sample image">
+                    </div>
+                </div>
             <?php endif; ?>
         </div>
     </div>
