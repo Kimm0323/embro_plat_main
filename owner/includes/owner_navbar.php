@@ -8,7 +8,7 @@ $active_groups = [
     'shop_profile' => ['shop_profile.php', 'create_shop.php'],
     'pricing' => ['pricing_management.php'],
     'staff' => ['manage_staff.php', 'add_staff.php', 'edit_employee.php', 'create_hr.php'],
-    'orders' => ['shop_orders.php', 'view_order.php', 'accept_order.php', 'reject_order.php', 'view_invoice.php', 'view_receipt.php'],
+    'orders' => ['shop_orders.php', 'quotation_requests.php', 'view_order.php', 'accept_order.php', 'reject_order.php', 'view_invoice.php', 'view_receipt.php'],
     'community' => ['client_community_posts.php', 'shop_posting_content.php'],
     'reviews' => ['reviews.php'],
     'messages' => ['messages.php'],
@@ -46,6 +46,7 @@ $is_active = static function (string $key) use ($active_groups, $current_page): 
             <li><a href="pricing_management.php" class="nav-link <?php echo $is_active('pricing') ? 'active' : ''; ?>">Pricing</a></li>
             <li><a href="manage_staff.php" class="nav-link <?php echo $is_active('staff') ? 'active' : ''; ?>">Staff</a></li>
             <li><a href="shop_orders.php" class="nav-link <?php echo $is_active('orders') ? 'active' : ''; ?>">Orders</a></li>
+            <li><a href="quotation_requests.php" class="nav-link <?php echo $current_page === 'quotation_requests.php' ? 'active' : ''; ?>">Quote Requests</a></li>
             <li><a href="client_community_posts.php" class="nav-link <?php echo $is_active('community') ? 'active' : ''; ?>">Community Posts</a></li>
             <li><a href="reviews.php" class="nav-link <?php echo $is_active('reviews') ? 'active' : ''; ?>">Reviews</a></li>
             <li><a href="messages.php" class="nav-link <?php echo $is_active('messages') ? 'active' : ''; ?>">Messages</a></li>
