@@ -25,23 +25,24 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         if($user && password_verify($password, $user['password'])) {
 
-                if ($user['status'] !== 'active') {
-                $status = $user['status'] ?? 'inactive';
-                $error = $status === 'pending'
-                    ? "Your account is pending approval. Please wait for activation."
-                    : "Your account is not active. Please contact support.";
-                log_audit(
-                    $pdo,
-                    (int) $user['id'],
-                    $user['role'],
-                    'login_blocked',
-                    'users',
-                    (int) $user['id'],
-                    ['status' => $user['status']],
-                    ['status' => $user['status']]
-                );
-            } else {
+                $isPendingOwner = $user['role'] === 'owner' && ($user['status'] ?? null) === 'pending';
 
+                if ($user['status'] !== 'active' && !$isPendingOwner) {
+                    $status = $user['status'] ?? 'inactive';
+                    $error = $status === 'pending'
+                        ? "Your account is pending approval. Please wait for activation."
+                        : "Your account is not active. Please contact support.";
+                    log_audit(
+                        $pdo,
+                        (int) $user['id'],
+                        $user['role'],
+                        'login_blocked',
+                        'users',
+                        (int) $user['id'],
+                        ['status' => $user['status']],
+                        ['status' => $user['status']]
+                    );
+                } else {
 
             unset($user['password']);
             $_SESSION['user'] = $user;

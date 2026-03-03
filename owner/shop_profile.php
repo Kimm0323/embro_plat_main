@@ -13,6 +13,8 @@ $shop_posts = [];
 $pending_notice = $_SESSION['owner_pending_notice'] ?? '';
 unset($_SESSION['owner_pending_notice']);
 
+$is_owner_verified = ($_SESSION['user']['status'] ?? '') === 'active';
+
 function build_work_post_description(string $embroidery_size, string $canvas_used, string $description): ?string {
     $metadata_lines = [
         'Embroidery Size: ' . $embroidery_size,
@@ -278,6 +280,9 @@ if($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pending_notice = $_SESSION['owner_pending_notice'] ?? '';
             unset($_SESSION['owner_pending_notice']);
             } elseif ($action === 'submit_work_post') {
+                if (!$is_owner_verified) {
+                throw new RuntimeException('Your account is still pending verification. You can post work after admin approval.');
+            }
             $post_title = sanitize($_POST['post_title'] ?? '');
             $post_description = sanitize($_POST['post_description'] ?? '');
             $post_embroidery_size = sanitize($_POST['post_embroidery_size'] ?? '');
@@ -406,11 +411,17 @@ $shop_posts = $posts_stmt->fetchAll(PDO::FETCH_ASSOC);
     <div class="container">
         <div class="dashboard-header">
             <h2>Shop Profile</h2>
-            <p class="text-muted">Business information submission requirements.</p>
+            <p class="text-muted"><?php echo $is_owner_verified ? 'Manage your shop profile and portfolio.' : 'Complete your business information while your account is pending verification.'; ?></p>
         </div>
 
         <?php if($pending_notice): ?>
             <div class="alert alert-warning"><?php echo htmlspecialchars($pending_notice); ?></div>
+        <?php endif; ?>
+
+        <?php if(!$is_owner_verified): ?>
+            <div class="alert alert-info">
+                <strong>Verification in progress:</strong> You currently have limited access to the business information panel. Full shop owner modules will be available once admin approval is completed.
+            </div>
         <?php endif; ?>
 
         <?php if($error): ?>
@@ -565,6 +576,7 @@ $shop_posts = $posts_stmt->fetchAll(PDO::FETCH_ASSOC);
                 </div>
             </form>
         </div>
+        <?php if($is_owner_verified): ?>
          <div class="card profile-card">
             <form method="POST" enctype="multipart/form-data">
                 <?php echo csrf_field(); ?>
@@ -638,6 +650,7 @@ $shop_posts = $posts_stmt->fetchAll(PDO::FETCH_ASSOC);
                 <p class="text-muted mb-0">No posted works yet. Publish your first post to appear on the client dashboard.</p>
             <?php endif; ?>
         </div>
+        <?php endif; ?>
     </div>
     <script>
         const businessInformationForm = document.getElementById('business-information-form');
