@@ -74,10 +74,6 @@ $service_settings = $shop['service_settings']
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $action = $_POST['action'] ?? 'save_pricing';
-        $base_prices_input = $_POST['base_prices'] ?? [];
-        $complexity_input = $_POST['complexity_multipliers'] ?? [];
-        $add_on_input = $_POST['add_ons'] ?? [];
-        $rush_fee_percent = filter_var($_POST['rush_fee_percent'] ?? null, FILTER_VALIDATE_FLOAT);
         $enabled_services = array_values(array_intersect($available_services, $_POST['enabled_services'] ?? []));
 
         $products = is_array($pricing_settings['products'] ?? null) ? $pricing_settings['products'] : [];
@@ -214,47 +210,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new RuntimeException('__STOP__');
         }
 
-        if ($rush_fee_percent === false || $rush_fee_percent < 0) {
-            throw new RuntimeException('Please provide a valid rush fee percentage (0 or greater).');
-        }
         if (empty($enabled_services)) {
             throw new RuntimeException('Please enable at least one service.');
         }
 
-        $base_prices = [];
-        foreach ($default_pricing_settings['base_prices'] as $service => $default_price) {
-            $value = filter_var($base_prices_input[$service] ?? null, FILTER_VALIDATE_FLOAT);
-            if ($value === false || $value < 0) {
-                throw new RuntimeException('Base prices must be 0 or greater.');
-            }
-            $base_prices[$service] = (float) $value;
-        }
-
-        $complexity_multipliers = [];
-        foreach ($default_pricing_settings['complexity_multipliers'] as $level => $default_multiplier) {
-            $value = filter_var($complexity_input[$level] ?? null, FILTER_VALIDATE_FLOAT);
-            if ($value === false || $value <= 0) {
-                throw new RuntimeException('Complexity multipliers must be greater than 0.');
-            }
-            $complexity_multipliers[$level] = (float) $value;
-        }
-
-        $add_ons = [];
-        foreach ($default_pricing_settings['add_ons'] as $add_on => $default_fee) {
-            $value = filter_var($add_on_input[$add_on] ?? null, FILTER_VALIDATE_FLOAT);
-            if ($value === false || $value < 0) {
-                throw new RuntimeException('Add-on fees must be 0 or greater.');
-            }
-            $add_ons[$add_on] = (float) $value;
-        }
-
-        $pricing_payload = [
-            'base_prices' => $base_prices,
-            'complexity_multipliers' => $complexity_multipliers,
-            'rush_fee_percent' => (float) $rush_fee_percent,
-            'add_ons' => $add_ons,
-            'products' => $products,
-        ];
+        $pricing_payload = $pricing_settings;
+        $pricing_payload['products'] = $products;
 
         $update_stmt = $pdo->prepare('UPDATE shops SET pricing_settings = ?, service_settings = ? WHERE id = ?');
         $update_stmt->execute([json_encode($pricing_payload), json_encode(array_values($enabled_services)), $shop['id']]);
@@ -346,7 +307,7 @@ if ($editing_product_id !== '') {
                 <a href="shop_profile.php" class="btn btn-outline btn-sm"><i class="fas fa-arrow-left"></i> Back to Profile</a>
             </div>
             <div class="card-body">
-                <p class="pricing-helper mb-3">These values are used to build estimated quotes in <code>client/place_order.php</code>.</p>
+                <p class="pricing-helper mb-3">Manage which embroidery services your shop currently offers.</p>
 
                 <form method="POST" action="">
                     <?php echo csrf_field(); ?>
@@ -367,82 +328,8 @@ if ($editing_product_id !== '') {
                             <?php endforeach; ?>
                         </div>
                     </div>
-                    <div class="pricing-card mb-3">
-                        <h5>Base Prices (per unit)</h5>
-                        <div class="pricing-grid">
-                            <?php foreach ($pricing_services as $service): ?>
-                                <div>
-                                    <label class="form-label"><?php echo htmlspecialchars($service); ?> (₱)</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        class="form-control"
-                                        name="base_prices[<?php echo htmlspecialchars($service); ?>]"
-                                        value="<?php echo htmlspecialchars((string) ($pricing_settings['base_prices'][$service] ?? 0)); ?>"
-                                        required
-                                    >
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-
-                    <div class="pricing-card mb-3">
-                        <h5>Complexity Multipliers</h5>
-                        <div class="pricing-grid">
-                            <?php foreach ($default_pricing_settings['complexity_multipliers'] as $level => $_): ?>
-                                <div>
-                                    <label class="form-label"><?php echo htmlspecialchars($level); ?></label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0.01"
-                                        class="form-control"
-                                        name="complexity_multipliers[<?php echo htmlspecialchars($level); ?>]"
-                                        value="<?php echo htmlspecialchars((string) ($pricing_settings['complexity_multipliers'][$level] ?? 1)); ?>"
-                                        required
-                                    >
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-
-                    <div class="pricing-card mb-3">
-                        <h5>Add-on Fees</h5>
-                        <div class="pricing-grid">
-                            <?php foreach ($default_pricing_settings['add_ons'] as $add_on => $_): ?>
-                                <div>
-                                    <label class="form-label"><?php echo htmlspecialchars($add_on); ?> (₱)</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min="0"
-                                        class="form-control"
-                                        name="add_ons[<?php echo htmlspecialchars($add_on); ?>]"
-                                        value="<?php echo htmlspecialchars((string) ($pricing_settings['add_ons'][$add_on] ?? 0)); ?>"
-                                        required
-                                    >
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-
-                    <div class="pricing-card mb-4">
-                        <h5>Rush Service Fee</h5>
-                        <label class="form-label">Additional Percentage (%)</label>
-                        <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            class="form-control"
-                            name="rush_fee_percent"
-                            value="<?php echo htmlspecialchars((string) ($pricing_settings['rush_fee_percent'] ?? 0)); ?>"
-                            required
-                        >
-                    </div>
-
                     <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save"></i> Save Pricing Settings
+                        <i class="fas fa-save"></i> Save Service Availability
                     </button>
                 </form>
                 <hr style="margin: 24px 0;">
@@ -467,7 +354,13 @@ if ($editing_product_id !== '') {
                         </div>
                         <div>
                             <label class="form-label">Available size *</label>
-                            <input type="text" class="form-control" name="available_sizes" required value="<?php echo htmlspecialchars($editing_product['available_sizes'] ?? ''); ?>" placeholder="e.g. S, M, L, XL">
+                           <input type="hidden" name="available_sizes" id="availableSizesInput" required value="<?php echo htmlspecialchars($editing_product['available_sizes'] ?? ''); ?>">
+                            <div style="display:flex; gap:8px; margin-bottom:8px;">
+                                <input type="text" class="form-control" id="sizeOptionInput" placeholder="Enter size then click Add (e.g. S, M, XL)">
+                                <button type="button" class="btn btn-outline btn-sm" id="addSizeOptionBtn">Add</button>
+                            </div>
+                            <select class="form-control" id="availableSizesSelect" size="4" multiple></select>
+                            <small class="pricing-helper">Add sizes, then select one or more options for this product listing.</small>
                         </div>
                         <div>
                             <label class="form-label">Embroidery design / font *</label>
@@ -570,5 +463,74 @@ if ($editing_product_id !== '') {
             </div>
         </div>
     </div>
+    <script>
+        (function () {
+            const sizeInput = document.getElementById('sizeOptionInput');
+            const addBtn = document.getElementById('addSizeOptionBtn');
+            const sizeSelect = document.getElementById('availableSizesSelect');
+            const hiddenInput = document.getElementById('availableSizesInput');
+
+            if (!sizeInput || !addBtn || !sizeSelect || !hiddenInput) {
+                return;
+            }
+
+            const normalize = (value) => value.trim();
+
+            function syncHiddenInput() {
+                const selected = Array.from(sizeSelect.selectedOptions).map((option) => option.value);
+                hiddenInput.value = selected.join(', ');
+            }
+
+            function addOption(value, selected = true) {
+                const normalized = normalize(value);
+                if (!normalized) return;
+                const exists = Array.from(sizeSelect.options).some((option) => option.value.toLowerCase() === normalized.toLowerCase());
+                if (exists) {
+                    Array.from(sizeSelect.options).forEach((option) => {
+                        if (option.value.toLowerCase() === normalized.toLowerCase()) {
+                            option.selected = true;
+                        }
+                    });
+                    syncHiddenInput();
+                    return;
+                }
+
+                const option = document.createElement('option');
+                option.value = normalized;
+                option.textContent = normalized;
+                option.selected = selected;
+                sizeSelect.appendChild(option);
+                syncHiddenInput();
+            }
+
+            function addFromInput() {
+                addOption(sizeInput.value, true);
+                sizeInput.value = '';
+                sizeInput.focus();
+            }
+
+            hiddenInput.value
+                .split(',')
+                .map((part) => part.trim())
+                .filter(Boolean)
+                .forEach((size) => addOption(size, true));
+
+            addBtn.addEventListener('click', addFromInput);
+            sizeInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    addFromInput();
+                }
+            });
+            sizeSelect.addEventListener('change', syncHiddenInput);
+
+            const form = hiddenInput.closest('form');
+            if (form) {
+                form.addEventListener('submit', () => {
+                    syncHiddenInput();
+                });
+            }
+        })();
+    </script>
 </body>
 </html>

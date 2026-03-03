@@ -1296,12 +1296,10 @@ if(isset($_POST['place_order'])) {
                         </div>
                         <div class="form-group mb-0">
                             <label>Size *</label>
-                            <select name="product_size" class="form-control">
+                            <select name="product_size" id="productSizeSelect" class="form-control">
                                 <option value="">Select size</option>
-                                <option value="Small (5x3 cm)">Small (5x3 cm)</option>
-                                <option value="Medium (5x5 cm)">Medium (5x5 cm)</option>
-                                <option value="Large (8x3 cm)">Large (8x3 cm)</option>
                             </select>
+                            <small class="text-muted">Sizes are loaded from the selected shop's posted product catalog.</small>
                         </div>
                     </div>
                     <div class="row mt-2" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">
@@ -1601,6 +1599,41 @@ if(isset($_POST['place_order'])) {
                 changeShopBtn.style.display = 'none';
             }
         }
+        
+        function parseSizeList(sizeText) {
+            return String(sizeText || '')
+                .split(',')
+                .map((size) => size.trim())
+                .filter(Boolean);
+        }
+
+        function renderProductSizes(products) {
+            const select = document.getElementById('productSizeSelect');
+            if (!select) return;
+
+            const priorValue = select.value;
+            select.innerHTML = '<option value="">Select size</option>';
+
+            const uniqueSizes = new Set();
+            (Array.isArray(products) ? products : []).forEach((product) => {
+                parseSizeList(product && product.available_sizes).forEach((size) => uniqueSizes.add(size));
+            });
+
+            if (uniqueSizes.size === 0) {
+                ['Small (5x3 cm)', 'Medium (5x5 cm)', 'Large (8x3 cm)'].forEach((size) => uniqueSizes.add(size));
+            }
+
+            Array.from(uniqueSizes).forEach((size) => {
+                const option = document.createElement('option');
+                option.value = size;
+                option.textContent = size;
+                select.appendChild(option);
+            });
+
+            if (priorValue && uniqueSizes.has(priorValue)) {
+                select.value = priorValue;
+            }
+        }
 
 
         function renderAddOns(addOns) {
@@ -1634,9 +1667,11 @@ if(isset($_POST['place_order'])) {
             pricingState.add_ons = pricing.add_ons || {};
             pricingState.complexity_multipliers = pricing.complexity_multipliers || {};
             pricingState.rush_fee_percent = Number(pricing.rush_fee_percent || 0);
+            pricingState.products = Array.isArray(pricing.products) ? pricing.products : [];
 
             if (!isSampleOrder) {
                 renderAddOns(pricingState.add_ons);
+                renderProductSizes(pricingState.products);
                 document.getElementById('rushHint').textContent = pricingState.rush_fee_percent
                     ? `Rush fee: +${pricingState.rush_fee_percent}%`
                     : 'Rush service is not configured.';
