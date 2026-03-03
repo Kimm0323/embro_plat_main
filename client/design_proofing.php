@@ -85,6 +85,15 @@ function update_quote_details(PDO $pdo, int $order_id, array $payload): void {
     $update_stmt->execute([json_encode($quote_details), $order_id]);
 }
 
+function decode_quote_details(?string $raw_quote_details): array {
+    if(!is_string($raw_quote_details) || trim($raw_quote_details) === '') {
+        return [];
+    }
+
+    $decoded = json_decode($raw_quote_details, true);
+    return is_array($decoded) ? $decoded : [];
+}
+
 $shops_stmt = $pdo->query("SELECT id, shop_name, shop_description, address, rating FROM shops WHERE status = 'active' ORDER BY rating DESC, total_orders DESC, shop_name ASC");
 $shops = $shops_stmt->fetchAll();
 
@@ -377,6 +386,9 @@ if(isset($_POST['accept_price_quote']) || isset($_POST['reject_price_quote']) ||
         $error = 'Unable to locate this quote request.';
     } elseif(isset($_POST['accept_price_quote'])) {
         update_quote_details($pdo, $order_id, [
+            'owner_request_status' => 'accepted',
+            'owner_request_accepted_at' => date('c'),
+            'owner_request_accepted_by' => $_SESSION['user']['fullname'] ?? 'Client',
             'price_quote_status' => 'accepted',
             'price_quote_comment' => $comment !== '' ? $comment : null,
             'price_quote_updated_at' => date('c'),
@@ -386,12 +398,14 @@ if(isset($_POST['accept_price_quote']) || isset($_POST['reject_price_quote']) ||
             create_notification($pdo, (int) $order_quote['owner_id'], $order_id, 'success', $message);
         }
         notify_shop_staff($pdo, (int) $order_quote['shop_id'], $order_id, 'success', $message);
-        $success = 'Price quote accepted. The shop has been notified.';
+       $success = 'Price quote accepted. This request is now an official order and the shop has been notified.';
     } elseif(isset($_POST['reject_price_quote'])) {
         if($comment === '') {
             $error = 'Please share a reason before rejecting the quoted price.';
         } else {
             update_quote_details($pdo, $order_id, [
+                'owner_request_status' => 'rejected',
+                'owner_request_rejected_at' => date('c'),
                 'price_quote_status' => 'rejected',
                 'price_quote_comment' => $comment,
                 'price_quote_updated_at' => date('c'),
@@ -408,6 +422,7 @@ if(isset($_POST['accept_price_quote']) || isset($_POST['reject_price_quote']) ||
             $error = 'Please add your negotiation recommendation for the shop.';
         } else {
             update_quote_details($pdo, $order_id, [
+                'owner_request_status' => 'pending_acceptance',
                 'price_quote_status' => 'negotiation_requested',
                 'price_quote_comment' => $comment,
                 'price_quote_updated_at' => date('c'),
@@ -421,6 +436,8 @@ if(isset($_POST['accept_price_quote']) || isset($_POST['reject_price_quote']) ||
         }
     } elseif(isset($_POST['reject_shop_quote'])) {
         update_quote_details($pdo, $order_id, [
+            'owner_request_status' => 'rejected',
+            'owner_request_rejected_at' => date('c'),
             'price_quote_status' => 'shop_rejected',
             'price_quote_comment' => $comment !== '' ? $comment : 'Client opted to select another shop.',
             'price_quote_updated_at' => date('c'),
@@ -457,7 +474,7 @@ $approvals = $approvals_stmt->fetchAll();
 
 $requests_stmt = $pdo->prepare("
     SELECT o.id, o.order_number, o.service_type, o.design_description, o.status, o.price,
-           o.created_at, o.updated_at, o.design_approved, s.shop_name
+           o.created_at, o.updated_at, o.design_approved, o.quote_details, s.shop_name
     FROM orders o
     JOIN shops s ON s.id = o.shop_id
     WHERE o.client_id = ?
@@ -468,6 +485,30 @@ $requests_stmt = $pdo->prepare("
 ");
 $requests_stmt->execute([$client_id]);
 $request_history = $requests_stmt->fetchAll();
+
+$client_quote_status_labels = [
+    'waiting_owner' => 'Waiting for shop quote format',
+    'accepted' => 'Accepted by you',
+    'rejected' => 'Rejected by you',
+    'negotiation_requested' => 'Negotiation requested',
+    'shop_rejected' => 'Shop quote rejected',
+];
+
+foreach($request_history as &$request) {
+    $quote_details = decode_quote_details($request['quote_details'] ?? null);
+    $owner_quote = $quote_details['owner_quote_update'] ?? null;
+    if(!is_array($owner_quote)) {
+        $owner_quote = null;
+    }
+
+    $request['owner_quote'] = $owner_quote;
+    $request['owner_request_status'] = $quote_details['owner_request_status'] ?? 'pending_acceptance';
+    $request['price_quote_status'] = $quote_details['price_quote_status'] ?? 'waiting_owner';
+    $request['price_quote_comment'] = (string) ($quote_details['price_quote_comment'] ?? '');
+    $request['can_client_decide'] = $owner_quote !== null && $request['owner_request_status'] !== 'accepted';
+    $request['client_quote_status_label'] = $client_quote_status_labels[$request['price_quote_status']] ?? ucfirst(str_replace('_', ' ', $request['price_quote_status']));
+}
+unset($request);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -684,7 +725,42 @@ $request_history = $requests_stmt->fetchAll();
                             <p class="mb-1"><i class="fas fa-store"></i> <?php echo htmlspecialchars($request['shop_name']); ?></p>
                             <p class="mb-1"><strong>Service:</strong> <?php echo htmlspecialchars($request['service_type'] ?: 'Custom Embroidery Design'); ?></p>
                             <p class="mb-1"><strong>Design request:</strong> <?php echo htmlspecialchars($request['design_description'] ?: 'No design details provided.'); ?></p>
-                            <p class="mb-0"><strong>Quoted price:</strong> <?php echo $request['price'] !== null ? '₱' . number_format((float) $request['price'], 2) : 'Waiting for shop quotation'; ?></p>
+                            <p class="mb-1"><strong>Quoted price:</strong> <?php echo $request['price'] !== null ? '₱' . number_format((float) $request['price'], 2) : 'Waiting for shop quotation'; ?></p>
+
+                            <?php if(!empty($request['owner_quote'])): ?>
+                                <div class="quote-meta">
+                                    <p class="mb-1"><strong>Design proofing status:</strong> <?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', $request['owner_quote']['approval_status'] ?? 'pending'))); ?></p>
+                                    <p class="mb-1"><strong>Downpayment:</strong> <?php echo isset($request['owner_quote']['downpayment_percent']) ? number_format((float) $request['owner_quote']['downpayment_percent'], 2) . '%' : 'Not set'; ?></p>
+                                    <p class="mb-1"><strong>Timeline:</strong> <?php echo !empty($request['owner_quote']['timeline_days']) ? (int) $request['owner_quote']['timeline_days'] . ' day(s)' : 'Not set'; ?></p>
+                                    <?php if(!empty($request['owner_quote']['scope_summary'])): ?>
+                                        <p class="mb-1"><strong>Scope:</strong> <?php echo htmlspecialchars($request['owner_quote']['scope_summary']); ?></p>
+                                    <?php endif; ?>
+                                    <p class="mb-0"><strong>Shop message:</strong> <?php echo htmlspecialchars($request['owner_quote']['owner_message'] ?? 'No message yet.'); ?></p>
+                                </div>
+                            <?php endif; ?>
+
+                            <div class="quote-meta">
+                                <p class="mb-1"><strong>Your response status:</strong> <?php echo htmlspecialchars($request['client_quote_status_label']); ?></p>
+                                <?php if($request['price_quote_comment'] !== ''): ?>
+                                    <p class="mb-0"><strong>Your latest note:</strong> <?php echo htmlspecialchars($request['price_quote_comment']); ?></p>
+                                <?php endif; ?>
+                            </div>
+
+                            <?php if($request['can_client_decide']): ?>
+                                <form method="POST" class="mt-2">
+                                    <?php echo csrf_field(); ?>
+                                    <input type="hidden" name="order_id" value="<?php echo (int) $request['id']; ?>">
+                                    <textarea name="quote_comment" class="form-control mb-2" rows="2" maxlength="500" placeholder="Optional note for accept. Required for reject or negotiate."><?php echo htmlspecialchars($request['price_quote_comment']); ?></textarea>
+                                    <div class="d-flex gap-2" style="flex-wrap: wrap;">
+                                        <button type="submit" name="accept_price_quote" class="btn btn-sm btn-success"><i class="fas fa-check"></i> Accept Request</button>
+                                        <button type="submit" name="negotiate_price_quote" class="btn btn-sm btn-outline"><i class="fas fa-comments"></i> Negotiate</button>
+                                        <button type="submit" name="reject_price_quote" class="btn btn-sm btn-danger"><i class="fas fa-times"></i> Reject Request</button>
+                                    </div>
+                                    <small class="text-muted">Accepting will mark this as an official order.</small>
+                                </form>
+                            <?php elseif($request['owner_request_status'] === 'accepted'): ?>
+                                <p class="text-success mb-0 mt-2"><i class="fas fa-circle-check"></i> This request is now an official order.</p>
+                            <?php endif; ?>
                         </div>
                     <?php endforeach; ?>
                 </div>
