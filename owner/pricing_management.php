@@ -45,13 +45,6 @@ $default_pricing_settings = [
         'Extra Color' => 25,
         'Applique' => 60,
     ],
-     'products' => [],
-];
-
-$inventory_states = [
-    'available' => 'Available',
-    'low_quantity' => 'Low Quantity',
-    'unavailable' => 'Unavailable',
 ];
 
 function build_work_post_description(string $embroidery_size, string $canvas_used, string $description): string
@@ -177,149 +170,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $enabled_services = array_values(array_intersect($available_services, $_POST['enabled_services'] ?? []));
 
-        $products = is_array($pricing_settings['products'] ?? null) ? $pricing_settings['products'] : [];
-
-        if ($action === 'add_product' || $action === 'edit_product') {
-            $product_id = sanitize($_POST['product_id'] ?? '');
-            $product_type = sanitize($_POST['product_type'] ?? '');
-            $available_type = sanitize($_POST['available_type'] ?? '');
-            $available_sizes = sanitize($_POST['available_sizes'] ?? '');
-            $design_font = sanitize($_POST['design_font'] ?? '');
-            $embroidery_sizes = sanitize($_POST['embroidery_sizes'] ?? '');
-            $inventory_state = $_POST['inventory_state'] ?? 'available';
-
-            if ($product_type === '' || $available_type === '' || $available_sizes === '' || $design_font === '' || $embroidery_sizes === '') {
-                throw new RuntimeException('Please complete all required product details.');
-            }
-            if (!isset($inventory_states[$inventory_state])) {
-                throw new RuntimeException('Please select a valid availability status.');
-            }
-
-            $existing_product = null;
-            $existing_index = null;
-            if ($action === 'edit_product') {
-                foreach ($products as $idx => $product) {
-                    if (($product['id'] ?? '') === $product_id) {
-                        $existing_product = $product;
-                        $existing_index = $idx;
-                        break;
-                    }
-                }
-                if ($existing_product === null) {
-                    throw new RuntimeException('The selected product could not be found.');
-                }
-            }
-
-            $front_path = $existing_product['front_photo'] ?? null;
-            if (!empty($_FILES['front_photo']['name'] ?? '')) {
-                $upload_front = save_uploaded_media(
-                    $_FILES['front_photo'],
-                    ALLOWED_IMAGE_TYPES,
-                    MAX_FILE_SIZE,
-                    'products',
-                    'product_front',
-                    (string) $shop['id']
-                );
-                if (!$upload_front['success']) {
-                    throw new RuntimeException('Front photo: ' . $upload_front['error']);
-                }
-                $front_path = $upload_front['path'];
-            }
-
-            $back_path = $existing_product['back_photo'] ?? null;
-            if (!empty($_FILES['back_photo']['name'] ?? '')) {
-                $upload_back = save_uploaded_media(
-                    $_FILES['back_photo'],
-                    ALLOWED_IMAGE_TYPES,
-                    MAX_FILE_SIZE,
-                    'products',
-                    'product_back',
-                    (string) $shop['id']
-                );
-                if (!$upload_back['success']) {
-                    throw new RuntimeException('Back photo: ' . $upload_back['error']);
-                }
-                $back_path = $upload_back['path'];
-            }
-
-            if ($front_path === null || $back_path === null) {
-                throw new RuntimeException('Please upload both front and back product photos.');
-            }
-
-            $payload = [
-                'id' => $existing_product['id'] ?? uniqid('prod_', true),
-                'product_type' => $product_type,
-                'front_photo' => $front_path,
-                'back_photo' => $back_path,
-                'available_type' => $available_type,
-                'available_sizes' => $available_sizes,
-                'design_font' => $design_font,
-                'embroidery_sizes' => $embroidery_sizes,
-                'inventory_state' => $inventory_state,
-                'archived' => (bool) ($existing_product['archived'] ?? false),
-                'updated_at' => date('Y-m-d H:i:s'),
-                'created_at' => $existing_product['created_at'] ?? date('Y-m-d H:i:s'),
-            ];
-
-            if ($existing_index !== null) {
-                $products[$existing_index] = $payload;
-                $success = 'Product updated successfully.';
-            } else {
-                array_unshift($products, $payload);
-                $success = 'Product added successfully.';
-            }
-        } elseif ($action === 'toggle_archive' || $action === 'delete_product') {
-            $product_id = sanitize($_POST['product_id'] ?? '');
-            $matched = false;
-            foreach ($products as $idx => $product) {
-                if (($product['id'] ?? '') !== $product_id) {
-                    continue;
-                }
-                $matched = true;
-                if ($action === 'toggle_archive') {
-                    $products[$idx]['archived'] = !((bool) ($product['archived'] ?? false));
-                    $products[$idx]['updated_at'] = date('Y-m-d H:i:s');
-                    $success = $products[$idx]['archived'] ? 'Product archived successfully.' : 'Product restored successfully.';
-                } else {
-                    unset($products[$idx]);
-                    $products = array_values($products);
-                    $success = 'Product deleted successfully.';
-                }
-                break;
-            }
-            if (!$matched) {
-                throw new RuntimeException('Unable to find the selected product.');
-            }
-        }
-
-        if ($action !== 'save_pricing') {
-            $pricing_payload = $pricing_settings;
-            $pricing_payload['products'] = $products;
-
-            $update_stmt = $pdo->prepare('UPDATE shops SET pricing_settings = ? WHERE id = ?');
-            $update_stmt->execute([json_encode($pricing_payload), $shop['id']]);
-
-            $shop_stmt->execute([$owner_id]);
-            $shop = $shop_stmt->fetch(PDO::FETCH_ASSOC);
-            $pricing_settings = resolve_pricing_settings($shop, $default_pricing_settings);
-            $service_settings = $shop['service_settings']
-                ? json_decode($shop['service_settings'], true)
-                : $available_services;
-            if ($success === '') {
-                $success = 'Product catalog saved successfully.';
-            }
-            throw new RuntimeException('__STOP__');
-        }
-
         if (empty($enabled_services)) {
             throw new RuntimeException('Please enable at least one service.');
         }
 
-        $pricing_payload = $pricing_settings;
-        $pricing_payload['products'] = $products;
-
-        $update_stmt = $pdo->prepare('UPDATE shops SET pricing_settings = ?, service_settings = ? WHERE id = ?');
-        $update_stmt->execute([json_encode($pricing_payload), json_encode(array_values($enabled_services)), $shop['id']]);
+        $update_stmt = $pdo->prepare('UPDATE shops SET service_settings = ? WHERE id = ?');
+        $update_stmt->execute([json_encode(array_values($enabled_services)), $shop['id']]);
 
         $shop_stmt->execute([$owner_id]);
         $shop = $shop_stmt->fetch(PDO::FETCH_ASSOC);
@@ -338,19 +194,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$products = is_array($pricing_settings['products'] ?? null) ? $pricing_settings['products'] : [];
-$active_products = array_values(array_filter($products, static fn($product) => empty($product['archived'])));
-$archived_products = array_values(array_filter($products, static fn($product) => !empty($product['archived'])));
-$editing_product_id = sanitize($_GET['edit_product'] ?? '');
-$editing_product = null;
-if ($editing_product_id !== '') {
-    foreach ($products as $product) {
-        if (($product['id'] ?? '') === $editing_product_id) {
-            $editing_product = $product;
-            break;
-        }
-    }
-}
 $posts_stmt = $pdo->prepare('SELECT id, title, description, price, image_path, created_at FROM shop_portfolio WHERE shop_id = ? ORDER BY created_at DESC LIMIT 6');
 $posts_stmt->execute([$shop['id']]);
 $shop_posts = $posts_stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -402,16 +245,6 @@ $shop_posts = $posts_stmt->fetchAll(PDO::FETCH_ASSOC);
             margin-bottom: 0.5rem;
             background: #f8fafc;
         }
-        
-          .product-photo-preview {
-            width: 100%;
-            max-width: 180px;
-            height: 120px;
-            object-fit: cover;
-            border-radius: 8px;
-            border: 1px solid #e2e8f0;
-            margin-top: 8px;
-        }
     </style>
 </head>
 <body>
@@ -456,102 +289,6 @@ $shop_posts = $posts_stmt->fetchAll(PDO::FETCH_ASSOC);
                         <i class="fas fa-save"></i> Save Service Availability
                     </button>
                 </form>
-                <hr style="margin: 24px 0;">
-                <h4><i class="fas fa-shirt"></i> Product Catalog Management</h4>
-                <p class="pricing-helper mb-3">Add, edit, archive, restore, or delete products shown in your shop.</p>
-
-                <form method="POST" enctype="multipart/form-data" class="pricing-card mb-4">
-                    <?php echo csrf_field(); ?>
-                    <input type="hidden" name="action" value="<?php echo $editing_product ? 'edit_product' : 'add_product'; ?>">
-                    <?php if ($editing_product): ?>
-                        <input type="hidden" name="product_id" value="<?php echo htmlspecialchars($editing_product['id']); ?>">
-                    <?php endif; ?>
-
-                    <div class="pricing-grid">
-                        <div>
-                            <label class="form-label">Type of product *</label>
-                            <input type="text" class="form-control" name="product_type" required value="<?php echo htmlspecialchars($editing_product['product_type'] ?? ''); ?>" placeholder="e.g. Polo shirt">
-                        </div>
-                        <div>
-                            <label class="form-label">Available type *</label>
-                            <input type="text" class="form-control" name="available_type" required value="<?php echo htmlspecialchars($editing_product['available_type'] ?? ''); ?>" placeholder="e.g. Cotton, Dry-fit">
-                        </div>
-                        <div>
-                            <label class="form-label">Available size *</label>
-                           <input type="hidden" name="available_sizes" id="availableSizesInput" required value="<?php echo htmlspecialchars($editing_product['available_sizes'] ?? ''); ?>">
-                            <div style="display:flex; gap:8px; margin-bottom:8px;">
-                                <input type="text" class="form-control" id="sizeOptionInput" placeholder="Enter size then click Add (e.g. S, M, XL)">
-                                <button type="button" class="btn btn-outline btn-sm" id="addSizeOptionBtn">Add</button>
-                            </div>
-                            <select class="form-control" id="availableSizesSelect" size="4" multiple></select>
-                            <small class="pricing-helper">Add sizes, then select one or more options for this product listing.</small>
-                        </div>
-                        <div>
-                            <label class="form-label">Embroidery design / font *</label>
-                            <input type="text" class="form-control" name="design_font" required value="<?php echo htmlspecialchars($editing_product['design_font'] ?? ''); ?>" placeholder="e.g. Script, Block, Serif">
-                        </div>
-                        <div>
-                            <label class="form-label">Embroidery sizes *</label>
-                            <input type="text" class="form-control" name="embroidery_sizes" required value="<?php echo htmlspecialchars($editing_product['embroidery_sizes'] ?? ''); ?>" placeholder="e.g. 2x2, 3x3, 4x4 inches">
-                        </div>
-                        <div>
-                            <label class="form-label">Stock status *</label>
-                            <select class="form-control" name="inventory_state" required>
-                                <?php $selected_state = $editing_product['inventory_state'] ?? 'available'; ?>
-                                <?php foreach ($inventory_states as $value => $label): ?>
-                                    <option value="<?php echo $value; ?>" <?php echo $selected_state === $value ? 'selected' : ''; ?>><?php echo htmlspecialchars($label); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="form-label">Front photo <?php echo $editing_product ? '' : '*'; ?></label>
-                            <input type="file" class="form-control" name="front_photo" accept=".jpg,.jpeg,.png,.gif" <?php echo $editing_product ? '' : 'required'; ?>>
-                            <?php if (!empty($editing_product['front_photo'])): ?>
-                                <img src="../assets/uploads/<?php echo htmlspecialchars($editing_product['front_photo']); ?>" alt="Front photo" class="product-photo-preview">
-                            <?php endif; ?>
-                        </div>
-                        <div>
-                            <label class="form-label">Back photo <?php echo $editing_product ? '' : '*'; ?></label>
-                            <input type="file" class="form-control" name="back_photo" accept=".jpg,.jpeg,.png,.gif" <?php echo $editing_product ? '' : 'required'; ?>>
-                            <?php if (!empty($editing_product['back_photo'])): ?>
-                                <img src="../assets/uploads/<?php echo htmlspecialchars($editing_product['back_photo']); ?>" alt="Back photo" class="product-photo-preview">
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    <div style="margin-top: 14px;">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save"></i> <?php echo $editing_product ? 'Update Product' : 'Add Product'; ?>
-                        </button>
-                        <?php if ($editing_product): ?>
-                            <a href="pricing_management.php" class="btn btn-outline btn-sm"><i class="fas fa-times"></i> Cancel edit</a>
-                        <?php endif; ?>
-                    </div>
-                </form>
-
-                <div class="pricing-card mb-3">
-                    <h5>Active Products (<?php echo count($active_products); ?>)</h5>
-                    <?php if (empty($active_products)): ?>
-                        <p class="pricing-helper mb-0">No active products yet.</p>
-                    <?php else: ?>
-                        <?php foreach ($active_products as $product): ?>
-                            <div class="pricing-card mb-2">
-                                <strong><?php echo htmlspecialchars($product['product_type'] ?? 'Product'); ?></strong>
-                                <div class="pricing-helper">Type: <?php echo htmlspecialchars($product['available_type'] ?? '—'); ?> | Sizes: <?php echo htmlspecialchars($product['available_sizes'] ?? '—'); ?> | Embroidery: <?php echo htmlspecialchars($product['embroidery_sizes'] ?? '—'); ?></div>
-                                <div class="pricing-helper">Design/Font: <?php echo htmlspecialchars($product['design_font'] ?? '—'); ?> | Status: <?php echo htmlspecialchars($inventory_states[$product['inventory_state'] ?? 'available'] ?? 'Available'); ?></div>
-                                <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
-                                    <a class="btn btn-outline btn-sm" href="pricing_management.php?edit_product=<?php echo urlencode($product['id'] ?? ''); ?>"><i class="fas fa-pen"></i> Edit</a>
-                                    <form method="POST" style="display:inline;" onsubmit="return confirm('Delete this product permanently?');">
-                                        <?php echo csrf_field(); ?>
-                                        <input type="hidden" name="action" value="delete_product">
-                                        <input type="hidden" name="product_id" value="<?php echo htmlspecialchars($product['id'] ?? ''); ?>">
-                                        <button type="submit" class="btn btn-danger btn-sm"><i class="fas fa-trash"></i> Delete</button>
-                                    </form>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
-
                 <hr style="margin: 24px 0;">
                 <h4><i class="fas fa-image"></i> Post Your Works</h4>
                 <p class="pricing-helper mb-3">Add your latest output so clients can discover it from their dashboard.</p>
@@ -627,74 +364,6 @@ $shop_posts = $posts_stmt->fetchAll(PDO::FETCH_ASSOC);
             </div>
         </div>
     </div>
-    <script>
-        (function () {
-            const sizeInput = document.getElementById('sizeOptionInput');
-            const addBtn = document.getElementById('addSizeOptionBtn');
-            const sizeSelect = document.getElementById('availableSizesSelect');
-            const hiddenInput = document.getElementById('availableSizesInput');
 
-            if (!sizeInput || !addBtn || !sizeSelect || !hiddenInput) {
-                return;
-            }
-
-            const normalize = (value) => value.trim();
-
-            function syncHiddenInput() {
-                const selected = Array.from(sizeSelect.selectedOptions).map((option) => option.value);
-                hiddenInput.value = selected.join(', ');
-            }
-
-            function addOption(value, selected = true) {
-                const normalized = normalize(value);
-                if (!normalized) return;
-                const exists = Array.from(sizeSelect.options).some((option) => option.value.toLowerCase() === normalized.toLowerCase());
-                if (exists) {
-                    Array.from(sizeSelect.options).forEach((option) => {
-                        if (option.value.toLowerCase() === normalized.toLowerCase()) {
-                            option.selected = true;
-                        }
-                    });
-                    syncHiddenInput();
-                    return;
-                }
-
-                const option = document.createElement('option');
-                option.value = normalized;
-                option.textContent = normalized;
-                option.selected = selected;
-                sizeSelect.appendChild(option);
-                syncHiddenInput();
-            }
-
-            function addFromInput() {
-                addOption(sizeInput.value, true);
-                sizeInput.value = '';
-                sizeInput.focus();
-            }
-
-            hiddenInput.value
-                .split(',')
-                .map((part) => part.trim())
-                .filter(Boolean)
-                .forEach((size) => addOption(size, true));
-
-            addBtn.addEventListener('click', addFromInput);
-            sizeInput.addEventListener('keydown', (event) => {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    addFromInput();
-                }
-            });
-            sizeSelect.addEventListener('change', syncHiddenInput);
-
-            const form = hiddenInput.closest('form');
-            if (form) {
-                form.addEventListener('submit', () => {
-                    syncHiddenInput();
-                });
-            }
-        })();
-    </script>
 </body>
 </html>
