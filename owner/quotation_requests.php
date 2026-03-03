@@ -22,9 +22,14 @@ if(!in_array($status_filter, $allowed_status_filters, true)) {
 }
 
 $quote_filter = sanitize($_GET['quote_status'] ?? 'all');
-$allowed_quote_filters = ['all', 'waiting_owner', 'accepted', 'rejected', 'negotiation_requested', 'shop_rejected'];
+$allowed_quote_filters = ['all', 'pending_acceptance', 'accepted', 'waiting_owner', 'rejected', 'negotiation_requested', 'shop_rejected'];
 if(!in_array($quote_filter, $allowed_quote_filters, true)) {
     $quote_filter = 'all';
+}
+
+
+if(isset($_GET['accepted']) && $_GET['accepted'] === '1') {
+    $accept_success = 'Quotation request accepted. It now appears in official orders.';
 }
 
 $where_clauses = [
@@ -52,9 +57,62 @@ $requests_stmt = $pdo->prepare($requests_sql);
 $requests_stmt->execute($params);
 $raw_requests = $requests_stmt->fetchAll(PDO::FETCH_ASSOC);
 
+
+if(isset($_POST['accept_quote_request'])) {
+    $order_id = (int) ($_POST['order_id'] ?? 0);
+
+    $request_stmt = $pdo->prepare("SELECT o.id, o.order_number, o.quote_details, o.client_id
+        FROM orders o
+        WHERE o.id = ? AND o.shop_id = ?
+        LIMIT 1");
+    $request_stmt->execute([$order_id, $shop_id]);
+    $request = $request_stmt->fetch(PDO::FETCH_ASSOC);
+
+    if(!$request) {
+        $accept_error = 'Unable to locate this quotation request.';
+    } else {
+        $details = [];
+        if(!empty($request['quote_details'])) {
+            $decoded = json_decode($request['quote_details'], true);
+            if(is_array($decoded)) {
+                $details = $decoded;
+            }
+        }
+
+        $owner_request_status = $details['owner_request_status'] ?? 'pending_acceptance';
+        if($owner_request_status === 'accepted') {
+            $accept_error = 'This quotation request is already accepted.';
+        } else {
+            $details['owner_request_status'] = 'accepted';
+            $details['owner_request_accepted_at'] = date('c');
+            $details['owner_request_accepted_by'] = $_SESSION['user']['fullname'] ?? 'Shop owner';
+
+            $update_stmt = $pdo->prepare("UPDATE orders SET quote_details = ?, updated_at = NOW() WHERE id = ? AND shop_id = ?");
+            $update_stmt->execute([
+                json_encode($details),
+                $order_id,
+                $shop_id,
+            ]);
+
+            create_notification(
+                $pdo,
+                (int) $request['client_id'],
+                $order_id,
+                'success',
+                sprintf('Your quotation request #%s has been accepted by the shop and is now an official order.', $request['order_number'])
+            );
+
+            $accept_success = sprintf('Quotation request #%s is now accepted and considered an official order.', $request['order_number']);
+            header('Location: quotation_requests.php?status=' . urlencode($status_filter) . '&quote_status=' . urlencode($quote_filter) . '&accepted=1');
+            exit();
+        }
+    }
+}
+
 $requests = [];
 $summary = [
     'total' => 0,
+    'pending_acceptance' => 0,
     'waiting_owner' => 0,
     'accepted' => 0,
     'rejected' => 0,
@@ -75,16 +133,21 @@ foreach($raw_requests as $row) {
         $client_quote_status = 'waiting_owner';
     }
 
+    $owner_request_status = $details['owner_request_status'] ?? 'pending_acceptance';
+
     $summary['total']++;
-    if(isset($summary[$client_quote_status])) {
-        $summary[$client_quote_status]++;
+    $effective_quote_status = $owner_request_status === 'accepted' ? $client_quote_status : 'pending_acceptance';
+    if(isset($summary[$effective_quote_status])) {
+        $summary[$effective_quote_status]++;
     }
 
-    if($quote_filter !== 'all' && $client_quote_status !== $quote_filter) {
+    if($quote_filter !== 'all' && $effective_quote_status !== $quote_filter) {
         continue;
     }
 
+    $row['owner_request_status'] = $owner_request_status;
     $row['client_quote_status'] = $client_quote_status;
+    $row['owner_request_status'] = $owner_request_status;
     $row['quote_comment'] = $details['price_quote_comment'] ?? '';
     $row['timeline_days'] = $details['owner_quote_update']['timeline_days'] ?? null;
     $row['owner_message'] = $details['owner_quote_update']['owner_message'] ?? '';
@@ -100,6 +163,7 @@ $status_badges = [
 ];
 
 $quote_status_labels = [
+    'pending_acceptance' => 'Pending owner acceptance',
     'waiting_owner' => 'Waiting for owner quote',
     'accepted' => 'Client accepted quote',
     'rejected' => 'Client rejected quote',
@@ -169,17 +233,25 @@ $quote_status_labels = [
                     <h2><i class="fas fa-file-invoice-dollar"></i> Client Quotation Requests</h2>
                     <p class="text-muted">Requests submitted from design proofing before becoming official production orders.</p>
                 </div>
-                <a href="shop_orders.php" class="btn btn-outline"><i class="fas fa-list"></i> Open Full Orders</a>
+                <a href="shop_orders.php" class="btn btn-outline"><i class="fas fa-list"></i> Open Official Orders</a>
             </div>
         </div>
 
         <div class="summary-grid">
             <div class="summary-card"><strong><?php echo (int) $summary['total']; ?></strong><br><span class="text-muted">Total quote requests</span></div>
+            <div class="summary-card"><strong><?php echo (int) $summary['pending_acceptance']; ?></strong><br><span class="text-muted">Pending your acceptance</span></div>
             <div class="summary-card"><strong><?php echo (int) $summary['waiting_owner']; ?></strong><br><span class="text-muted">Waiting for your quote</span></div>
             <div class="summary-card"><strong><?php echo (int) $summary['accepted']; ?></strong><br><span class="text-muted">Client accepted</span></div>
             <div class="summary-card"><strong><?php echo (int) $summary['negotiation_requested']; ?></strong><br><span class="text-muted">Needs negotiation</span></div>
             <div class="summary-card"><strong><?php echo (int) $summary['rejected']; ?></strong><br><span class="text-muted">Rejected by client</span></div>
         </div>
+
+         <?php if(!empty($accept_error)): ?>
+            <div class="alert alert-danger"><?php echo htmlspecialchars($accept_error); ?></div>
+        <?php endif; ?>
+        <?php if(!empty($accept_success)): ?>
+            <div class="alert alert-success"><?php echo htmlspecialchars($accept_success); ?></div>
+        <?php endif; ?>
 
         <form method="GET" class="card" style="margin-bottom: 1rem;">
             <div class="filters-grid">
@@ -252,7 +324,7 @@ $quote_status_labels = [
                                         </span>
                                     </td>
                                     <td>
-                                        <?php $quote_status = $request['client_quote_status']; ?>
+                                         <?php $quote_status = $request['effective_quote_status']; ?>
                                         <span class="quote-status-pill">
                                             <i class="fas fa-comment-dots text-primary"></i>
                                             <?php echo htmlspecialchars($quote_status_labels[$quote_status] ?? ucfirst(str_replace('_', ' ', $quote_status))); ?>
@@ -265,7 +337,15 @@ $quote_status_labels = [
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <a class="btn btn-sm btn-primary" href="shop_orders.php?filter=pending"><i class="fas fa-pen"></i> Update Quote</a>
+                                        <?php if(($request['owner_request_status'] ?? 'pending_acceptance') !== 'accepted'): ?>
+                                            <form method="POST" style="display:inline;">
+                                                <?php echo csrf_field(); ?>
+                                                <input type="hidden" name="order_id" value="<?php echo (int) $request['id']; ?>">
+                                                <button type="submit" name="accept_quote_request" class="btn btn-sm btn-success" onclick="return confirm('Accept this quotation request and move it to official orders?');"><i class="fas fa-check"></i> Accept Request</button>
+                                            </form>
+                                        <?php else: ?>
+                                            <a class="btn btn-sm btn-primary" href="shop_orders.php?filter=pending"><i class="fas fa-pen"></i> Update Quote</a>
+                                        <?php endif; ?>
                                         <a class="btn btn-sm btn-outline" href="view_order.php?id=<?php echo (int) $request['id']; ?>"><i class="fas fa-eye"></i> View</a>
                                     </td>
                                 </tr>

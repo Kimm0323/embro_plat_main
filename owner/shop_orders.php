@@ -267,6 +267,10 @@ $query = "
     JOIN users u ON o.client_id = u.id 
     LEFT JOIN users au ON o.assigned_to = au.id
     WHERE o.shop_id = ?
+    AND (
+            JSON_EXTRACT(o.quote_details, '$.requested_from_services') IS NULL
+            OR JSON_EXTRACT(o.quote_details, '$.owner_request_status') = 'accepted'
+          )
 ";
 $params = [$shop_id];
 

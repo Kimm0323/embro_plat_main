@@ -155,6 +155,7 @@ if(isset($_POST['request_quote'])) {
         $order_number = 'ORD-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -6));
         $quote_details = [
             'requested_from_services' => true,
+            'owner_request_status' => 'pending_acceptance',
             'customize_order_id' => $customize_order_id > 0 ? $customize_order_id : null,
             'requested_at' => date('c'),
         ];
