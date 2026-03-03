@@ -706,27 +706,6 @@ if(isset($_POST['update_status'])) {
                         </div>
                     </form>
 
-                <form method="POST" class="proof-upload-form mt-3" enctype="multipart/form-data">
-                        <?php echo csrf_field(); ?>
-                        <input type="hidden" name="order_id" value="<?php echo $job['id']; ?>">
-                        <input type="hidden" name="design_file" value="">
-                        <div class="section-header">Upload Design Proof</div>
-                        <div class="form-group">
-                            <label>Proof File (Image)</label>
-                            <input type="file" name="proof_file" class="form-control" accept="image/*" required>
-                            <small class="text-muted">Upload the proof image to send for client approval.</small>
-                        </div>
-                         <div class="form-group">
-                            <label>Notes (Optional)</label>
-                            <textarea name="provider_notes" class="form-control" rows="2" placeholder="Add any notes for the client review."></textarea>
-                        </div>
-                     <div class="text-right">
-                            <button type="submit" name="upload_proof" class="btn btn-outline-primary">
-                                <i class="fas fa-upload"></i> Send Proof for Approval
-                            </button>
-                        </div>
-                    </form>
-
                     <form method="POST" class="mt-3">
                         <input type="hidden" name="order_id" value="<?php echo $job['id']; ?>">
                         <div class="section-header">Escalation Path</div>
@@ -769,38 +748,5 @@ if(isset($_POST['update_status'])) {
         <?php endif; ?>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            
-            document.querySelectorAll('.proof-upload-form').forEach(form => {
-                form.addEventListener('submit', async function(event) {
-                    event.preventDefault();
-                    const fileInput = form.querySelector('input[type="file"]');
-                    if(!fileInput || !fileInput.files.length) {
-                        alert('Please choose a proof file to upload.');
-                        return;
-                    }
-                    const formData = new FormData(form);
-                    formData.set('file', fileInput.files[0]);
-                    try {
-                        const response = await fetch('../api/upload_api.php', {
-                            method: 'POST',
-                            body: formData
-                        });
-                        const result = await response.json();
-                        if(!response.ok || result.error) {
-                            alert(result.error || 'Upload failed. Please try again.');
-                            return;
-                        }
-                        const designInput = form.querySelector('input[name="design_file"]');
-                        designInput.value = result.file.path;
-                        form.submit();
-                    } catch (error) {
-                        alert('Unable to upload the proof. Please try again.');
-                    }
-                });
-            });
-        });
-    </script>
 </body>
 </html>
